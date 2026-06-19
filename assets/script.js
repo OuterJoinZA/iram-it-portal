@@ -1,0 +1,230 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// iRam IT Support Portal — Form Logic + Smart Priority Engine
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ── Smart Priority Engine ─────────────────────────────────────────────────────
+const PRIORITY_RULES = {
+  critical: {
+    weight: 60,
+    terms: ['smoke','fire','ceo','md ','managing director','data loss','ransomware',
+            'hacked','security breach','server down','complete outage','all users',
+            'entire office','entire company','no power','flooding','emergency'],
+    label: 'Critical',
+    color: '#a4262c',
+    bg: '#fdf0f0',
+    border: '#a4262c',
+    emoji: '🔴',
+    sla: 'Response target: within 1 hour'
+  },
+  high: {
+    weight: 25,
+    terms: ['ops','cam ','client-facing','cannot work','can\'t work','locked out',
+            'cannot access','can\'t access','urgent','director','not working',
+            'broken','crash','blue screen','bsod','no internet','no wifi','down',
+            'sales','account manager','operations','client meeting','deadline',
+            'smoke from','sparks','won\'t turn on'],
+    label: 'High',
+    color: '#d83b01',
+    bg: '#fff3ef',
+    border: '#d83b01',
+    emoji: '🟠',
+    sla: 'Response target: within 4 hours'
+  },
+  low: {
+    weight: -35,
+    terms: ['signature','email signature','wallpaper','screensaver','cosmetic','scratch',
+            'dent','nice to have','when you get a chance','preference','question about',
+            'wondering if','just asking','not urgent','no rush','when free'],
+    label: 'Low',
+    color: '#498205',
+    bg: '#edf7e8',
+    border: '#6BBF4E',
+    emoji: '🟢',
+    sla: 'Response target: within 5 business days'
+  }
+};
+
+const CATEGORY_BASE_SCORES = {
+  'Hardware - PC / Laptop / Desktop': 35,
+  'Hardware - Phone / Mobile Device': 20,
+  'Hardware - Printer / Scanner':     15,
+  'Network / Internet / VPN':         45,
+  'Access / Passwords / Permissions': 35,
+  'Software / Application':           25,
+  'Email / Outlook / Teams':          30,
+  'Other':                            10
+};
+
+function calculateSmartPriority(category, description, location, department) {
+  const text     = (description + ' ' + department + ' ' + category).toLowerCase();
+  let   score    = CATEGORY_BASE_SCORES[category] || 10;
+  const triggers = [];
+
+  if (location === 'Head Office') { score += 10; triggers.push('Head Office location'); }
+
+  PRIORITY_RULES.critical.terms.forEach(t => {
+    if (text.includes(t)) { score += PRIORITY_RULES.critical.weight; triggers.push(`"${t}"`); }
+  });
+  PRIORITY_RULES.high.terms.forEach(t => {
+    if (text.includes(t)) { score += PRIORITY_RULES.high.weight; triggers.push(`"${t}"`); }
+  });
+  PRIORITY_RULES.low.terms.forEach(t => {
+    if (text.includes(t)) { score += PRIORITY_RULES.low.weight; }
+  });
+
+  let rule;
+  if      (score >= 90) rule = PRIORITY_RULES.critical;
+  else if (score >= 50) rule = PRIORITY_RULES.high;
+  else if (score >= 20) rule = { ...PRIORITY_RULES.high, label:'Medium', color:'#986f0b', bg:'#fffbef', border:'#986f0b', emoji:'🟡', sla:'Response target: within 1 business day' };
+  else                  rule = PRIORITY_RULES.low;
+
+  return { ...rule, score, triggers: [...new Set(triggers)].slice(0, 4) };
+}
+
+// ── Priority indicator UI ─────────────────────────────────────────────────────
+function updatePriorityIndicator() {
+  const category    = document.getElementById('category').value;
+  const description = document.getElementById('description').value;
+  const location    = document.getElementById('location').value;
+  const department  = document.getElementById('department').value;
+
+  const indicator = document.getElementById('priority-indicator');
+  if (!category && !description) { indicator.style.display = 'none'; return; }
+
+  const result = calculateSmartPriority(category, description, location, department);
+  document.getElementById('priority').value = result.label;
+
+  indicator.style.display       = 'block';
+  indicator.style.borderColor   = result.border;
+  indicator.style.background    = result.bg;
+  indicator.querySelector('.pi-emoji').textContent  = result.emoji;
+  indicator.querySelector('.pi-label').textContent  = result.label + ' Priority';
+  indicator.querySelector('.pi-label').style.color  = result.color;
+  indicator.querySelector('.pi-sla').textContent    = result.sla;
+
+  const trigEl = indicator.querySelector('.pi-triggers');
+  trigEl.innerHTML = result.triggers.length
+    ? 'Signals detected: ' + result.triggers.map(t => `<em>${t}</em>`).join(', ')
+    : 'Based on category and location.';
+}
+
+['category','description','location','department'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input',  updatePriorityIndicator);
+  document.getElementById(id)?.addEventListener('change', updatePriorityIndicator);
+});
+
+// ── WhatsApp link ─────────────────────────────────────────────────────────────
+const waNum = (typeof IRAM_CONFIG !== 'undefined') ? IRAM_CONFIG.whatsappNumber : '27000000000';
+document.getElementById('wa-link').href =
+  `https://wa.me/${waNum}?text=${encodeURIComponent('Hi iRam IT Support, I need help with:\n\nName: \nDepartment: \nIssue: ')}`;
+
+// ── Validation helpers ────────────────────────────────────────────────────────
+function validateField(id, value) {
+  const group = document.getElementById(id)?.closest('.form-group');
+  if (!group) return true;
+  const err = !value || !value.trim();
+  group.classList.toggle('has-error', err);
+  return !err;
+}
+function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+function generateOptimisticID() {
+  return `IT-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`;
+}
+
+// ── States ────────────────────────────────────────────────────────────────────
+function showState(s) {
+  ['form-state','loading-state','success-state'].forEach(id => {
+    document.getElementById(id).style.display = (id === s + '-state') ? 'block' : 'none';
+  });
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+document.getElementById('ticket-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const get    = id => document.getElementById(id)?.value?.trim() ?? '';
+  const name   = get('name'),   email    = get('email'),  phone  = get('phone');
+  const dept   = get('department'),  location = get('location');
+  const mgr    = get('manager-name'), mgrEmail = get('manager-email');
+  const cat    = get('category'), desc     = get('description');
+  const prio   = get('priority');
+
+  let valid = true;
+  valid = validateField('name',        name)     && valid;
+  valid = validateField('department',  dept)     && valid;
+  valid = validateField('category',    cat)      && valid;
+  valid = validateField('location',    location) && valid;
+  valid = validateField('description', desc)     && valid;
+
+  const emailGroup = document.getElementById('email').closest('.form-group');
+  if (!email || !isEmail(email)) { emailGroup.classList.add('has-error'); valid = false; }
+  else emailGroup.classList.remove('has-error');
+
+  if (!valid) {
+    document.querySelector('.has-error input, .has-error select, .has-error textarea')?.focus();
+    return;
+  }
+
+  showState('loading');
+
+  const webhookUrl = (typeof IRAM_CONFIG !== 'undefined')
+    ? IRAM_CONFIG.submitWebhookUrl
+    : 'PASTE_YOUR_POWER_AUTOMATE_HTTP_TRIGGER_URL_HERE';
+
+  const payload = {
+    channel:          'Web Portal',
+    submitterName:    name,
+    submitterEmail:   email,
+    submitterPhone:   phone,
+    department:       dept,
+    location:         location,
+    managerName:      mgr,
+    managerEmail:     mgrEmail,
+    category:         cat,
+    suggestedPriority: prio,
+    description:      desc,
+    submittedAt:      new Date().toISOString()
+  };
+
+  let ticketID = generateOptimisticID();
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      try { const d = await res.json(); if (d?.ticketID) ticketID = d.ticketID; } catch(_){}
+    }
+  } catch(err) { console.warn('Webhook error:', err.message); }
+
+  // Populate success screen
+  document.getElementById('s-ticket-id').textContent = ticketID;
+  document.getElementById('s-name').textContent      = name;
+  document.getElementById('s-email').textContent     = email;
+  document.getElementById('s-category').textContent  = cat;
+  document.getElementById('s-location').textContent  = location;
+  document.getElementById('s-priority').textContent  = prio || 'Auto-assessed';
+  document.getElementById('s-submitted').textContent = new Date().toLocaleString('en-ZA', { dateStyle:'medium', timeStyle:'short' });
+
+  showState('success');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+document.getElementById('btn-new').addEventListener('click', () => {
+  document.getElementById('ticket-form').reset();
+  document.getElementById('priority').value = '';
+  document.getElementById('priority-indicator').style.display = 'none';
+  document.querySelectorAll('.form-group').forEach(g => g.classList.remove('has-error'));
+  showState('form');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Clear errors on input
+['name','email','department','category','location','description'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', () =>
+    document.getElementById(id).closest('.form-group').classList.remove('has-error')
+  );
+});

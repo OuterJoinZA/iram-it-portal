@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iRam HR — Contact &amp; Resources</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👥</text></svg>">
+  <style>
+    /* ── HR-specific styles ── */
+    .hr-hero {
+      background: linear-gradient(135deg, #2D2D2D 0%, #3a3a3a 100%);
+      padding: 52px 32px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hr-hero::before {
+      content: ''; position: absolute; top: -60px; right: -60px;
+      width: 260px; height: 260px; background: #6BBF4E; opacity: 0.07; border-radius: 50%;
+    }
+    .hr-hero h1 { color: #fff; font-size: clamp(22px, 4vw, 34px); font-weight: 700; margin-bottom: 10px; }
+    .hr-hero h1 span { color: #6BBF4E; }
+    .hr-hero p { color: rgba(255,255,255,0.65); font-size: 15px; max-width: 520px; margin: 0 auto; }
+
+    /* Contact cards */
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .contact-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 24px 22px;
+      border-top: 3px solid #6BBF4E;
+    }
+    .contact-card .cc-avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: #edf7e8; border: 2px solid #6BBF4E;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 14px;
+    }
+    .contact-card .cc-name  { font-size: 16px; font-weight: 700; color: #2D2D2D; margin-bottom: 2px; }
+    .contact-card .cc-role  { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+    .contact-card .cc-row   { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13.5px; }
+    .contact-card .cc-icon  { font-size: 15px; flex-shrink: 0; }
+    .contact-card .cc-row a { color: #4e9938; text-decoration: none; font-weight: 500; }
+    .contact-card .cc-row a:hover { text-decoration: underline; }
+
+    /* Hours */
+    .hours-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 24px 28px;
+      margin-bottom: 28px;
+    }
+    .hours-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+    .hours-block { background: #f5f6f8; border-radius: 8px; padding: 14px 16px; }
+    .hours-block .hb-day  { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 4px; }
+    .hours-block .hb-time { font-size: 15px; font-weight: 600; color: #2D2D2D; }
+    .hours-block.closed .hb-time { color: #d83b01; }
+    .hours-block.open   { border-left: 3px solid #6BBF4E; }
+    .hours-block.closed { border-left: 3px solid #ddd; }
+
+    /* Forms / Docs */
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .doc-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 18px 20px;
+      display: flex; align-items: center; gap: 14px;
+      text-decoration: none; color: inherit;
+      transition: box-shadow 0.15s, transform 0.15s;
+      border: 1.5px solid transparent;
+    }
+    .doc-card:hover { box-shadow: 0 6px 24px rgba(107,191,78,0.2); border-color: #6BBF4E; transform: translateY(-2px); }
+    .doc-card .dc-icon { font-size: 28px; flex-shrink: 0; }
+    .doc-card .dc-title { font-size: 14px; font-weight: 600; color: #2D2D2D; margin-bottom: 2px; }
+    .doc-card .dc-sub   { font-size: 12px; color: #888; }
+    .doc-card .dc-arrow { margin-left: auto; color: #6BBF4E; font-size: 18px; flex-shrink: 0; }
+
+    /* Placeholder badge */
+    .placeholder-badge {
+      display: inline-block; background: #fff4ce; border: 1px solid #f7c948;
+      color: #7d5a00; font-size: 11px; font-weight: 600; border-radius: 4px;
+      padding: 2px 8px; margin-left: 6px; vertical-align: middle; letter-spacing: 0.3px;
+    }
+
+    /* Policies */
+    .policy-accordion { margin-bottom: 28px; }
+    .policy-item {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .policy-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 20px; cursor: pointer;
+      user-select: none; transition: background 0.15s;
+    }
+    .policy-header:hover { background: #f5f6f8; }
+    .policy-header .ph-icon  { font-size: 20px; flex-shrink: 0; }
+    .policy-header .ph-title { font-size: 15px; font-weight: 600; color: #2D2D2D; flex: 1; }
+    .policy-header .ph-arrow { color: #888; font-size: 14px; transition: transform 0.2s; }
+    .policy-header.open .ph-arrow { transform: rotate(90deg); }
+    .policy-body {
+      display: none; padding: 0 20px 18px 52px;
+      font-size: 13.5px; color: #555; line-height: 1.8;
+    }
+    .policy-body.open { display: block; }
+    .policy-body ul { padding-left: 18px; }
+    .policy-body ul li { margin-bottom: 4px; }
+    .policy-body .policy-note {
+      background: #edf7e8; border-left: 3px solid #6BBF4E;
+      border-radius: 4px; padding: 10px 14px; margin-top: 10px;
+      font-size: 13px; color: #2D2D2D;
+    }
+
+    @media (max-width: 620px) {
+      .hr-hero { padding: 36px 16px; }
+      .hours-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── HEADER ── -->
+  <header class="site-header">
+    <a href="/" class="logo">
+      <svg class="logo-icon" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="14" y="2"  width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="14" y="26" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="2"  y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="26" y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="14" y="14" width="10" height="10" rx="2" fill="#4e9938"/>
+      </svg>
+      <span class="logo-text">
+        <span class="brand">iRam</span>
+        <span class="sub">HR &amp; People</span>
+      </span>
+    </a>
+    <a href="index.html" class="header-badge" style="text-decoration:none">← IT Support</a>
+  </header>
+
+  <!-- ── HERO ── -->
+  <section class="hr-hero">
+    <h1>HR <span>Contact &amp; Resources</span></h1>
+    <p>Everything you need to reach the iRam HR team, find important forms, and understand company policies.</p>
+  </section>
+
+  <main class="main-content">
+
+    <!-- ── 1. HR CONTACTS ── -->
+    <div class="card-header" style="background:#edf7e8;border-bottom:2px solid #6BBF4E;padding:14px 24px;border-radius:10px 10px 0 0;display:flex;align-items:center;gap:10px;margin-bottom:0">
+      <span style="font-size:20px">👥</span>
+      <h2 style="font-size:17px;font-weight:600">HR Team Contacts</h2>
+    </div>
+    <div style="background:#fff;border-radius:0 0 10px 10px;box-shadow:0 4px 20px rgba(0,0,0,0.08);padding:24px;margin-bottom:28px">
+      <div class="contact-grid">
+
+        <!-- Contact 1 — fill in -->
+        <div class="contact-card">
+          <div class="cc-avatar">👩</div>
+          <div class="cc-name">[ HR Manager Name ] <span class="placeholder-badge">To fill in</span></div>
+          <div class="cc-role">HR Manager</div>
+          <div class="cc-row"><span class="cc-icon">📧</span><a href="mailto:hr@iram.co.za">[ hr@iram.co.za ]</a></div>
+          <div class="cc-row"><span class="cc-icon">📞</span><a href="tel:+27000000000">[ +27 00 000 0000 ]</a></div>
+          <div class="cc-row"><span class="cc-icon">📍</span>Head Office</div>
+        </div>
+
+        <!-- Contact 2 — fill in -->
+        <div class="contact-card">
+          <div class="cc-avatar">👨</div>
+          <div class="cc-name">[ HR Officer Name ] <span class="placeholder-badge">To fill in</span></div>
+          <div class="cc-role">HR Officer</div>
+          <div class="cc-row"><span class="cc-icon">📧</span><a href="mailto:hrofficer@iram.co.za">[ hrofficer@iram.co.za ]</a></div>
+          <div class="cc-row"><span class="cc-icon">📞</span><a href="tel:+27000000001">[ +27 00 000 0001 ]</a></div>
+          <div class="cc-row"><span class="cc-icon">📍</span>Head Office</div>
+        </div>
+
+        <!-- General HR inbox -->
+        <div class="contact-card" style="border-top-color:#0078d4">
+          <div class="cc-avatar" style="background:#e8f4fd;border-color:#0078d4">📬</div>
+          <div class="cc-name">General HR Inbox</div>
+          <div class="cc-role">All HR Queries</div>
+          <div class="cc-row"><span class="cc-icon">📧</span><a href="mailto:hr@iram.co.za">hr@iram.co.za <span class="placeholder-badge">To fill in</span></a></div>
+          <div class="cc-row" style="font-size:12.5px;color:#888">For general queries, payroll questions, and document requests.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── 2. OFFICE HOURS ── -->
+    <div class="hours-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <span style="font-size:20px">🕐</span>
+        <h2 style="font-size:17px;font-weight:600">HR Office Hours <span class="placeholder-badge">To fill in</span></h2>
+      </div>
+      <p style="font-size:13.5px;color:#888;margin-bottom:4px">HR is available during the following hours. For urgent matters outside these hours, email the general HR inbox.</p>
+      <div class="hours-grid">
+        <div class="hours-block open">
+          <div class="hb-day">Monday – Thursday</div>
+          <div class="hb-time">08:00 – 17:00</div>
+        </div>
+        <div class="hours-block open">
+          <div class="hb-day">Friday</div>
+          <div class="hb-time">08:00 – 16:00</div>
+        </div>
+        <div class="hours-block closed">
+          <div class="hb-day">Saturday</div>
+          <div class="hb-time">Closed</div>
+        </div>
+        <div class="hours-block closed">
+          <div class="hb-day">Sunday &amp; Public Holidays</div>
+          <div class="hb-time">Closed</div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#aaa;margin-top:14px">📧 After-hours urgent queries: email hr@iram.co.za — response within 1 business day.</p>
+    </div>
+
+    <!-- ── 3. HR FORMS & DOCS ── -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:20px">📋</span>
+      <h2 style="font-size:17px;font-weight:600">HR Forms &amp; Documents <span class="placeholder-badge">Links to fill in</span></h2>
+    </div>
+    <div class="docs-grid">
+
+      <a href="#" class="doc-card" onclick="return false">
+        <span class="dc-icon">🏖️</span>
+        <div>
+          <div class="dc-title">Leave Application Form</div>
+          <div class="dc-sub">Annual, sick, family responsibility leave</div>
+        </div>
+        <span class="dc-arrow">→</span>
+      </a>
+
+      <a href="#" class="doc-card" onclick="return false">
+        <span class="dc-icon">💰</span>
+        <div>
+          <div class="dc-title">Payslip Portal</div>
+          <div class="dc-sub">View and download your payslips</div>
+        </div>
+        <span class="dc-arrow">→</span>
+      </a>
+
+      <a href="#" class="doc-card" onclick="return false">
+        <span class="dc-icon">📝</span>
+        <div>
+          <div class="dc-title">Performance Review Form</div>
+          <div class="dc-sub">Quarterly &amp; annual reviews</div>
+        </div>
+        <span class="dc-arrow">→</span>
+      </a>
+
+      <a href="#" class="doc-card" onclick="return false">
+        <span class="dc-icon">🆕</span>
+        <div>
+          <div class="dc-title">Onboarding Documents</div>
+          <div class="dc-sub">New employee pack &amp; checklists</div>
+        </div>
+        <span class="dc-arrow">→</span>
+      </a>
+
+      <a href="#" class="doc-card" onclick="return false">
+        <span class="dc-icon">🏥</span>
+        <div>
+          <div class="dc-title">Medical Aid &amp; Benefits</div>
+          <div class="dc-sub">Discovery / medical scheme info</div>
+        </div>
+        <span class="dc-arrow">→</span>
+      </a>
+
+      <a href="#" class="doc-card" onclick="return false">
+        <span class="dc-icon">🚗</span>
+        <div>
+          <div class="dc-title">Travel &amp; Expense Claim</div>
+          <div class="dc-sub">Mileage &amp; expense reimbursement</div>
+        </div>
+        <span class="dc-arrow">→</span>
+      </a>
+
+      <a href="#" class="doc-card" onclick="return false">
+        <span class="dc-icon">📜</span>
+        <div>
+          <div class="dc-title">Employment Contract</div>
+          <div class="dc-sub">Request a copy of your contract</div>
+        </div>
+        <span class="dc-arrow">→</span>
+      </a>
+
+      <a href="#" class="doc-card" onclick="return false">
+        <span class="dc-icon">🎓</span>
+        <div>
+          <div class="dc-title">Training &amp; Development</div>
+          <div class="dc-sub">Course requests &amp; study assistance</div>
+        </div>
+        <span class="dc-arrow">→</span>
+      </a>
+
+    </div>
+    <p style="font-size:12.5px;color:#aaa;margin-top:-16px;margin-bottom:28px">
+      Can't find what you're looking for? Email <a href="mailto:hr@iram.co.za" style="color:#4e9938">hr@iram.co.za</a> and HR will assist.
+    </p>
+
+    <!-- ── 4. HR POLICIES ── -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:20px">📖</span>
+      <h2 style="font-size:17px;font-weight:600">Key HR Policies <span class="placeholder-badge">Content to fill in</span></h2>
+    </div>
+    <div class="policy-accordion">
+
+      <div class="policy-item">
+        <div class="policy-header" onclick="togglePolicy(this)">
+          <span class="ph-icon">🏖️</span>
+          <span class="ph-title">Leave Policy</span>
+          <span class="ph-arrow">▶</span>
+        </div>
+        <div class="policy-body">
+          <ul>
+            <li><strong>Annual Leave:</strong> [ X ] days per year, accrued monthly</li>
+            <li><strong>Sick Leave:</strong> [ X ] days per 3-year cycle</li>
+            <li><strong>Family Responsibility Leave:</strong> [ X ] days per year</li>
+            <li><strong>Maternity / Paternity Leave:</strong> [ X ] days</li>
+            <li>Leave must be applied for in advance using the Leave Application Form</li>
+            <li>Leave is subject to operational requirements and manager approval</li>
+          </ul>
+          <div class="policy-note">📋 Full leave policy available from HR on request.</div>
+        </div>
+      </div>
+
+      <div class="policy-item">
+        <div class="policy-header" onclick="togglePolicy(this)">
+          <span class="ph-icon">👔</span>
+          <span class="ph-title">Dress Code &amp; Conduct</span>
+          <span class="ph-arrow">▶</span>
+        </div>
+        <div class="policy-body">
+          <ul>
+            <li>iRam maintains a professional business casual dress code at all times</li>
+            <li>iRam branded shirts / uniforms are required where applicable</li>
+            <li>Employees are expected to represent the iRam brand positively</li>
+            <li>[ Add your specific dress code requirements here ]</li>
+          </ul>
+          <div class="policy-note">📋 Full dress code policy available from HR on request.</div>
+        </div>
+      </div>
+
+      <div class="policy-item">
+        <div class="policy-header" onclick="togglePolicy(this)">
+          <span class="ph-icon">⚖️</span>
+          <span class="ph-title">Disciplinary Process</span>
+          <span class="ph-arrow">▶</span>
+        </div>
+        <div class="policy-body">
+          <ul>
+            <li><strong>Verbal Warning</strong> — for minor first offences</li>
+            <li><strong>Written Warning</strong> — for repeated or more serious conduct</li>
+            <li><strong>Final Written Warning</strong> — for serious misconduct</li>
+            <li><strong>Dismissal</strong> — for gross misconduct or repeat offences</li>
+            <li>All disciplinary hearings follow fair CCMA-aligned procedures</li>
+            <li>Employees have the right to be represented at a hearing</li>
+          </ul>
+          <div class="policy-note">📋 Full disciplinary policy and code of conduct available from HR on request.</div>
+        </div>
+      </div>
+
+      <div class="policy-item">
+        <div class="policy-header" onclick="togglePolicy(this)">
+          <span class="ph-icon">🕐</span>
+          <span class="ph-title">Working Hours &amp; Overtime</span>
+          <span class="ph-arrow">▶</span>
+        </div>
+        <div class="policy-body">
+          <ul>
+            <li><strong>Standard hours:</strong> [ X ] hours per day / [ X ] hours per week</li>
+            <li><strong>Core hours:</strong> [ e.g. 08:00 – 17:00 ]</li>
+            <li>Overtime must be pre-approved by your line manager</li>
+            <li>Overtime is compensated as per the Basic Conditions of Employment Act</li>
+            <li>[ Add any flexi-time or remote work arrangements here ]</li>
+          </ul>
+          <div class="policy-note">📋 Full working hours policy available from HR on request.</div>
+        </div>
+      </div>
+
+      <div class="policy-item">
+        <div class="policy-header" onclick="togglePolicy(this)">
+          <span class="ph-icon">🔒</span>
+          <span class="ph-title">Confidentiality &amp; Data Privacy</span>
+          <span class="ph-arrow">▶</span>
+        </div>
+        <div class="policy-body">
+          <ul>
+            <li>All employee and client information is strictly confidential</li>
+            <li>iRam complies with the Protection of Personal Information Act (POPIA)</li>
+            <li>Company data, client lists, and IP may not be shared outside the organisation</li>
+            <li>Breach of confidentiality may result in disciplinary action or legal proceedings</li>
+          </ul>
+          <div class="policy-note">📋 Full POPIA and data privacy policy available from HR on request.</div>
+        </div>
+      </div>
+
+      <div class="policy-item">
+        <div class="policy-header" onclick="togglePolicy(this)">
+          <span class="ph-icon">🌍</span>
+          <span class="ph-title">Employment Equity &amp; Grievances</span>
+          <span class="ph-arrow">▶</span>
+        </div>
+        <div class="policy-body">
+          <ul>
+            <li>iRam is committed to a fair, inclusive, and non-discriminatory workplace</li>
+            <li>All employees are treated with dignity and respect regardless of race, gender, age or religion</li>
+            <li>Grievances should first be raised with your line manager</li>
+            <li>If unresolved, escalate in writing to HR at <a href="mailto:hr@iram.co.za">hr@iram.co.za</a></li>
+            <li>Anonymous concerns can be raised via [ add grievance channel here ]</li>
+          </ul>
+          <div class="policy-note">📋 Full EE plan and grievance procedure available from HR on request.</div>
+        </div>
+      </div>
+
+    </div><!-- /policy-accordion -->
+
+  </main>
+
+  <footer class="site-footer">
+    <p>iRam HR &amp; People &nbsp;|&nbsp; Questions? Email <span>hr@iram.co.za</span></p>
+  </footer>
+
+  <script>
+    function togglePolicy(header) {
+      const body = header.nextElementSibling;
+      const isOpen = body.classList.contains('open');
+      // Close all
+      document.querySelectorAll('.policy-body').forEach(b => b.classList.remove('open'));
+      document.querySelectorAll('.policy-header').forEach(h => h.classList.remove('open'));
+      // Open clicked (if it wasn't already open)
+      if (!isOpen) {
+        body.classList.add('open');
+        header.classList.add('open');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iRam IT Admin — Ticket Dashboard</title>
+  <link rel="stylesheet" href="assets/admin.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎫</text></svg>">
+</head>
+<body>
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="14" y="2"  width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="14" y="26" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="2"  y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="26" y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="14" y="14" width="10" height="10" rx="2" fill="#4e9938"/>
+      </svg>
+      <div>
+        <div class="brand">iRam</div>
+        <div class="sub">IT Admin Panel</div>
+      </div>
+    </div>
+
+    <div class="nav-section">Tickets</div>
+    <button class="nav-item active" onclick="setTab('Open', this)"><span class="icon">📬</span> Open Tickets</button>
+    <button class="nav-item" onclick="setTab('In Progress', this)"><span class="icon">⚙️</span> In Progress</button>
+    <button class="nav-item" onclick="setTab('Resolved', this)"><span class="icon">✅</span> Resolved</button>
+    <button class="nav-item" onclick="setTab('All', this)"><span class="icon">🗂️</span> All Tickets</button>
+
+    <div class="nav-section" style="margin-top:16px">Priority</div>
+    <button class="nav-item" onclick="setPrio('Critical', this)"><span class="icon">🔴</span> Critical</button>
+    <button class="nav-item" onclick="setPrio('High', this)"><span class="icon">🟠</span> High</button>
+    <button class="nav-item" onclick="setPrio('Medium', this)"><span class="icon">🟡</span> Medium</button>
+    <button class="nav-item" onclick="setPrio('Low', this)"><span class="icon">🟢</span> Low</button>
+
+    <div class="nav-section" style="margin-top:16px">Links</div>
+    <a class="nav-item" href="../index.html" target="_blank"><span class="icon">🌐</span> Submit Form</a>
+
+    <div class="sidebar-footer">
+      <button class="logout-btn" id="logout-btn"><span>🚪</span> Logout</button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+    <div class="topbar">
+      <h1>Ticket Dashboard</h1>
+      <div class="topbar-right">
+        <button id="refresh-btn" style="background:none;border:1.5px solid #dde;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;">↻ Refresh</button>
+        <span class="agent-chip">IT Admin</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Stat cards -->
+      <div class="stat-grid">
+        <div class="stat-card c-open">
+          <div class="stat-label">Open Tickets</div>
+          <div class="stat-value" id="stat-open">—</div>
+          <div class="stat-sub">Awaiting action</div>
+        </div>
+        <div class="stat-card c-medium">
+          <div class="stat-label">In Progress</div>
+          <div class="stat-value" id="stat-inprog">—</div>
+          <div class="stat-sub">Being worked on</div>
+        </div>
+        <div class="stat-card c-critical">
+          <div class="stat-label">🔴 Critical</div>
+          <div class="stat-value" id="stat-critical" style="color:#a4262c">—</div>
+          <div class="stat-sub">Immediate attention needed</div>
+        </div>
+        <div class="stat-card c-high">
+          <div class="stat-label">🟠 High Priority</div>
+          <div class="stat-value" id="stat-high" style="color:#d83b01">—</div>
+          <div class="stat-sub">Respond within 4 hours</div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <div class="tab-group">
+          <button class="tab-btn active" data-tab="Open">Open</button>
+          <button class="tab-btn" data-tab="In Progress">In Progress</button>
+          <button class="tab-btn" data-tab="Resolved">Resolved</button>
+          <button class="tab-btn" data-tab="All">All</button>
+        </div>
+        <input type="text" id="search-input" placeholder="Search by name, ticket ID, description…">
+        <select id="prio-filter" class="filter-select">
+          <option value="all">All Priorities</option>
+          <option value="Critical">🔴 Critical</option>
+          <option value="High">🟠 High</option>
+          <option value="Medium">🟡 Medium</option>
+          <option value="Low">🟢 Low</option>
+        </select>
+      </div>
+
+      <!-- Ticket table -->
+      <div class="table-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticket ID</th>
+                <th>Submitted By</th>
+                <th>Description</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="ticket-tbody">
+              <tr><td colspan="7"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading tickets…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+
+  <!-- ── TICKET MODAL ── -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🎫 Ticket <span id="m-ticket-id"></span></h3>
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Submitter info -->
+        <div class="modal-section">
+          <div class="modal-section-label">Submitter Details</div>
+          <div class="modal-grid">
+            <div class="modal-field"><div class="mf-label">Name</div>      <div class="mf-val" id="m-name"></div></div>
+            <div class="modal-field"><div class="mf-label">Email</div>     <div class="mf-val" id="m-email"></div></div>
+            <div class="modal-field"><div class="mf-label">Phone</div>     <div class="mf-val" id="m-phone"></div></div>
+            <div class="modal-field"><div class="mf-label">Department</div><div class="mf-val" id="m-dept"></div></div>
+            <div class="modal-field"><div class="mf-label">Location</div>  <div class="mf-val" id="m-location"></div></div>
+            <div class="modal-field"><div class="mf-label">Line Manager</div><div class="mf-val" id="m-manager"></div></div>
+            <div class="modal-field"><div class="mf-label">Channel</div>   <div class="mf-val" id="m-channel"></div></div>
+            <div class="modal-field"><div class="mf-label">Submitted</div> <div class="mf-val" id="m-submitted"></div></div>
+          </div>
+        </div>
+
+        <!-- Issue -->
+        <div class="modal-section">
+          <div class="modal-section-label">Issue Details</div>
+          <div class="modal-grid">
+            <div class="modal-field"><div class="mf-label">Category</div>          <div class="mf-val" id="m-category"></div></div>
+            <div class="modal-field"><div class="mf-label">System Suggested Priority</div><div class="mf-val" id="m-suggested-prio"></div></div>
+            <div class="modal-field full"><div class="mf-label">Description</div>
+              <div class="mf-desc" id="m-description"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- IT Controls -->
+        <div class="modal-section">
+          <div class="modal-section-label">IT Admin Controls</div>
+          <div class="admin-controls">
+            <div class="ctrl-group">
+              <label>Status</label>
+              <select class="ctrl-select" id="m-status">
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+            <div class="ctrl-group">
+              <label>Priority (IT Override)</label>
+              <select class="ctrl-select" id="m-priority">
+                <option value="Critical">🔴 Critical</option>
+                <option value="High">🟠 High</option>
+                <option value="Medium">🟡 Medium</option>
+                <option value="Low">🟢 Low</option>
+              </select>
+            </div>
+            <div class="ctrl-group" style="grid-column:1/-1">
+              <label>Assigned To</label>
+              <input type="text" class="ctrl-input" id="m-assigned" placeholder="Enter IT staff name…">
+            </div>
+            <div class="ctrl-group" style="grid-column:1/-1">
+              <label>Internal Notes (not sent to user)</label>
+              <textarea class="notes-area" id="m-notes" placeholder="Add internal notes, steps taken, follow-up actions…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reply to submitter -->
+        <div class="modal-section">
+          <div class="modal-section-label">Reply to Submitter (sends email)</div>
+          <textarea class="reply-area" id="m-reply" placeholder="Type your reply here — this will be emailed to the submitter with the ticket number…"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-cancel" id="btn-cancel-modal">Cancel</button>
+          <button class="btn-reply" id="btn-reply">📧 Send Reply</button>
+          <button class="btn-save"  id="btn-save">💾 Save Changes</button>
+        </div>
+
+      </div><!-- /modal-body -->
+    </div><!-- /modal -->
+  </div><!-- /overlay -->
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../assets/config.js"></script>
+  <script>
+    // Sidebar nav helpers
+    function setTab(tab, el) {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+      // sync tab buttons
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tab);
+      });
+      activeTab = tab; renderTable();
+    }
+    function setPrio(prio, el) {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+      filterPrio = prio;
+      activeTab  = 'All';
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'All'));
+      renderTable();
+    }
+    document.getElementById('btn-cancel-modal').addEventListener('click', () => closeModal());
+  </script>
+  <script src="assets/admin.js"></script>
+</body>
+</html>

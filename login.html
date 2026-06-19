@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iRam IT Admin — Login</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+  <style>
+    :root {
+      --green: #6BBF4E; --green-dark: #4e9938; --dark: #2D2D2D;
+      --border: #dde; --danger: #d83b01;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 32px; justify-content: center;
+    }
+    .logo svg { width: 40px; height: 40px; }
+    .logo-text .brand { font-size: 22px; font-weight: 800; color: var(--dark); letter-spacing: 1px; }
+    .logo-text .sub   { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    h2 { font-size: 18px; font-weight: 600; color: var(--dark); margin-bottom: 6px; text-align: center; }
+    .sub-heading { font-size: 13px; color: #888; text-align: center; margin-bottom: 28px; }
+    label { display: block; font-size: 12px; font-weight: 700; color: #555;
+            text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    input[type="password"], input[type="text"] {
+      width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+      border-radius: 6px; font-size: 15px; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(107,191,78,0.15); }
+    .field { margin-bottom: 18px; }
+    .error-banner {
+      display: none; background: #fff3ef; border: 1.5px solid var(--danger);
+      color: var(--danger); border-radius: 6px; padding: 10px 14px;
+      font-size: 13px; margin-bottom: 16px; font-weight: 600;
+    }
+    .btn-login {
+      width: 100%; background: var(--green); color: #fff; border: none;
+      border-radius: 7px; padding: 14px; font-size: 16px; font-weight: 700;
+      cursor: pointer; margin-top: 4px; transition: background 0.2s;
+    }
+    .btn-login:hover { background: var(--green-dark); }
+    .back-link { display: block; text-align: center; margin-top: 20px;
+                 font-size: 13px; color: #888; text-decoration: none; }
+    .back-link:hover { color: var(--green-dark); }
+    .show-pw { font-size: 12px; color: var(--green-dark); cursor: pointer;
+               float: right; font-weight: 600; text-decoration: underline; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <div class="logo">
+      <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="14" y="2"  width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="14" y="26" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="2"  y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="26" y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="14" y="14" width="10" height="10" rx="2" fill="#4e9938"/>
+      </svg>
+      <div class="logo-text">
+        <div class="brand">iRam</div>
+        <div class="sub">IT Admin Portal</div>
+      </div>
+    </div>
+
+    <h2>IT Staff Login</h2>
+    <p class="sub-heading">Enter your IT admin password to access the ticket dashboard</p>
+
+    <div class="error-banner" id="error-banner">Incorrect password. Please try again.</div>
+
+    <form id="login-form" novalidate>
+      <div class="field">
+        <label for="password">
+          Password
+          <span class="show-pw" id="show-pw-btn">Show</span>
+        </label>
+        <input type="password" id="password" placeholder="Enter IT admin password" autofocus autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-login">Login to Admin Panel →</button>
+    </form>
+
+    <a href="index.html" class="back-link">← Back to Ticket Submission Form</a>
+  </div>
+
+  <script src="assets/config.js"></script>
+  <script>
+    // Toggle password visibility
+    document.getElementById('show-pw-btn').addEventListener('click', () => {
+      const pw = document.getElementById('password');
+      const btn = document.getElementById('show-pw-btn');
+      if (pw.type === 'password') { pw.type = 'text'; btn.textContent = 'Hide'; }
+      else { pw.type = 'password'; btn.textContent = 'Show'; }
+    });
+
+    // Already logged in?
+    if (sessionStorage.getItem('iram_it_auth') === 'true') {
+      window.location.href = 'admin/index.html';
+    }
+
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const entered = document.getElementById('password').value;
+      const correct = (typeof IRAM_CONFIG !== 'undefined')
+        ? IRAM_CONFIG.adminPassword
+        : 'iRamIT2024!';
+
+      if (entered === correct) {
+        sessionStorage.setItem('iram_it_auth', 'true');
+        window.location.href = 'admin/index.html';
+      } else {
+        document.getElementById('error-banner').style.display = 'block';
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+      }
+    });
+  </script>
+</body>
+</html>
