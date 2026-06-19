@@ -7,7 +7,7 @@ const IRAM_CONFIG = {
 
   // ── Power Automate Webhook URLs ──────────────────────────────────────────
   // Flow A (HTTP trigger) — handles Web Form + WhatsApp submissions
-  submitWebhookUrl: 'PASTE_FLOW_A_HTTP_TRIGGER_URL_HERE',              // ←
+  submitWebhookUrl: 'https://default43b73814430045128c6dd739063315.61.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/1f1596a5ee60487490f9ed1dcd289e63/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ScVKY9YGtZsErH8ufXPrtLfyi9NN1I8keOOCctzTisI',
 
   // Flow C (HTTP trigger) — GET tickets for admin panel
   // Returns: { value: [ { id, TicketID, Status, Priority, ... }, ... ] }
