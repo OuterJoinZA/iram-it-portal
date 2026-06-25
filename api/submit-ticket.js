@@ -24,17 +24,29 @@ module.exports = async function handler(req, res) {
 
   // Send emails via Resend
   try {
+    // Submitter confirmation
     await sendEmail({
       to:      body.submitterEmail,
       subject: `IT Ticket ${ticketID} Created — ${body.category}`,
       html:    submitterHtml({ ...body, ticketID })
     });
 
+    // Line manager notification
     if (body.managerEmail) {
       await sendEmail({
         to:      body.managerEmail,
         subject: `FYI: IT Ticket ${ticketID} logged for ${body.submitterName}`,
         html:    managerHtml({ ...body, ticketID })
+      });
+    }
+
+    // IT person notification
+    const itEmail = process.env.IT_EMAIL;
+    if (itEmail) {
+      await sendEmail({
+        to:      itEmail,
+        subject: `[${body.suggestedPriority || 'New'}] Ticket ${ticketID} — ${body.category}`,
+        html:    itHtml({ ...body, ticketID })
       });
     }
   } catch (err) {
@@ -107,6 +119,62 @@ function submitterHtml({ submitterName, submitterEmail, category, location, sugg
 
   <tr><td style="background:#f4f6f8;padding:18px 32px;text-align:center;border-top:1px solid #e8e8e8">
     <p style="margin:0;color:#aaa;font-size:11px">iRam IT Support Portal &nbsp;|&nbsp; Please do not reply to this email</p>
+  </td></tr>
+
+</table></td></tr></table>
+</body></html>`;
+}
+
+function itHtml({ submitterName, submitterEmail, submitterPhone, department, location, managerName, managerEmail, category, suggestedPriority, description, ticketID, submittedAt }) {
+  const submitted = submittedAt
+    ? new Date(submittedAt).toLocaleString('en-ZA', { dateStyle:'medium', timeStyle:'short' })
+    : new Date().toLocaleString('en-ZA', { dateStyle:'medium', timeStyle:'short' });
+  const prioColor = suggestedPriority === 'Critical' ? '#a4262c' : suggestedPriority === 'High' ? '#d83b01' : suggestedPriority === 'Low' ? '#498205' : '#986f0b';
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:Segoe UI,Arial,sans-serif;background:#f4f6f8">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 20px">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+
+  <tr><td style="background:#2D2D2D;padding:28px 32px;text-align:center">
+    <p style="margin:0;color:#ffffff;font-size:22px;font-weight:700">iRam IT Support</p>
+    <p style="margin:8px 0 0;color:#6BBF4E;font-size:12px;text-transform:uppercase;letter-spacing:1.5px">New Ticket — Action Required</p>
+  </td></tr>
+
+  <tr><td style="background:#fff8e1;padding:16px 32px;border-bottom:3px solid ${prioColor};text-align:center">
+    <p style="margin:0;font-size:13px;color:#555">Priority</p>
+    <p style="margin:4px 0 0;font-size:22px;font-weight:700;color:${prioColor}">${esc(suggestedPriority || 'Medium')}</p>
+  </td></tr>
+
+  <tr><td style="padding:28px 32px">
+    <p style="margin:0 0 20px;font-size:15px;color:#333">A new IT support ticket has been submitted and requires your attention.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden;font-size:13px">
+      <tr><td style="background:#edf7e8;padding:11px 16px;font-weight:600;color:#555;width:130px">Ticket ID</td>
+          <td style="background:#edf7e8;padding:11px 16px;font-weight:700;color:#4e9938;font-size:15px">${esc(ticketID)}</td></tr>
+      <tr><td style="padding:11px 16px;font-weight:600;color:#555">Submitted</td>
+          <td style="padding:11px 16px;color:#333">${submitted}</td></tr>
+      <tr><td style="background:#f9f9f9;padding:11px 16px;font-weight:600;color:#555">Name</td>
+          <td style="background:#f9f9f9;padding:11px 16px;color:#333">${esc(submitterName)}</td></tr>
+      <tr><td style="padding:11px 16px;font-weight:600;color:#555">Email</td>
+          <td style="padding:11px 16px;color:#333"><a href="mailto:${esc(submitterEmail)}" style="color:#4e9938">${esc(submitterEmail)}</a></td></tr>
+      <tr><td style="background:#f9f9f9;padding:11px 16px;font-weight:600;color:#555">Phone</td>
+          <td style="background:#f9f9f9;padding:11px 16px;color:#333">${esc(submitterPhone || '—')}</td></tr>
+      <tr><td style="padding:11px 16px;font-weight:600;color:#555">Department</td>
+          <td style="padding:11px 16px;color:#333">${esc(department)}</td></tr>
+      <tr><td style="background:#f9f9f9;padding:11px 16px;font-weight:600;color:#555">Location</td>
+          <td style="background:#f9f9f9;padding:11px 16px;color:#333">${esc(location)}</td></tr>
+      <tr><td style="padding:11px 16px;font-weight:600;color:#555">Line Manager</td>
+          <td style="padding:11px 16px;color:#333">${managerName ? `${esc(managerName)} &lt;${esc(managerEmail)}&gt;` : '—'}</td></tr>
+      <tr><td style="background:#f9f9f9;padding:11px 16px;font-weight:600;color:#555">Category</td>
+          <td style="background:#f9f9f9;padding:11px 16px;color:#333">${esc(category)}</td></tr>
+      <tr><td style="padding:11px 16px;font-weight:600;color:#555">Description</td>
+          <td style="padding:11px 16px;color:#333;line-height:1.6">${esc(description)}</td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="background:#f4f6f8;padding:18px 32px;text-align:center;border-top:1px solid #e8e8e8">
+    <p style="margin:0;color:#aaa;font-size:11px">iRam IT Support Portal &nbsp;|&nbsp; Assigned to IT team</p>
   </td></tr>
 
 </table></td></tr></table>
