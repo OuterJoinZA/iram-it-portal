@@ -9,17 +9,10 @@ const IRAM_CONFIG = {
   // Routes through Vercel API function (Power Automate URL is stored server-side)
   submitWebhookUrl: '/api/submit-ticket',
 
-  // Flow C (HTTP trigger) — GET tickets for admin panel
-  // Returns: { value: [ { id, TicketID, Status, Priority, ... }, ... ] }
-  getTicketsUrl:    'PASTE_FLOW_C_GET_TICKETS_URL_HERE',               // ←
-
-  // Flow D (HTTP trigger) — UPDATE a single ticket
-  // Body: { id, Status, Priority, AssignedTo, Notes }
-  updateTicketUrl:  'PASTE_FLOW_D_UPDATE_TICKET_URL_HERE',             // ←
-
-  // Flow E (HTTP trigger) — SEND REPLY email to submitter
-  // Body: { submitterEmail, submitterName, ticketID, replyMessage, agentName }
-  sendReplyUrl:     'PASTE_FLOW_E_SEND_REPLY_URL_HERE',                // ←
+  // Vercel API proxies — PA URLs are stored as Vercel env vars (not exposed to browser)
+  getTicketsUrl:    '/api/get-tickets',
+  updateTicketUrl:  '/api/update-ticket',
+  sendReplyUrl:     '/api/send-reply',
 
   // ── WhatsApp ─────────────────────────────────────────────────────────────
   // Your IT support WhatsApp Business number (country code, no + or spaces)
