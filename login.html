@@ -115,20 +115,42 @@
       window.location.href = 'admin/index.html';
     }
 
-    document.getElementById('login-form').addEventListener('submit', (e) => {
+    function loginOk(password) {
+      sessionStorage.setItem('iram_it_auth', 'true');
+      // Stored so admin API calls can send it as the x-admin-key header.
+      sessionStorage.setItem('iram_it_key', password);
+      window.location.href = 'admin/index.html';
+    }
+    function loginFail() {
+      document.getElementById('error-banner').style.display = 'block';
+      document.getElementById('password').value = '';
+      document.getElementById('password').focus();
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const entered = document.getElementById('password').value;
-      const correct = (typeof IRAM_CONFIG !== 'undefined')
-        ? IRAM_CONFIG.adminPassword
-        : 'iRamIT2024!';
 
-      if (entered === correct) {
-        sessionStorage.setItem('iram_it_auth', 'true');
-        window.location.href = 'admin/index.html';
-      } else {
-        document.getElementById('error-banner').style.display = 'block';
-        document.getElementById('password').value = '';
-        document.getElementById('password').focus();
+      try {
+        const res  = await fetch('/api/admin/login', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ password: entered })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.ok) { loginOk(entered); return; }
+
+        if (data.mode === 'legacy') {
+          // Server password not configured yet — fall back to the config.js check.
+          const correct = (typeof IRAM_CONFIG !== 'undefined') ? IRAM_CONFIG.adminPassword : 'iRamIT2024!';
+          if (entered === correct) { loginOk(entered); return; }
+        }
+        loginFail();
+      } catch (_) {
+        // Network/server issue — fall back to local check so admins aren't locked out.
+        const correct = (typeof IRAM_CONFIG !== 'undefined') ? IRAM_CONFIG.adminPassword : 'iRamIT2024!';
+        if (entered === correct) { loginOk(entered); } else { loginFail(); }
       }
     });
   </script>

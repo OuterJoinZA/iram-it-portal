@@ -9,24 +9,22 @@ const IRAM_CONFIG = {
   // Routes through Vercel API function (Power Automate URL is stored server-side)
   submitWebhookUrl: '/api/submit-ticket',
 
-  // Flow C (HTTP trigger) — GET tickets for admin panel
-  // Returns: { value: [ { id, TicketID, Status, Priority, ... }, ... ] }
-  getTicketsUrl:    'PASTE_FLOW_C_GET_TICKETS_URL_HERE',               // ←
-
-  // Flow D (HTTP trigger) — UPDATE a single ticket
-  // Body: { id, Status, Priority, AssignedTo, Notes }
-  updateTicketUrl:  'PASTE_FLOW_D_UPDATE_TICKET_URL_HERE',             // ←
-
-  // Flow E (HTTP trigger) — SEND REPLY email to submitter
-  // Body: { submitterEmail, submitterName, ticketID, replyMessage, agentName }
-  sendReplyUrl:     'PASTE_FLOW_E_SEND_REPLY_URL_HERE',                // ←
+  // NOTE: The admin panel no longer calls Power Automate directly. The flow URLs
+  // now live in Vercel environment variables (server-side, never shipped to the
+  // browser) and are proxied through /api/admin/* and /api/track:
+  //   PA_GET_TICKETS_URL    → list all tickets        (→ /api/admin/tickets)
+  //   PA_UPDATE_TICKET_URL  → update a ticket          (→ /api/admin/update-ticket)
+  //   PA_TRACK_TICKET_URL   → get one ticket by number (→ /api/track)
+  // Replies to submitters are sent via Resend (→ /api/admin/reply), not a flow.
 
   // ── WhatsApp ─────────────────────────────────────────────────────────────
   // Your IT support WhatsApp Business number (country code, no + or spaces)
   whatsappNumber:   '27000000000',                                      // ←
 
   // ── Admin Panel ──────────────────────────────────────────────────────────
-  // Simple password for the IT admin panel (change this!)
+  // Fallback admin password, used ONLY if the ADMIN_PASSWORD env var is not set.
+  // For real security set ADMIN_PASSWORD in Vercel (verified server-side) and
+  // remove this value — anything here is visible in the browser via View Source.
   adminPassword:    'iRamIT2024!',                                      // ←
 
   // IT staff who can be assigned to a ticket.

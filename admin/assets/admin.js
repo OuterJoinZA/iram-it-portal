@@ -9,6 +9,15 @@ if (sessionStorage.getItem('iram_it_auth') !== 'true') {
 
 const CFG = (typeof IRAM_CONFIG !== 'undefined') ? IRAM_CONFIG : {};
 
+// All admin API calls go through our own Vercel routes (flow URLs stay server-side).
+// The admin key (entered at login) is sent as a header to authorize the request.
+function adminFetch(url, opts = {}) {
+  const headers = Object.assign({}, opts.headers, {
+    'x-admin-key': sessionStorage.getItem('iram_it_key') || ''
+  });
+  return fetch(url, Object.assign({ cache: 'no-store' }, opts, { headers }));
+}
+
 // ── "Assigned To" options from config (Name · Role) ───────────────────────────
 // Supports both the new object form ({name, role}) and plain-string legacy entries.
 function staffLabel(s) {
@@ -88,16 +97,21 @@ const DEMO_TICKETS = [
 
 // ── Fetch tickets (real or demo) ──────────────────────────────────────────────
 async function fetchTickets() {
-  const url = CFG.getTicketsUrl;
-  if (!url || url.startsWith('PASTE')) {
-    // No PA URL yet — show demo data
-    allTickets = DEMO_TICKETS;
-    renderAll();
-    showToast('Showing demo tickets — configure Power Automate URL in config.js to load real tickets.', 'error');
-    return;
-  }
   try {
-    const res  = await fetch(url);
+    const res = await adminFetch('/api/admin/tickets');
+    if (res.status === 503) {
+      // Flow not set up yet on the server — show demo data.
+      allTickets = DEMO_TICKETS;
+      renderAll();
+      showToast('Showing demo tickets — Power Automate flows not configured yet (set PA_GET_TICKETS_URL).', 'error');
+      return;
+    }
+    if (res.status === 401) {
+      showToast('Session expired — please log in again.', 'error');
+      setTimeout(() => { sessionStorage.clear(); window.location.href = '../login.html'; }, 1500);
+      return;
+    }
+    if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
     allTickets = Array.isArray(data) ? data : (data.value || []);
     renderAll();
@@ -261,20 +275,27 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     Notes:        document.getElementById('m-notes').value,
   };
 
-  // Update local state
+  // Update local state immediately for a snappy UI
   Object.assign(openTicket, updates);
   renderAll();
 
-  const url = CFG.updateTicketUrl;
-  if (url && !url.startsWith('PASTE')) {
-    try {
-      await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(updates) });
+  try {
+    const res = await adminFetch('/api/admin/update-ticket', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(updates)
+    });
+    if (res.ok) {
       showToast('Ticket updated successfully ✓', 'success');
-    } catch(e) {
-      showToast('Saved locally — Power Automate update failed.', 'error');
+    } else if (res.status === 503) {
+      showToast('Saved locally ✓ (SharePoint sync not set up yet — set PA_UPDATE_TICKET_URL).', 'success');
+    } else if (res.status === 401) {
+      showToast('Session expired — please log in again.', 'error');
+    } else {
+      showToast('Saved locally — server update failed.', 'error');
     }
-  } else {
-    showToast('Saved locally ✓ (configure updateTicketUrl in config.js to sync to SharePoint)', 'success');
+  } catch(e) {
+    showToast('Saved locally — could not reach the server.', 'error');
   }
   closeModal();
 });
@@ -285,27 +306,29 @@ document.getElementById('btn-reply').addEventListener('click', async () => {
   const msg = document.getElementById('m-reply').value.trim();
   if (!msg) { showToast('Please type a reply message first.', 'error'); return; }
 
-  const url = CFG.sendReplyUrl;
-  if (url && !url.startsWith('PASTE')) {
-    try {
-      await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          submitterEmail: openTicket.SubmitterEmail,
-          submitterName:  openTicket.SubmitterName,
-          ticketID:       openTicket.TicketID,
-          replyMessage:   msg,
-          agentName:      'iRam IT Support'
-        })
-      });
+  try {
+    const res = await adminFetch('/api/admin/reply', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        submitterEmail: openTicket.SubmitterEmail,
+        submitterName:  openTicket.SubmitterName,
+        ticketID:       openTicket.TicketID,
+        replyMessage:   msg,
+        agentName:      'iRam IT Support'
+      })
+    });
+    if (res.ok) {
       showToast('Reply sent to ' + openTicket.SubmitterEmail + ' ✓', 'success');
       document.getElementById('m-reply').value = '';
-    } catch(e) {
-      showToast('Failed to send reply — check your Power Automate URL.', 'error');
+    } else if (res.status === 401) {
+      showToast('Session expired — please log in again.', 'error');
+    } else {
+      const d = await res.json().catch(() => ({}));
+      showToast(d.error || 'Failed to send reply.', 'error');
     }
-  } else {
-    showToast('configure sendReplyUrl in config.js to send emails.', 'error');
+  } catch(e) {
+    showToast('Failed to send reply — could not reach the server.', 'error');
   }
 });
 
