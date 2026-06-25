@@ -137,6 +137,19 @@ function showState(s) {
   ['form-state','loading-state','success-state'].forEach(id => {
     document.getElementById(id).style.display = (id === s + '-state') ? 'block' : 'none';
   });
+  // Header "Log New Ticket" button only shows once a ticket has been submitted
+  const headerBtn = document.getElementById('btn-new-header');
+  if (headerBtn) headerBtn.style.display = (s === 'success') ? 'inline-flex' : 'none';
+}
+
+// ── Reset to a fresh, empty form ──────────────────────────────────────────────
+function resetForm() {
+  document.getElementById('ticket-form').reset();
+  document.getElementById('priority').value = '';
+  document.getElementById('priority-indicator').style.display = 'none';
+  document.querySelectorAll('.form-group').forEach(g => g.classList.remove('has-error'));
+  showState('form');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ── Submit ────────────────────────────────────────────────────────────────────
@@ -213,14 +226,8 @@ document.getElementById('ticket-form').addEventListener('submit', async (e) => {
 });
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
-document.getElementById('btn-new').addEventListener('click', () => {
-  document.getElementById('ticket-form').reset();
-  document.getElementById('priority').value = '';
-  document.getElementById('priority-indicator').style.display = 'none';
-  document.querySelectorAll('.form-group').forEach(g => g.classList.remove('has-error'));
-  showState('form');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-});
+document.getElementById('btn-new').addEventListener('click', resetForm);
+document.getElementById('btn-new-header')?.addEventListener('click', resetForm);
 
 // Clear errors on input
 ['name','email','department','category','location','description'].forEach(id => {

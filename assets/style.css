@@ -88,6 +88,31 @@ body {
   letter-spacing: 0.3px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--white);
+  color: var(--dark);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 16px;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background 0.15s, transform 0.05s;
+}
+.header-new-btn span { font-size: 15px; line-height: 1; }
+.header-new-btn:hover  { background: #e9f5e2; }
+.header-new-btn:active { transform: scale(0.97); }
+
 /* ── HERO ── */
 .hero {
   background: linear-gradient(135deg, var(--dark) 0%, #3a3a3a 100%);
