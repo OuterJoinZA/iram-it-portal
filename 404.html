@@ -135,7 +135,7 @@
       position: absolute;
       bottom: 0;
       left: 0;
-      width: 110px;
+      width: 120px;
       transform-origin: center bottom;
       animation: gwalk 14s ease-in-out infinite;
     }
@@ -216,7 +216,7 @@
        SVG art faces LEFT natively; scaleX(-1) = facing right. */
     .goose-svg {
       display: block;
-      width: 110px;
+      width: 120px;
       height: auto;
       transform-origin: center;
       animation: gflip 14s ease-in-out infinite;
@@ -228,20 +228,21 @@
       64%,71%  { transform: scaleX(-1); }   /* walking right to middle (65–70%) */
       76%,100% { transform: scaleX( 1); }   /* confused pause + walk back left */
     }
-    /* Head tilt (confusion) */
+    /* Head tilt (confusion) — small angles so the head stays
+       seated on the neck (they're separate overlapping shapes) */
     .g-head {
       transform-box: fill-box;
-      transform-origin: 50% 90%;
+      transform-origin: 70% 95%;
       animation: gtilt 14s ease-in-out infinite;
     }
     @keyframes gtilt {
-      0%,25%   { transform: rotate(0deg);   }
-      30%,38%  { transform: rotate(-16deg); } /* look back when turning */
-      44%      { transform: rotate(0deg);   }
-      63%,70%  { transform: rotate(12deg);  } /* confused right tilt */
-      74%,80%  { transform: rotate(-14deg); } /* confused left tilt */
-      85%      { transform: rotate(8deg);   }
-      90%,100% { transform: rotate(0deg);   }
+      0%,25%   { transform: rotate(0deg);  }
+      30%,38%  { transform: rotate(-9deg); } /* look back when turning */
+      44%      { transform: rotate(0deg);  }
+      63%,70%  { transform: rotate(7deg);  } /* confused tilt */
+      74%,80%  { transform: rotate(-8deg); } /* confused tilt other way */
+      85%      { transform: rotate(5deg);  }
+      90%,100% { transform: rotate(0deg);  }
     }
     /* Leg walk */
     .g-ll { transform-box:fill-box; transform-origin:50% 0; animation: gll .5s ease-in-out infinite alternate; }
@@ -382,52 +383,60 @@
           <div class="qm q1">?</div>
           <div class="qm q2">?</div>
 
-          <!-- The goose SVG itself -->
-          <!-- viewBox expands to show head (y=-20) through feet tip (y=145) -->
-          <svg class="goose-svg" xmlns="http://www.w3.org/2000/svg" viewBox="-5 -20 120 165">
+          <!-- The goose SVG itself — single continuous body/neck silhouette -->
+          <svg class="goose-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 170">
 
             <!-- Shadow -->
-            <ellipse cx="54" cy="140" rx="40" ry="5" fill="rgba(0,0,0,0.12)"/>
+            <ellipse cx="88" cy="162" rx="52" ry="5" fill="rgba(0,0,0,0.12)"/>
 
-            <!-- BODY — flat design plump oval -->
-            <ellipse cx="62" cy="95" rx="44" ry="30" fill="#dde8e3"/>
-            <!-- Wing shadow (lower body) -->
-            <ellipse cx="52" cy="100" rx="30" ry="20" fill="#c6d8d1" transform="rotate(-8 52 100)"/>
-            <!-- Wing highlight (upper front) -->
-            <ellipse cx="72" cy="86" rx="32" ry="18" fill="#e8f2ee" transform="rotate(-12 72 86)"/>
+            <!-- LEGS (drawn first so tops hide under body) -->
+            <g class="g-ll">
+              <path d="M66 138 L62 156" stroke="#FFA726" stroke-width="5" stroke-linecap="round"/>
+              <path d="M64 152 C56 151 49 155 45 160 L66 160 C67 156 66 154 64 152 Z" fill="#FFA726"/>
+            </g>
+            <g class="g-rl">
+              <path d="M94 140 L98 158" stroke="#f5991c" stroke-width="5" stroke-linecap="round"/>
+              <path d="M100 154 C92 153 85 157 81 162 L102 162 C103 158 102 156 100 154 Z" fill="#f5991c"/>
+            </g>
 
-            <!-- TAIL — dark slate (right end, goose faces left) -->
-            <path d="M97 79 Q112 66 108 84 Q105 98 96 103 Z" fill="#546e7a"/>
-            <path d="M95 84 Q107 74 103 90 Q100 100 94 104 Z" fill="#607d8b"/>
+            <!-- BODY + NECK — one continuous silhouette -->
+            <path d="M33 36
+                     C28 48 26 62 29 76
+                     C31 86 26 92 25 102
+                     C24 122 34 138 56 146
+                     C78 153 104 151 122 142
+                     C136 135 145 124 150 112
+                     C154 103 158 90 164 78
+                     C152 85 141 89 130 92
+                     C110 86 88 85 70 93
+                     C58 88 52 76 50 62
+                     C49 50 50 42 53 34
+                     C48 28 40 28 33 36 Z" fill="#eef4f2"/>
 
-            <!-- NECK — S-curve, flat-design two-tone -->
-            <path d="M44 66 Q24 50 28 30 Q32 14 34 6"
-                  stroke="#c8dbd5" stroke-width="22" fill="none" stroke-linecap="round"/>
-            <path d="M44 66 Q24 50 28 30 Q32 14 34 6"
-                  stroke="#eef4f1" stroke-width="17" fill="none" stroke-linecap="round"/>
+            <!-- TAIL — dark slate tip -->
+            <path d="M130 92 C141 89 152 85 164 78 C160 88 154 98 147 107 C141 102 135 97 130 92 Z" fill="#546e7a"/>
+            <path d="M134 94 C142 91 150 88 157 84 C153 92 148 99 143 104 C139 100 136 97 134 94 Z" fill="#607d8b"/>
+
+            <!-- WING — teardrop with feather lines -->
+            <path d="M58 100 C68 88 92 86 110 94 C128 101 138 111 142 119 C130 124 112 128 94 128 C76 128 62 120 58 108 Z" fill="#d8e5e0"/>
+            <path d="M70 106 C88 100 108 102 124 112" stroke="#c2d4cd" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path d="M66 114 C84 110 102 112 116 120" stroke="#c2d4cd" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+            <!-- Belly shading -->
+            <path d="M44 132 C64 147 98 150 122 141 C102 150 66 150 48 138 Z" fill="#d8e5e0" opacity=".7"/>
 
             <!-- HEAD group (animated for confusion) -->
             <g class="g-head">
-              <ellipse cx="34" cy="2" rx="15" ry="12" fill="#edf4f0"/>
+              <!-- Bill (root hides under head) -->
+              <path d="M27 22 C17 21 9 24 5 28 C9 31 17 32 27 31 Z" fill="#FFA726"/>
+              <path d="M6 29 C12 32 19 33 27 33 C27 31.5 18 31 6 29 Z" fill="#ef9416"/>
+              <!-- Head -->
+              <ellipse cx="39" cy="25" rx="15" ry="13" fill="#eef4f2"/>
+              <!-- Nostril -->
+              <ellipse cx="13" cy="26.5" rx="1.8" ry="1" fill="#e08014"/>
               <!-- Eye -->
-              <circle cx="27" cy="-1" r="4.5" fill="#3d2b1f"/>
-              <circle cx="26" cy="-2" r="1.7" fill="white" opacity=".7"/>
-              <!-- Beak — flat orange bill, pointing left -->
-              <path d="M22 5 L5 3 L5 10 L22 9 Z" fill="#FFA726"/>
-              <line x1="5" y1="6.5" x2="22" y2="6.5" stroke="#e89020" stroke-width=".8"/>
-              <ellipse cx="11" cy="6" rx="2.5" ry="1.5" fill="#e08014" opacity=".5"/>
-            </g>
-
-            <!-- LEGS & FEET — flat orange -->
-            <g class="g-ll">
-              <path d="M47 122 L40 137" stroke="#FFA726" stroke-width="5.5" stroke-linecap="round"/>
-              <path d="M40 137 L27 135 M40 137 L35 143 M40 137 L42 141"
-                    stroke="#FFA726" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            </g>
-            <g class="g-rl">
-              <path d="M65 124 L72 139" stroke="#FFA726" stroke-width="5.5" stroke-linecap="round"/>
-              <path d="M72 139 L59 137 M72 139 L67 144 M72 139 L74 143"
-                    stroke="#FFA726" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="31" cy="21" r="3.2" fill="#3d2b1f"/>
+              <circle cx="30" cy="20" r="1.2" fill="#fff" opacity=".85"/>
             </g>
 
           </svg>
