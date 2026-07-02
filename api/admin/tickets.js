@@ -19,19 +19,26 @@ module.exports = async function handler(req, res) {
   const flowUrl = process.env.PA_GET_TICKETS_URL;
   if (!flowUrl) return res.status(503).json({ error: 'not_configured' });
 
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), 18000); // 18s hard limit
+
   try {
     const r = await fetch(flowUrl, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({})
+      body:    JSON.stringify({}),
+      signal:  controller.signal
     });
+    clearTimeout(timeout);
     if (!r.ok) throw new Error(`Flow returned ${r.status}`);
     const text = await r.text();
     const data = text ? JSON.parse(text) : [];
     const list = Array.isArray(data) ? data : (Array.isArray(data.value) ? data.value : []);
     return res.status(200).json(list);
   } catch (err) {
-    console.error('Admin tickets error:', err.message);
-    return res.status(502).json({ error: 'Could not load tickets.' });
+    clearTimeout(timeout);
+    const timedOut = err.name === 'AbortError';
+    console.error('Admin tickets error:', timedOut ? 'timed out after 18s' : err.message);
+    return res.status(timedOut ? 504 : 502).json({ error: timedOut ? 'flow_timeout' : 'Could not load tickets.' });
   }
 };

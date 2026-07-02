@@ -95,15 +95,52 @@ const DEMO_TICKETS = [
   }
 ];
 
+// ── Ticket cache (sessionStorage, 2-min TTL) ──────────────────────────────────
+const CACHE_KEY = 'iram_tickets_v1';
+const CACHE_TTL = 2 * 60 * 1000;
+
+function cacheLoad() {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) { sessionStorage.removeItem(CACHE_KEY); return null; }
+    return data;
+  } catch(_) { return null; }
+}
+function cacheSave(data) {
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch(_) {}
+}
+
+function setTableLoading(on) {
+  const tbody = document.getElementById('ticket-tbody');
+  if (on) {
+    tbody.innerHTML = `<tr><td colspan="7">
+      <div class="empty-state"><div class="e-icon">⏳</div><p>Loading tickets from SharePoint…</p></div>
+    </td></tr>`;
+  }
+}
+
 // ── Fetch tickets (real or demo) ──────────────────────────────────────────────
-async function fetchTickets() {
+async function fetchTickets(background = false) {
+  // Show cached data immediately so the panel is usable right away
+  if (!background) {
+    const cached = cacheLoad();
+    if (cached) {
+      allTickets = cached;
+      renderAll();
+      showToast('Loaded from cache — refreshing in background…', 'success');
+      fetchTickets(true); // silent background refresh
+      return;
+    }
+    setTableLoading(true);
+  }
+
   try {
     const res = await adminFetch('/api/admin/tickets');
+
     if (res.status === 503) {
-      // Flow not set up yet on the server — show demo data.
-      allTickets = DEMO_TICKETS;
-      renderAll();
-      showToast('Showing demo tickets — Power Automate flows not configured yet (set PA_GET_TICKETS_URL).', 'error');
+      if (!background) { allTickets = DEMO_TICKETS; renderAll(); showToast('Showing demo tickets — PA_GET_TICKETS_URL not set.', 'error'); }
       return;
     }
     if (res.status === 401) {
@@ -111,14 +148,21 @@ async function fetchTickets() {
       setTimeout(() => { sessionStorage.clear(); window.location.href = '../login.html'; }, 1500);
       return;
     }
+    if (res.status === 504) {
+      if (!background) { allTickets = DEMO_TICKETS; renderAll(); showToast('SharePoint took too long to respond — showing demo data. Try refreshing.', 'error'); }
+      else showToast('Background refresh timed out — data may be stale.', 'error');
+      return;
+    }
     if (!res.ok) throw new Error(`Status ${res.status}`);
+
     const data = await res.json();
     allTickets = Array.isArray(data) ? data : (data.value || []);
+    cacheSave(allTickets);
     renderAll();
+    if (background) showToast('Tickets refreshed ✓', 'success');
+
   } catch(err) {
-    allTickets = DEMO_TICKETS;
-    renderAll();
-    showToast('Could not load live tickets — showing demo data.', 'error');
+    if (!background) { allTickets = DEMO_TICKETS; renderAll(); showToast('Could not load live tickets — showing demo data.', 'error'); }
   }
 }
 
@@ -275,8 +319,9 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     Notes:        document.getElementById('m-notes').value,
   };
 
-  // Update local state immediately for a snappy UI
+  // Update local state immediately for a snappy UI; invalidate cache so next load is fresh
   Object.assign(openTicket, updates);
+  sessionStorage.removeItem(CACHE_KEY);
   renderAll();
 
   try {
