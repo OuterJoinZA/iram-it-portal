@@ -9,42 +9,44 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #e8f4fd;
+      background: #dceefa;
       font-family: 'Segoe UI', Arial, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-end;
       overflow: hidden;
     }
 
-    /* ── Text section ── */
+    /* ── Text block (sits above field) ── */
     .text-area {
-      text-align: center;
-      padding: 20px 20px 0;
       position: relative;
-      z-index: 2;
+      z-index: 10;
+      text-align: center;
+      padding: 32px 20px 20px;
+      width: 100%;
+      background: linear-gradient(to bottom, #dceefa 70%, transparent);
     }
     .err-code {
-      font-size: clamp(72px, 15vw, 110px);
+      font-size: clamp(80px, 18vw, 120px);
       font-weight: 900;
       color: #2D2D2D;
       line-height: 1;
-      letter-spacing: -4px;
+      letter-spacing: -5px;
     }
     .err-code span { color: #4e9938; }
     h1 {
-      font-size: clamp(18px, 4vw, 24px);
+      font-size: clamp(17px, 3.5vw, 22px);
       font-weight: 700;
       color: #2D2D2D;
-      margin: 8px 0 6px;
+      margin: 6px 0 5px;
     }
     .sub {
-      font-size: 15px;
-      color: #666;
+      font-size: 14px;
+      color: #555;
       line-height: 1.55;
-      margin-bottom: 22px;
+      margin-bottom: 18px;
     }
     .btn-home {
       display: inline-flex;
@@ -54,152 +56,188 @@
       color: #fff;
       font-size: 14px;
       font-weight: 700;
-      padding: 11px 26px;
+      padding: 10px 24px;
       border-radius: 10px;
       text-decoration: none;
-      letter-spacing: .2px;
       transition: background .15s, transform .1s;
     }
     .btn-home:hover { background: #3d7828; transform: translateY(-1px); }
 
-    /* ── Field scene ── */
-    .field-scene {
-      width: 100%;
-      max-width: 800px;
+    /* ── Field wrapper ── */
+    .field-wrapper {
       position: relative;
+      width: 100%;
+      max-width: 900px;
       flex-shrink: 0;
-      z-index: 1;
     }
-    .field-scene svg {
+    .field-wrapper svg.bg {
+      display: block;
       width: 100%;
       height: auto;
-      display: block;
     }
 
     /* ── Cloud drift ── */
-    .cloud1 { animation: cloud-drift 28s linear infinite; }
-    .cloud2 { animation: cloud-drift 22s linear infinite reverse; animation-delay: -10s; }
-    @keyframes cloud-drift {
-      0%   { transform: translateX(0); }
-      50%  { transform: translateX(18px); }
-      100% { transform: translateX(0); }
-    }
-
-    /* ── Goose walk (wrapper for horizontal movement) ── */
-    .goose-walk {
-      animation: goose-wander 14s ease-in-out infinite;
-    }
-    @keyframes goose-wander {
-      0%       { transform: translateX(0)    scaleX(1);  }   /* start left */
-      28%      { transform: translateX(310px) scaleX(1);  }  /* reached right */
-      35%      { transform: translateX(310px) scaleX(-1); }  /* turn around */
-      62%      { transform: translateX(40px)  scaleX(-1); }  /* walked back left, overshoot */
-      68%      { transform: translateX(40px)  scaleX(-1); }  /* confused pause */
-      70%      { transform: translateX(40px)  scaleX(1);  }  /* another turn */
-      75%      { transform: translateX(160px) scaleX(1);  }  /* walk to middle */
-      78%      { transform: translateX(160px) scaleX(-1); }  /* look other way */
-      84%      { transform: translateX(160px) scaleX(-1); }  /* stuck pause */
-      88%      { transform: translateX(160px) scaleX(1);  }  /* back */
-      100%     { transform: translateX(0)    scaleX(1);  }   /* return start */
-    }
-
-    /* ── Goose body bob ── */
-    .goose-bob {
-      animation: body-bob 0.55s ease-in-out infinite alternate;
-    }
-    @keyframes body-bob {
-      to { transform: translateY(-7px); }
-    }
-
-    /* ── Leg swing ── */
-    .leg-l-walk {
-      transform-box: fill-box; transform-origin: 50% 0;
-      animation: leg-la 0.55s ease-in-out infinite alternate;
-    }
-    .leg-r-walk {
-      transform-box: fill-box; transform-origin: 50% 0;
-      animation: leg-ra 0.55s ease-in-out infinite alternate;
-    }
-    @keyframes leg-la { to { transform: rotate( 18deg); } }
-    @keyframes leg-ra { to { transform: rotate(-18deg); } }
-
-    /* ── Head look around ── */
-    .head-look {
-      transform-box: fill-box; transform-origin: 50% 90%;
-      animation: head-peer 14s ease-in-out infinite;
-    }
-    @keyframes head-peer {
-      0%,27%  { transform: rotate(0deg);   }
-      30%,36% { transform: rotate(-18deg); }  /* look back/up when turning */
-      42%     { transform: rotate(0deg);   }
-      62%,68% { transform: rotate(10deg);  }  /* confused tilt */
-      72%,76% { transform: rotate(-10deg); }
-      82%,86% { transform: rotate(15deg);  }  /* frustrated look */
-      100%    { transform: rotate(0deg);   }
-    }
-
-    /* ── Question marks that pop ── */
-    .q1 { animation: qmark 14s ease-in-out infinite; }
-    .q2 { animation: qmark 14s ease-in-out infinite; animation-delay: .4s; }
-    @keyframes qmark {
-      0%,60%  { opacity: 0; transform: translateY(0)   scale(0); }
-      65%     { opacity: 1; transform: translateY(-10px) scale(1.1); }
-      72%     { opacity: 1; transform: translateY(-18px) scale(1); }
-      80%     { opacity: 0; transform: translateY(-28px) scale(0.7); }
-      100%    { opacity: 0; }
-    }
-
-    /* ── Honk speech bubble ── */
-    .honk-bubble {
-      animation: honk-pop 14s ease-in-out infinite;
-    }
-    @keyframes honk-pop {
-      0%,24%  { opacity: 0; transform: scale(0); }
-      28%     { opacity: 1; transform: scale(1.1); }
-      32%,42% { opacity: 1; transform: scale(1); }
-      48%     { opacity: 0; transform: scale(0); }
-      100%    { opacity: 0; }
+    .c1 { animation: cdrift 30s ease-in-out infinite; }
+    .c2 { animation: cdrift 22s ease-in-out infinite reverse; animation-delay:-8s; }
+    @keyframes cdrift {
+      0%,100% { transform: translateX(0); }
+      50%      { transform: translateX(20px); }
     }
 
     /* ── Sign wobble ── */
-    .sign-group {
-      transform-box: fill-box; transform-origin: 50% 100%;
-      animation: sign-wobble 6s ease-in-out infinite;
-    }
-    @keyframes sign-wobble {
-      0%,100% { transform: rotate(0deg); }
-      25%     { transform: rotate(1.5deg); }
-      75%     { transform: rotate(-1.5deg); }
+    .sign { transform-box:fill-box; transform-origin:50% 100%; animation: swobble 5s ease-in-out infinite; }
+    @keyframes swobble {
+      0%,100% { transform: rotate(0deg);   }
+      30%     { transform: rotate(1.8deg); }
+      70%     { transform: rotate(-1.8deg);}
     }
 
     /* ── Grass sway ── */
-    .grass-blade { transform-box: fill-box; transform-origin: 50% 100%; }
-    .g1 { animation: sway 3.2s ease-in-out infinite; }
-    .g2 { animation: sway 2.8s ease-in-out infinite; animation-delay:.5s; }
-    .g3 { animation: sway 3.5s ease-in-out infinite; animation-delay:1s; }
-    .g4 { animation: sway 2.6s ease-in-out infinite; animation-delay:.2s; }
-    .g5 { animation: sway 3.8s ease-in-out infinite; animation-delay:1.4s; }
-    @keyframes sway {
-      0%,100% { transform: rotate(0deg);  }
-      50%     { transform: rotate(10deg); }
+    .gbl { transform-box:fill-box; transform-origin:50% 100%; }
+    .ga  { animation: gsway 3.2s ease-in-out infinite; }
+    .gb  { animation: gsway 2.7s ease-in-out infinite; animation-delay:.6s; }
+    .gc  { animation: gsway 3.8s ease-in-out infinite; animation-delay:1.1s; }
+    .gd  { animation: gsway 2.5s ease-in-out infinite; animation-delay:.3s; }
+    @keyframes gsway {
+      0%,100% { transform: rotate(0deg);   }
+      50%     { transform: rotate(12deg);  }
     }
 
     /* ── Butterfly ── */
-    .butterfly {
-      animation: flutter-path 18s linear infinite;
+    .bf     { animation: bfpath 20s linear infinite; }
+    .bfw-l  { transform-box:fill-box; transform-origin:right center;  animation:bfl .25s ease-in-out infinite alternate; }
+    .bfw-r  { transform-box:fill-box; transform-origin:left center;   animation:bfr .25s ease-in-out infinite alternate; }
+    @keyframes bfl { to { transform:scaleX(.15) skewY(-25deg); } }
+    @keyframes bfr { to { transform:scaleX(.15) skewY(25deg);  } }
+    @keyframes bfpath {
+      0%  { transform:translate(120px,75px); }
+      20% { transform:translate(220px,52px); }
+      40% { transform:translate(320px,80px); }
+      60% { transform:translate(240px,58px); }
+      80% { transform:translate(150px,70px); }
+      100%{ transform:translate(120px,75px); }
     }
-    .wing-l { animation: flutter-l 0.3s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: right center; }
-    .wing-r { animation: flutter-r 0.3s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: left center; }
-    @keyframes flutter-l { to { transform: scaleX(0.2) skewY(-20deg); } }
-    @keyframes flutter-r { to { transform: scaleX(0.2) skewY(20deg); } }
-    @keyframes flutter-path {
-      0%  { transform: translate(80px,80px); }
-      20% { transform: translate(150px,55px); }
-      40% { transform: translate(240px,90px); }
-      60% { transform: translate(180px,65px); }
-      80% { transform: translate(100px,75px); }
-      100%{ transform: translate(80px,80px); }
+
+    /* ══ GOOSE — HTML element, positioned over field ══ */
+    .goose-stage {
+      position: absolute;
+      /* 4% puts the goose shadow on the front ground strip */
+      bottom: 4%;
+      left: 0;
+      width: 100%;
+      height: 0;
+      pointer-events: none;
+      z-index: 5;
     }
+
+    /* Walker handles horizontal movement + direction flip */
+    .goose-walker {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 110px;
+      transform-origin: center bottom;
+      animation: gwalk 14s ease-in-out infinite;
+    }
+    @keyframes gwalk {
+      0%       { left:5%;   transform:scaleX( 1); }
+      25%      { left:55%;  transform:scaleX( 1); }
+      33%      { left:55%;  transform:scaleX(-1); }   /* turn around */
+      58%      { left:6%;   transform:scaleX(-1); }
+      65%      { left:6%;   transform:scaleX( 1); }   /* turn */
+      70%      { left:28%;  transform:scaleX( 1); }   /* walk to middle */
+      74%      { left:28%;  transform:scaleX(-1); }   /* confused turn */
+      80%      { left:28%;  transform:scaleX(-1); }   /* pause */
+      86%      { left:28%;  transform:scaleX( 1); }
+      100%     { left:5%;   transform:scaleX( 1); }
+    }
+
+    /* Bobber handles vertical hop (nested so it doesn't affect X) */
+    .goose-bobber {
+      animation: gbob .5s ease-in-out infinite alternate;
+      position: relative;
+    }
+    @keyframes gbob { to { transform: translateY(-9px); } }
+
+    /* Speech bubble — counter-flip via scaleX(-1) inherited from parent */
+    .goose-bubble {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) scaleX(var(--flip,1));
+      background: white;
+      border: 2px solid #ddd;
+      border-radius: 14px;
+      padding: 5px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #2D2D2D;
+      white-space: nowrap;
+      animation: bpop 14s ease-in-out infinite;
+      opacity: 0;
+    }
+    .goose-bubble::after {
+      content:'';
+      position:absolute;
+      bottom:-10px; left:50%;
+      transform:translateX(-50%);
+      border:5px solid transparent;
+      border-top-color:white;
+    }
+    @keyframes bpop {
+      0%,22%   { opacity:0; transform:translateX(-50%) scale(.6); }
+      27%      { opacity:1; transform:translateX(-50%) scale(1.1); }
+      32%,40%  { opacity:1; transform:translateX(-50%) scale(1);   }
+      48%      { opacity:0; transform:translateX(-50%) scale(.7);  }
+      100%     { opacity:0; }
+    }
+
+    /* Question marks */
+    .qm {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      font-size: 24px;
+      font-weight: 900;
+      color: #4e9938;
+      opacity: 0;
+      animation: qpop 14s ease-in-out infinite;
+    }
+    .qm.q1 { left:60%; animation-delay:0s; }
+    .qm.q2 { left:20%; font-size:16px; animation-delay:.35s; }
+    @keyframes qpop {
+      0%,60%  { opacity:0; transform:translateY(0) scale(0); }
+      65%     { opacity:1; transform:translateY(-12px) scale(1.1); }
+      73%     { opacity:1; transform:translateY(-22px) scale(1);   }
+      82%     { opacity:0; transform:translateY(-35px) scale(.6);  }
+      100%    { opacity:0; }
+    }
+
+    /* Goose SVG */
+    .goose-svg {
+      display: block;
+      width: 110px;
+      height: auto;
+    }
+    /* Head tilt (confusion) */
+    .g-head {
+      transform-box: fill-box;
+      transform-origin: 50% 90%;
+      animation: gtilt 14s ease-in-out infinite;
+    }
+    @keyframes gtilt {
+      0%,25%   { transform: rotate(0deg);   }
+      30%,38%  { transform: rotate(-16deg); } /* look back when turning */
+      44%      { transform: rotate(0deg);   }
+      63%,70%  { transform: rotate(12deg);  } /* confused right tilt */
+      74%,80%  { transform: rotate(-14deg); } /* confused left tilt */
+      85%      { transform: rotate(8deg);   }
+      90%,100% { transform: rotate(0deg);   }
+    }
+    /* Leg walk */
+    .g-ll { transform-box:fill-box; transform-origin:50% 0; animation: gll .5s ease-in-out infinite alternate; }
+    .g-rl { transform-box:fill-box; transform-origin:50% 0; animation: grl .5s ease-in-out infinite alternate; }
+    @keyframes gll { to { transform: rotate( 20deg); } }
+    @keyframes grl { to { transform: rotate(-20deg); } }
   </style>
 </head>
 <body>
@@ -208,190 +246,183 @@
   <div class="text-area">
     <div class="err-code">4<span>0</span>4</div>
     <h1>Honk! This page got lost in the field.</h1>
-    <p class="sub">Our field goose went looking for it but came back confused.<br>It doesn't seem to exist — or it moved somewhere else.</p>
+    <p class="sub">Our field goose went looking for it — came back confused.<br>It doesn't exist, or it moved somewhere else.</p>
     <a href="/" class="btn-home">← Back to the Portal</a>
   </div>
 
-  <!-- Animated field scene -->
-  <div class="field-scene">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 320" preserveAspectRatio="xMidYMax meet">
+  <!-- Field scene -->
+  <div class="field-wrapper">
+
+    <!-- Static SVG background (no goose here) -->
+    <svg class="bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" preserveAspectRatio="xMidYMax meet">
       <defs>
-        <linearGradient id="sky404" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="#c5e8f8"/>
-          <stop offset="100%" stop-color="#e8f4fd"/>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#b8dff8"/>
+          <stop offset="100%" stop-color="#dceefa"/>
         </linearGradient>
-        <linearGradient id="hill1" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#6aba42"/>
+        <linearGradient id="h1g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#72c042"/>
           <stop offset="100%" stop-color="#4a9228"/>
         </linearGradient>
-        <linearGradient id="hill2" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#5aa836"/>
-          <stop offset="100%" stop-color="#3d8020"/>
+        <linearGradient id="h2g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#5aab34"/>
+          <stop offset="100%" stop-color="#3a8020"/>
         </linearGradient>
-        <linearGradient id="ground404" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="gnd" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#4a9228"/>
-          <stop offset="100%" stop-color="#3a7020"/>
+          <stop offset="100%" stop-color="#3a7820"/>
         </linearGradient>
       </defs>
 
       <!-- Sky -->
-      <rect width="800" height="320" fill="url(#sky404)"/>
+      <rect width="900" height="300" fill="url(#sky)"/>
 
       <!-- Sun -->
-      <circle cx="700" cy="55" r="38" fill="#FFE066" opacity=".85"/>
-      <circle cx="700" cy="55" r="30" fill="#FFD000" opacity=".9"/>
+      <circle cx="800" cy="55" r="42" fill="#FFE066" opacity=".85"/>
+      <circle cx="800" cy="55" r="33" fill="#FFD000" opacity=".9"/>
+      <!-- Sun rays -->
+      <g stroke="#FFE066" stroke-width="3" opacity=".5">
+        <line x1="800" y1="4"  x2="800" y2="14"/>
+        <line x1="800" y1="96" x2="800" y2="106"/>
+        <line x1="749" y1="55" x2="759" y2="55"/>
+        <line x1="841" y1="55" x2="851" y2="55"/>
+        <line x1="764" y1="19" x2="771" y2="26"/>
+        <line x1="829" y1="84" x2="836" y2="91"/>
+        <line x1="836" y1="19" x2="829" y2="26"/>
+        <line x1="764" y1="84" x2="771" y2="77"/>
+      </g>
 
       <!-- Clouds -->
-      <g class="cloud1">
-        <ellipse cx="140" cy="58" rx="55" ry="26" fill="white" opacity=".88"/>
-        <ellipse cx="180" cy="50" rx="40" ry="22" fill="white" opacity=".88"/>
-        <ellipse cx="108" cy="64" rx="32" ry="18" fill="white" opacity=".88"/>
+      <g class="c1">
+        <ellipse cx="160" cy="62" rx="58" ry="26" fill="white" opacity=".9"/>
+        <ellipse cx="202" cy="53" rx="42" ry="23" fill="white" opacity=".9"/>
+        <ellipse cx="124" cy="68" rx="34" ry="19" fill="white" opacity=".9"/>
       </g>
-      <g class="cloud2">
-        <ellipse cx="490" cy="40" rx="65" ry="28" fill="white" opacity=".82"/>
-        <ellipse cx="540" cy="32" rx="45" ry="24" fill="white" opacity=".82"/>
-        <ellipse cx="450" cy="47" rx="38" ry="20" fill="white" opacity=".82"/>
+      <g class="c2">
+        <ellipse cx="540" cy="45" rx="66" ry="28" fill="white" opacity=".82"/>
+        <ellipse cx="590" cy="36" rx="46" ry="24" fill="white" opacity=".82"/>
+        <ellipse cx="498" cy="52" rx="38" ry="20" fill="white" opacity=".82"/>
       </g>
 
       <!-- Back hill -->
-      <path d="M0 210 Q80 170 200 190 Q350 205 500 175 Q640 148 800 185 L800 320 L0 320 Z" fill="url(#hill1)"/>
+      <path d="M0 200 Q100 165 250 188 Q420 208 570 172 Q720 142 900 182 L900 300 L0 300 Z" fill="url(#h1g)"/>
+      <!-- Front hill -->
+      <path d="M0 232 Q160 208 330 226 Q500 244 650 218 Q790 202 900 230 L900 300 L0 300 Z" fill="url(#h2g)"/>
+      <!-- Ground strip -->
+      <rect x="0" y="268" width="900" height="32" fill="url(#gnd)"/>
+      <path d="M0 268 Q225 258 450 265 Q675 271 900 260 L900 274 Q675 283 450 278 Q225 284 0 276 Z" fill="#4a9228"/>
 
-      <!-- Mid hill -->
-      <path d="M0 240 Q120 210 280 230 Q440 248 580 222 Q700 205 800 235 L800 320 L0 320 Z" fill="url(#hill2)"/>
-
-      <!-- Front ground -->
-      <rect x="0" y="278" width="800" height="42" fill="url(#ground404)"/>
-      <path d="M0 278 Q200 268 400 275 Q600 280 800 270 L800 282 Q600 292 400 287 Q200 282 0 290 Z" fill="#4a9228"/>
-
-      <!-- Grass blades (front) -->
-      <g fill="#3a8020">
-        <path class="grass-blade g1" d="M30 278 L34 258 L38 278"/>
-        <path class="grass-blade g2" d="M65 280 L68 262 L71 280"/>
-        <path class="grass-blade g3" d="M110 276 L115 255 L120 276"/>
-        <path class="grass-blade g4" d="M185 279 L188 260 L191 279"/>
-        <path class="grass-blade g1" d="M250 277 L254 258 L258 277"/>
-        <path class="grass-blade g5" d="M330 280 L334 260 L338 280"/>
-        <path class="grass-blade g2" d="M410 278 L413 257 L416 278"/>
-        <path class="grass-blade g3" d="M490 276 L494 255 L498 276"/>
-        <path class="grass-blade g4" d="M565 279 L568 260 L571 279"/>
-        <path class="grass-blade g1" d="M640 278 L644 257 L648 278"/>
-        <path class="grass-blade g5" d="M710 280 L714 260 L718 280"/>
-        <path class="grass-blade g2" d="M760 276 L764 255 L768 276"/>
+      <!-- Grass blades -->
+      <g fill="#358018">
+        <path class="gbl ga" d="M40 268 L44 248 L48 268"/>
+        <path class="gbl gb" d="M85 270 L88 252 L91 270"/>
+        <path class="gbl gc" d="M140 266 L145 246 L150 266"/>
+        <path class="gbl gd" d="M215 269 L218 251 L221 269"/>
+        <path class="gbl ga" d="M290 267 L294 247 L298 267"/>
+        <path class="gbl gb" d="M375 270 L379 250 L383 270"/>
+        <path class="gbl gc" d="M460 268 L464 247 L468 268"/>
+        <path class="gbl gd" d="M550 266 L554 246 L558 266"/>
+        <path class="gbl ga" d="M635 269 L639 249 L643 269"/>
+        <path class="gbl gb" d="M720 268 L724 247 L728 268"/>
+        <path class="gbl gc" d="M800 267 L804 247 L808 267"/>
+        <path class="gbl gd" d="M862 270 L866 250 L870 270"/>
       </g>
 
-      <!-- Daisies -->
+      <!-- Flowers / daisies -->
       <g>
-        <!-- Daisy 1 -->
-        <circle cx="80" cy="278" r="4" fill="white"/>
-        <circle cx="80" cy="278" r="2" fill="#FFD700"/>
-        <!-- Daisy 2 -->
-        <circle cx="310" cy="276" r="3.5" fill="white"/>
-        <circle cx="310" cy="276" r="1.8" fill="#FFD700"/>
-        <!-- Daisy 3 -->
-        <circle cx="620" cy="279" r="4" fill="white"/>
-        <circle cx="620" cy="279" r="2" fill="#FFD700"/>
-        <!-- Daisy 4 -->
-        <circle cx="740" cy="277" r="3" fill="#FFB6C1"/>
-        <circle cx="740" cy="277" r="1.5" fill="#FFD700"/>
-        <!-- Small wildflowers -->
-        <circle cx="200" cy="277" r="2.5" fill="#b8e0a0"/>
-        <circle cx="480" cy="275" r="2.5" fill="#b8e0a0"/>
+        <circle cx="62"  cy="268" r="4.5" fill="white"/><circle cx="62"  cy="268" r="2.2" fill="#FFD700"/>
+        <circle cx="250" cy="266" r="4"   fill="white"/><circle cx="250" cy="266" r="2"   fill="#FFD700"/>
+        <circle cx="500" cy="268" r="3.5" fill="white"/><circle cx="500" cy="268" r="1.8" fill="#FFD700"/>
+        <circle cx="700" cy="267" r="4.5" fill="white"/><circle cx="700" cy="267" r="2.2" fill="#FFD700"/>
+        <circle cx="840" cy="269" r="3"   fill="#FFB6C1"/><circle cx="840" cy="269" r="1.5" fill="#FFD700"/>
+        <circle cx="170" cy="267" r="2.5" fill="#c8f0a0"/>
+        <circle cx="600" cy="266" r="2.5" fill="#c8f0a0"/>
       </g>
 
-      <!-- 404 Sign (wobbling) -->
-      <g class="sign-group" transform="translate(560, 200)">
-        <!-- Post -->
-        <rect x="-5" y="0" width="10" height="80" rx="4" fill="#8B6332"/>
-        <!-- Board -->
-        <rect x="-52" y="-70" width="104" height="72" rx="6" fill="#c8a460"/>
-        <rect x="-52" y="-70" width="104" height="72" rx="6" stroke="#8B6332" stroke-width="2.5" fill="none"/>
-        <!-- Wood grain lines -->
-        <line x1="-42" y1="-60" x2="42" y2="-60" stroke="#b89448" stroke-width="0.8" opacity=".6"/>
-        <line x1="-42" y1="-50" x2="42" y2="-50" stroke="#b89448" stroke-width="0.8" opacity=".6"/>
-        <!-- Sign text -->
-        <text x="0" y="-32" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-weight="900" font-size="30" fill="#2D2D2D">404</text>
-        <text x="0" y="-16" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-weight="700" font-size="10" fill="#5a3e0a">YOU ARE HERE</text>
-        <text x="0" y="-4" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="11" fill="#8a6028">↑ (maybe)</text>
-        <!-- Arrow sticking out bottom of post -->
-        <path d="M-6 80 L-6 92 L-12 92 L0 105 L12 92 L6 92 L6 80 Z" fill="#8B6332"/>
+      <!-- 404 Wooden sign -->
+      <g class="sign" transform="translate(650,195)">
+        <rect x="-5" y="0" width="10" height="75" rx="4" fill="#8B6332"/>
+        <rect x="-56" y="-78" width="112" height="80" rx="7" fill="#c8a460"/>
+        <rect x="-56" y="-78" width="112" height="80" rx="7" stroke="#8B6332" stroke-width="2.5" fill="none"/>
+        <line x1="-44" y1="-62" x2="44" y2="-62" stroke="#b89448" stroke-width=".9" opacity=".6"/>
+        <line x1="-44" y1="-50" x2="44" y2="-50" stroke="#b89448" stroke-width=".9" opacity=".6"/>
+        <text x="0" y="-36" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-weight="900" font-size="32" fill="#2D2D2D">404</text>
+        <text x="0" y="-20" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-weight="700" font-size="11" fill="#5a3e0a">YOU ARE HERE</text>
+        <text x="0" y="-7"  text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="12" fill="#8a6028">↕ (maybe)</text>
+        <path d="M-6 75 L-6 88 L-13 88 L0 102 L13 88 L6 88 L6 75 Z" fill="#8B6332"/>
       </g>
 
       <!-- Butterfly -->
-      <g class="butterfly">
-        <g class="wing-l"><path d="M-14,0 Q-22,-12 -10,-16 Q-2,-12 0,0 Z" fill="#FF8C69" opacity=".85"/></g>
-        <g class="wing-r"><path d="M14,0 Q22,-12 10,-16 Q2,-12 0,0 Z" fill="#FF8C69" opacity=".85"/></g>
+      <g class="bf">
+        <g class="bfw-l"><path d="M-14,0 Q-24,-14 -10,-18 Q-2,-13 0,0 Z" fill="#FF8C69" opacity=".85"/></g>
+        <g class="bfw-r"><path d="M14,0 Q24,-14 10,-18 Q2,-13 0,0 Z"  fill="#FF8C69" opacity=".85"/></g>
         <ellipse cx="0" cy="0" rx="2.5" ry="7" fill="#4a2800"/>
       </g>
-
-      <!-- ====== GOOSE (walking) ====== -->
-      <g class="goose-walk" transform="translate(60, 210)">
-        <g class="goose-bob">
-
-          <!-- Q marks (pop up when confused) -->
-          <g class="q1">
-            <text x="30" y="-80" font-size="22" font-weight="900" fill="#4e9938" font-family="Arial,sans-serif">?</text>
-          </g>
-          <g class="q2">
-            <text x="55" y="-95" font-size="16" font-weight="900" fill="#6BBF4E" font-family="Arial,sans-serif">?</text>
-          </g>
-
-          <!-- Honk speech bubble -->
-          <g class="honk-bubble" transform="translate(60,-88)">
-            <rect x="-28" y="-18" width="72" height="30" rx="12" fill="white" stroke="#e0e0e0" stroke-width="1.5"/>
-            <path d="M14 12 L8 22 L22 14" fill="white" stroke="#e0e0e0" stroke-width="1.5" stroke-linejoin="round"/>
-            <text x="8" y="-1" text-anchor="middle" font-size="13" font-weight="800" fill="#2D2D2D" font-family="'Segoe UI',Arial,sans-serif">HONK?</text>
-          </g>
-
-          <!-- Shadow -->
-          <ellipse cx="55" cy="72" rx="44" ry="6" fill="rgba(0,0,0,0.14)"/>
-
-          <!-- BODY -->
-          <ellipse cx="58" cy="44" rx="42" ry="30" fill="#f5f3e8"/>
-          <!-- Wing -->
-          <ellipse cx="62" cy="48" rx="32" ry="21" fill="#ebe8d6" transform="rotate(-8 62 48)"/>
-          <path d="M24 40 Q58 28 90 40" stroke="#d5d0be" stroke-width="1.2" fill="none"/>
-          <path d="M26 51 Q58 39 88 51" stroke="#d5d0be" stroke-width="1" fill="none"/>
-          <!-- Tail -->
-          <path d="M96 34 L110 24 L107 38 L100 44 Z" fill="#ebe8d6" stroke="#d5d0be" stroke-width="1"/>
-
-          <!-- NECK -->
-          <path d="M38 20 Q22 8 26 -8 Q30 -22 32 -30"
-                stroke="#dedad0" stroke-width="17" fill="none" stroke-linecap="round"/>
-          <path d="M38 20 Q22 8 26 -8 Q30 -22 32 -30"
-                stroke="#f5f3e8" stroke-width="14" fill="none" stroke-linecap="round"/>
-
-          <!-- HEAD group (with look animation) -->
-          <g class="head-look">
-            <!-- Head -->
-            <ellipse cx="32" cy="-36" rx="15" ry="11" fill="#f5f3e8" stroke="#dedad0" stroke-width="1.2"/>
-
-            <!-- Eye -->
-            <circle cx="25" cy="-39" r="3.8" fill="#1a1a1a"/>
-            <circle cx="24" cy="-40" r="1.4" fill="white"/>
-
-            <!-- Confused eyebrow -->
-            <path d="M21 -44 Q25 -47 29 -44" stroke="#b0a898" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-
-            <!-- Beak -->
-            <path d="M20 -34 L7 -36 L7 -31 L20 -32 Z" fill="#e07828"/>
-            <line x1="7" y1="-33.5" x2="20" y2="-33.5" stroke="#b86018" stroke-width=".7"/>
-          </g>
-
-          <!-- LEGS (animated walk) -->
-          <g class="leg-l-walk">
-            <line x1="38" y1="72" x2="30" y2="88" stroke="#e07828" stroke-width="4" stroke-linecap="round"/>
-            <path d="M30 88 L21 88 L25 84 M30 88 L33 92" stroke="#e07828" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          </g>
-          <g class="leg-r-walk">
-            <line x1="56" y1="74" x2="64" y2="90" stroke="#e07828" stroke-width="4" stroke-linecap="round"/>
-            <path d="M64 90 L55 90 L59 86 M64 90 L67 94" stroke="#e07828" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          </g>
-
-        </g><!-- /goose-bob -->
-      </g><!-- /goose-walk -->
-
     </svg>
-  </div>
+
+    <!-- ══ GOOSE on top of field (HTML element) ══ -->
+    <div class="goose-stage">
+      <div class="goose-walker">
+        <div class="goose-bobber">
+
+          <!-- Speech bubble ("HONK?") — stays readable because it lives in a separate stacking context -->
+          <div class="goose-bubble">HONK?</div>
+
+          <!-- Question marks -->
+          <div class="qm q1">?</div>
+          <div class="qm q2">?</div>
+
+          <!-- The goose SVG itself -->
+          <!-- viewBox expands to show head (y=-20) through feet tip (y=145) -->
+          <svg class="goose-svg" xmlns="http://www.w3.org/2000/svg" viewBox="-5 -20 120 165">
+
+            <!-- Shadow -->
+            <ellipse cx="54" cy="124" rx="44" ry="6" fill="rgba(0,0,0,0.13)"/>
+
+            <!-- BODY -->
+            <ellipse cx="60" cy="90" rx="44" ry="31" fill="#f5f3e8"/>
+            <!-- Wing -->
+            <ellipse cx="64" cy="94" rx="34" ry="21" fill="#ebe8d6" transform="rotate(-8 64 94)"/>
+            <path d="M22 84 Q60 70 96 84" stroke="#d5d0be" stroke-width="1.4" fill="none"/>
+            <path d="M25 97 Q60 83 94 97" stroke="#d5d0be" stroke-width="1.1" fill="none"/>
+            <!-- Tail -->
+            <path d="M101 78 L115 67 L111 82 L103 88 Z" fill="#ebe8d6" stroke="#d5d0be" stroke-width="1.2"/>
+
+            <!-- NECK (S-curve, two strokes for depth) -->
+            <path d="M44 64 Q24 48 28 28 Q32 12 34 4"
+                  stroke="#dedad0" stroke-width="18" fill="none" stroke-linecap="round"/>
+            <path d="M44 64 Q24 48 28 28 Q32 12 34 4"
+                  stroke="#f5f3e8" stroke-width="14" fill="none" stroke-linecap="round"/>
+
+            <!-- HEAD group (animated for confusion) -->
+            <g class="g-head">
+              <ellipse cx="34" cy="-2" rx="16" ry="12" fill="#f5f3e8" stroke="#dedad0" stroke-width="1.3"/>
+              <!-- Confused eyebrow -->
+              <path d="M27 -8 Q32 -11 37 -8" stroke="#b0a898" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <!-- Eye -->
+              <circle cx="27" cy="-4" r="4.5" fill="#1a1a1a"/>
+              <circle cx="26" cy="-5" r="1.7" fill="white"/>
+              <!-- Beak (flat bill) -->
+              <path d="M20 1 L4 -1 L4 6 L20 5 Z" fill="#e07828"/>
+              <line x1="4" y1="2.5" x2="20" y2="2.5" stroke="#b86018" stroke-width=".8"/>
+            </g>
+
+            <!-- LEGS -->
+            <g class="g-ll">
+              <line x1="44" y1="120" x2="36" y2="138" stroke="#e07828" stroke-width="5" stroke-linecap="round"/>
+              <path d="M36 138 L25 138 L30 133 M36 138 L39 143" stroke="#e07828" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+            <g class="g-rl">
+              <line x1="64" y1="122" x2="72" y2="140" stroke="#e07828" stroke-width="5" stroke-linecap="round"/>
+              <path d="M72 140 L61 140 L66 135 M72 140 L75 145" stroke="#e07828" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+
+          </svg>
+        </div><!-- /bobber -->
+      </div><!-- /walker -->
+    </div><!-- /goose-stage -->
+
+  </div><!-- /field-wrapper -->
 
 </body>
 </html>
