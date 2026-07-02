@@ -276,6 +276,37 @@
           </div>
         </div>
 
+        <!-- ── Help Bot Settings ── -->
+        <div style="padding:24px;border-top:1px solid #eee">
+          <div class="modal-section-label" style="margin-bottom:6px">🤖 Help Bot Settings</div>
+          <p style="font-size:13px;color:#666;margin:0 0 16px;line-height:1.6">The Help Bot appears on all portal pages. <strong>Rule-based</strong> mode is free and works offline. <strong>AI mode</strong> uses Claude and requires an Anthropic API key in Vercel.</p>
+
+          <div id="s-bot-loading" style="font-size:13px;color:#888">Loading bot status…</div>
+
+          <div id="s-bot-controls" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f5f6f8;border:1.5px solid #e0e0e0;border-radius:8px;padding:14px 18px;margin-bottom:14px">
+              <div>
+                <div style="font-size:14px;font-weight:700;color:#2D2D2D">Current Mode: <span id="s-bot-mode-label" style="color:#4e9938">Rule-based</span></div>
+                <div id="s-bot-ai-status" style="font-size:12px;color:#888;margin-top:3px">AI mode: checking…</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button id="s-bot-rules-btn" onclick="setBotMode('rules')" style="padding:7px 16px;border-radius:6px;border:1.5px solid #4e9938;background:#4e9938;color:#fff;font-weight:700;font-size:13px;cursor:pointer">Rule-based</button>
+                <button id="s-bot-ai-btn" onclick="setBotMode('ai')" style="padding:7px 16px;border-radius:6px;border:1.5px solid #dde;background:#fff;color:#444;font-weight:600;font-size:13px;cursor:pointer">AI (Claude)</button>
+              </div>
+            </div>
+
+            <div id="s-bot-ai-warning" style="display:none;background:#fff8e6;border:1.5px solid #f0c040;border-radius:6px;padding:10px 14px;font-size:12.5px;color:#6b4f00;margin-bottom:12px">
+              ⚠️ AI mode requires <strong>ANTHROPIC_API_KEY</strong> to be set in Vercel Environment Variables. Go to your Vercel project → Settings → Environment Variables to add it.
+            </div>
+
+            <div id="s-bot-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
+
+            <div style="background:#f0f7ee;border-radius:6px;padding:10px 14px;font-size:12px;color:#3d6b30">
+              <strong>Note:</strong> Mode changes take ~60 seconds to go live after Vercel redeploys. The bot widget updates automatically on next page load.
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>

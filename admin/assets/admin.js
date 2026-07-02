@@ -397,11 +397,11 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 document.getElementById('settings-btn').addEventListener('click', () => {
   document.getElementById('settings-overlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
-  // Clear any previous messages
-  ['s-pw-msg','s-code-msg'].forEach(id => {
+  ['s-pw-msg','s-code-msg','s-bot-msg'].forEach(id => {
     const el = document.getElementById(id);
-    el.style.display = 'none'; el.textContent = '';
+    if (el) { el.style.display = 'none'; el.textContent = ''; }
   });
+  loadBotSettings();
 });
 
 document.getElementById('settings-close').addEventListener('click', closeSettings);
@@ -521,6 +521,98 @@ document.getElementById('s-code-btn').addEventListener('click', async () => {
     setBtnLoading('s-code-btn', false);
   }
 });
+
+// ── Bot settings ──────────────────────────────────────────────────────────────
+async function loadBotSettings() {
+  const loading  = document.getElementById('s-bot-loading');
+  const controls = document.getElementById('s-bot-controls');
+  if (!loading || !controls) return;
+
+  loading.style.display  = 'block';
+  controls.style.display = 'none';
+
+  try {
+    const res  = await adminFetch('/api/admin/bot-settings');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to load bot settings');
+
+    renderBotStatus(data.mode, data.aiAvailable, data.vercelReady);
+    loading.style.display  = 'none';
+    controls.style.display = 'block';
+  } catch (e) {
+    loading.textContent = 'Could not load bot settings: ' + e.message;
+  }
+}
+
+function renderBotStatus(mode, aiAvailable, vercelReady) {
+  const label   = document.getElementById('s-bot-mode-label');
+  const aiStatus = document.getElementById('s-bot-ai-status');
+  const warning  = document.getElementById('s-bot-ai-warning');
+  const rulesBtn = document.getElementById('s-bot-rules-btn');
+  const aiBtn    = document.getElementById('s-bot-ai-btn');
+
+  if (label) {
+    label.textContent = mode === 'ai' ? 'AI (Claude)' : 'Rule-based';
+    label.style.color = mode === 'ai' ? '#0078d4' : '#4e9938';
+  }
+  if (aiStatus) {
+    aiStatus.textContent = aiAvailable
+      ? 'AI mode: Available (ANTHROPIC_API_KEY is set)'
+      : 'AI mode: Not available (ANTHROPIC_API_KEY not set in Vercel)';
+    aiStatus.style.color = aiAvailable ? '#107c10' : '#a4262c';
+  }
+  if (warning) warning.style.display = aiAvailable ? 'none' : 'block';
+
+  const activeStyle   = 'padding:7px 16px;border-radius:6px;border:1.5px solid #4e9938;background:#4e9938;color:#fff;font-weight:700;font-size:13px;cursor:pointer';
+  const inactiveStyle = 'padding:7px 16px;border-radius:6px;border:1.5px solid #dde;background:#fff;color:#444;font-weight:600;font-size:13px;cursor:pointer';
+  const aiActiveStyle = 'padding:7px 16px;border-radius:6px;border:1.5px solid #0078d4;background:#0078d4;color:#fff;font-weight:700;font-size:13px;cursor:pointer';
+
+  if (rulesBtn) rulesBtn.style.cssText = mode === 'rules' ? activeStyle : inactiveStyle;
+  if (aiBtn)    aiBtn.style.cssText    = mode === 'ai'    ? aiActiveStyle : inactiveStyle;
+}
+
+window.setBotMode = async function(mode) {
+  const msgEl = document.getElementById('s-bot-msg');
+
+  if (mode === 'ai') {
+    const warning = document.getElementById('s-bot-ai-warning');
+    if (warning && warning.style.display !== 'none') {
+      if (msgEl) { showSettingsMsg('s-bot-msg', 'Cannot enable AI mode — ANTHROPIC_API_KEY is not set in Vercel. Add it first, then try again.', false); }
+      return;
+    }
+  }
+
+  if (msgEl) { msgEl.style.display = 'none'; }
+
+  const rulesBtn = document.getElementById('s-bot-rules-btn');
+  const aiBtn    = document.getElementById('s-bot-ai-btn');
+  if (rulesBtn) rulesBtn.disabled = true;
+  if (aiBtn)    aiBtn.disabled    = true;
+
+  try {
+    const res  = await adminFetch('/api/admin/bot-settings', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ mode })
+    });
+    const data = await res.json();
+
+    if (!res.ok) { showSettingsMsg('s-bot-msg', data.error || 'Failed to change bot mode.', false); return; }
+
+    renderBotStatus(mode, !!(document.getElementById('s-bot-ai-warning')?.style.display === 'none'), !!(data.vercelUpdated));
+
+    let msg = `✅ Bot mode set to ${mode === 'ai' ? 'AI (Claude)' : 'Rule-based'}.`;
+    if (data.requiresManualVercel) msg += ' Update BOT_MODE in Vercel env vars then redeploy to activate.';
+    else if (data.requiresManualDeploy) msg += ' Trigger a Vercel redeploy to activate (~60 seconds).';
+    else if (data.deployed) msg += ' Redeployment triggered — active in ~60 seconds.';
+    showSettingsMsg('s-bot-msg', msg, true);
+  } catch (_) {
+    showSettingsMsg('s-bot-msg', 'Network error — could not reach the server.', false);
+  } finally {
+    if (rulesBtn) rulesBtn.disabled = false;
+    if (aiBtn)    aiBtn.disabled    = false;
+  }
+};
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 populateAssignDropdown();
