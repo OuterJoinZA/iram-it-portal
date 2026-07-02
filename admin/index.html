@@ -307,6 +307,49 @@
           </div>
         </div>
 
+        <!-- ── Maintenance Mode ── -->
+        <div style="padding:24px;border-top:1px solid #eee">
+          <div class="modal-section-label" style="margin-bottom:6px">🚧 Maintenance Mode</div>
+          <p style="font-size:13px;color:#666;margin:0 0 16px;line-height:1.6">When on, all portal pages redirect visitors to the animated maintenance page. Admins bypass it automatically. Takes ~60s to activate after Vercel redeploys.</p>
+
+          <div id="s-maint-loading" style="font-size:13px;color:#888">Checking maintenance status…</div>
+
+          <div id="s-maint-controls" style="display:none">
+            <div id="s-maint-bar" style="display:flex;align-items:center;justify-content:space-between;border-radius:8px;padding:14px 18px;margin-bottom:14px;background:#edf7e8;border:1.5px solid #b3dea8;transition:background .3s,border-color .3s">
+              <div>
+                <div style="font-size:14px;font-weight:700" id="s-maint-label">Live — portal is accessible to all staff</div>
+                <div style="font-size:12px;color:#666;margin-top:3px" id="s-maint-sub">Toggle to put the site in maintenance mode</div>
+              </div>
+              <!-- Toggle switch -->
+              <label style="position:relative;display:inline-block;width:54px;height:28px;cursor:pointer;flex-shrink:0">
+                <input type="checkbox" id="s-maint-toggle" style="opacity:0;width:0;height:0" onchange="setMaintenance(this.checked)">
+                <span id="s-maint-slider" style="position:absolute;inset:0;background:#ccc;border-radius:14px;transition:background .25s;display:flex;align-items:center">
+                  <span id="s-maint-knob" style="width:22px;height:22px;background:white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.25);margin-left:3px;transition:margin-left .25s;flex-shrink:0"></span>
+                </span>
+              </label>
+            </div>
+
+            <div id="s-maint-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px"></div>
+
+            <div style="background:#fff8f0;border:1.5px solid #f0c080;border-radius:6px;padding:10px 14px;font-size:12px;color:#7a4800">
+              ⚠️ <strong>Admins are never redirected</strong> — you can always reach <strong>/admin</strong> during maintenance. The animated goose maintenance page shows to all other visitors.
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Broadcast Refresh ── -->
+        <div style="padding:24px;border-top:1px solid #eee">
+          <div class="modal-section-label" style="margin-bottom:6px">📡 Broadcast Page Refresh</div>
+          <p style="font-size:13px;color:#666;margin:0 0 16px;line-height:1.6">Portal pages automatically detect when a new deploy is live and prompt visitors to refresh. Click below to trigger a silent redeploy and notify all open tabs within ~80 seconds.</p>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button id="s-broadcast-btn" onclick="broadcastRefresh()" style="padding:10px 22px;background:#2D2D2D;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s">📡 Broadcast Refresh to All Users</button>
+          </div>
+          <div id="s-broadcast-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-top:12px"></div>
+          <div style="margin-top:12px;background:#f5f6f8;border-radius:6px;padding:10px 14px;font-size:12px;color:#666">
+            All open portal tabs poll <code style="background:#e8e8e8;padding:1px 5px;border-radius:3px">/api/version</code> every 20 seconds. When the deploy version changes, visitors see a toast and the page refreshes automatically.
+          </div>
+        </div>
+
       </div>
     </div>
   </div>

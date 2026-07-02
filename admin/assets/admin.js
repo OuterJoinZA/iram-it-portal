@@ -397,11 +397,12 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 document.getElementById('settings-btn').addEventListener('click', () => {
   document.getElementById('settings-overlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
-  ['s-pw-msg','s-code-msg','s-bot-msg'].forEach(id => {
+  ['s-pw-msg','s-code-msg','s-bot-msg','s-maint-msg','s-broadcast-msg'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.style.display = 'none'; el.textContent = ''; }
   });
   loadBotSettings();
+  loadMaintenanceSettings();
 });
 
 document.getElementById('settings-close').addEventListener('click', closeSettings);
@@ -611,6 +612,111 @@ window.setBotMode = async function(mode) {
   } finally {
     if (rulesBtn) rulesBtn.disabled = false;
     if (aiBtn)    aiBtn.disabled    = false;
+  }
+};
+
+// ── Maintenance mode ──────────────────────────────────────────────────────────
+async function loadMaintenanceSettings() {
+  const loading  = document.getElementById('s-maint-loading');
+  const controls = document.getElementById('s-maint-controls');
+  if (!loading || !controls) return;
+  loading.style.display  = 'block';
+  controls.style.display = 'none';
+
+  try {
+    const res  = await adminFetch('/api/admin/maintenance');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    renderMaintenanceStatus(data.maintenance);
+    loading.style.display  = 'none';
+    controls.style.display = 'block';
+  } catch (e) {
+    loading.textContent = 'Could not load maintenance status: ' + e.message;
+  }
+}
+
+function renderMaintenanceStatus(on) {
+  const toggle  = document.getElementById('s-maint-toggle');
+  const slider  = document.getElementById('s-maint-slider');
+  const knob    = document.getElementById('s-maint-knob');
+  const bar     = document.getElementById('s-maint-bar');
+  const label   = document.getElementById('s-maint-label');
+  const sub     = document.getElementById('s-maint-sub');
+  if (!toggle) return;
+
+  toggle.checked = on;
+
+  if (on) {
+    slider.style.background   = '#e07828';
+    knob.style.marginLeft     = '29px';
+    bar.style.background      = '#fff3ef';
+    bar.style.borderColor     = '#f4b8a8';
+    label.style.color         = '#a4262c';
+    label.textContent         = '🚧 MAINTENANCE ON — visitors see the maintenance page';
+    sub.textContent           = 'Toggle off to restore the portal for all staff';
+  } else {
+    slider.style.background   = '#4e9938';
+    knob.style.marginLeft     = '3px';
+    bar.style.background      = '#edf7e8';
+    bar.style.borderColor     = '#b3dea8';
+    label.style.color         = '#107c10';
+    label.textContent         = '✅ Live — portal is accessible to all staff';
+    sub.textContent           = 'Toggle to put the site in maintenance mode';
+  }
+}
+
+window.setMaintenance = async function (on) {
+  const msgEl = document.getElementById('s-maint-msg');
+  if (msgEl) msgEl.style.display = 'none';
+
+  const toggle = document.getElementById('s-maint-toggle');
+  if (toggle) toggle.disabled = true;
+
+  try {
+    const res  = await adminFetch('/api/admin/maintenance', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ maintenance: on })
+    });
+    const data = await res.json();
+    if (!res.ok) { showSettingsMsg('s-maint-msg', data.error || 'Failed to update.', false); renderMaintenanceStatus(!on); return; }
+
+    renderMaintenanceStatus(on);
+
+    let msg = on ? '🚧 Maintenance mode enabled.' : '✅ Maintenance mode disabled.';
+    if (data.requiresManualVercel) msg += ' Update MAINTENANCE_MODE in Vercel then redeploy to activate.';
+    else if (data.requiresManualDeploy) msg += ' Trigger a Vercel redeploy (~60s) to activate.';
+    else if (data.deployed) msg += ' Redeployment triggered — active in ~60 seconds.';
+    showSettingsMsg('s-maint-msg', msg, !data.requiresManualVercel);
+  } catch (_) {
+    showSettingsMsg('s-maint-msg', 'Network error — could not reach the server.', false);
+    renderMaintenanceStatus(!on);
+  } finally {
+    if (toggle) toggle.disabled = false;
+  }
+};
+
+// ── Broadcast refresh ─────────────────────────────────────────────────────────
+window.broadcastRefresh = async function () {
+  const btn    = document.getElementById('s-broadcast-btn');
+  const msgEl  = document.getElementById('s-broadcast-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Triggering deploy…'; }
+  if (msgEl) msgEl.style.display = 'none';
+
+  try {
+    const res  = await adminFetch('/api/admin/broadcast', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { showSettingsMsg('s-broadcast-msg', data.error || 'Failed.', false); return; }
+
+    if (data.deployed) {
+      showSettingsMsg('s-broadcast-msg', '✅ Redeployment triggered. All open portal tabs will auto-refresh within ~80 seconds.', true);
+    } else {
+      showSettingsMsg('s-broadcast-msg', '⚠️ Could not trigger redeploy automatically — VERCEL_DEPLOY_HOOK_URL may not be set. Trigger a manual redeploy from the Vercel dashboard to broadcast the refresh.', false);
+    }
+  } catch (_) {
+    showSettingsMsg('s-broadcast-msg', 'Network error — could not reach the server.', false);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📡 Broadcast Refresh to All Users'; }
   }
 };
 

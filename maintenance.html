@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam — Scheduled Maintenance</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪿</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1c1c1c;
+      color: #fff;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Subtle green glow background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 50% 110%, rgba(78,153,56,.12) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 30% at 10% 20%, rgba(78,153,56,.06) 0%, transparent 60%),
+        #1c1c1c;
+      z-index: 0;
+    }
+
+    /* Floating dust particles */
+    .particles { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+    .particle {
+      position: absolute;
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: rgba(107,191,78,.35);
+      animation: drift linear infinite;
+    }
+    .particle:nth-child(1)  { left:8%;   animation-duration:18s; animation-delay:0s;   width:2px; height:2px; }
+    .particle:nth-child(2)  { left:22%;  animation-duration:24s; animation-delay:4s;   }
+    .particle:nth-child(3)  { left:38%;  animation-duration:20s; animation-delay:8s;   width:4px; height:4px; background:rgba(107,191,78,.2); }
+    .particle:nth-child(4)  { left:58%;  animation-duration:16s; animation-delay:2s;   }
+    .particle:nth-child(5)  { left:74%;  animation-duration:22s; animation-delay:6s;   width:2px; height:2px; }
+    .particle:nth-child(6)  { left:90%;  animation-duration:19s; animation-delay:11s;  width:4px; height:4px; background:rgba(107,191,78,.2); }
+    @keyframes drift {
+      from { transform: translateY(110vh); opacity:0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      to   { transform: translateY(-10vh); opacity:0; }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* ── iRam brand ── */
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 36px;
+      opacity: 0.85;
+    }
+    .brand-text { font-size: 26px; font-weight: 800; color: #fff; letter-spacing: -.5px; }
+    .brand-sub  { font-size: 10px; font-weight: 600; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: 1.5px; }
+
+    /* ── Puzzle logo ── */
+    .puzzle-wrap {
+      position: relative;
+      width: 136px;
+      height: 136px;
+      margin-bottom: 8px;
+    }
+    .sq {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      animation: assemble 7s cubic-bezier(.4,0,.2,1) infinite;
+    }
+    /* Grid positions for the cross */
+    .sq-top    { top:0;   left:48px; background:#6BBF4E; --dx:-35px; --dy:-55px; --r:-18deg; animation-delay:0s;   }
+    .sq-left   { top:48px; left:0;   background:#6BBF4E; --dx:-60px; --dy:18px;  --r:14deg;  animation-delay:.15s; }
+    .sq-center { top:48px; left:48px; background:#4e9938; --dx:8px;  --dy:42px;  --r:-8deg;  animation-delay:.05s; }
+    .sq-right  { top:48px; left:96px; background:#6BBF4E; --dx:55px; --dy:-18px; --r:22deg;  animation-delay:.2s;  }
+    .sq-bottom { top:96px; left:48px; background:#6BBF4E; --dx:28px; --dy:58px;  --r:-12deg; animation-delay:.1s;  }
+
+    @keyframes assemble {
+      0%,25%  { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity:.65; }
+      50%,78% { transform: translate(0,0) rotate(0deg); opacity:1; }
+      95%,100%{ transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity:.65; }
+    }
+
+    /* Glint on assembled logo */
+    .puzzle-glint {
+      position: absolute;
+      inset: 0;
+      border-radius: 4px;
+      background: linear-gradient(135deg, rgba(255,255,255,.25) 0%, transparent 60%);
+      animation: glint-fade 7s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes glint-fade {
+      0%,45%   { opacity:0; }
+      58%,74%  { opacity:1; }
+      85%,100% { opacity:0; }
+    }
+
+    /* ── Goose ── */
+    .goose-area {
+      position: relative;
+      width: 240px;
+      height: 270px;
+      margin: -10px auto 0;
+    }
+    /* Whole goose bobs while working */
+    .goose-svg {
+      animation: work-bob 1.6s ease-in-out infinite;
+      transform-origin: bottom center;
+    }
+    @keyframes work-bob {
+      0%,100% { transform: translateY(0) rotate(0deg); }
+      30%     { transform: translateY(-12px) rotate(1.5deg); }
+      70%     { transform: translateY(-5px)  rotate(-1deg); }
+    }
+    /* Wrench swings */
+    .wrench-arm {
+      animation: wrench-swing 1.6s ease-in-out infinite;
+      transform-box: fill-box;
+      transform-origin: 30% 80%;
+    }
+    @keyframes wrench-swing {
+      0%,100% { transform: rotate(0deg); }
+      40%     { transform: rotate(28deg); }
+      70%     { transform: rotate(-8deg); }
+    }
+    /* Legs alternate */
+    .leg-l {
+      animation: leg-left  .8s ease-in-out infinite alternate;
+      transform-box: fill-box; transform-origin: 50% 0%;
+    }
+    .leg-r {
+      animation: leg-right .8s ease-in-out infinite alternate;
+      transform-box: fill-box; transform-origin: 50% 0%;
+    }
+    @keyframes leg-left  { to { transform: rotate(14deg);  } }
+    @keyframes leg-right { to { transform: rotate(-14deg); } }
+    /* Head nods at puzzle */
+    .goose-head-group {
+      animation: head-nod 2.4s ease-in-out infinite;
+      transform-box: fill-box;
+      transform-origin: 50% 90%;
+    }
+    @keyframes head-nod {
+      0%,100% { transform: rotate(0deg); }
+      40%     { transform: rotate(-12deg); }
+      70%     { transform: rotate(4deg);  }
+    }
+
+    /* ── Text ── */
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 4px;
+      letter-spacing: -.5px;
+    }
+    .sub {
+      font-size: 15px;
+      color: rgba(255,255,255,.5);
+      line-height: 1.65;
+      margin: 10px 0 24px;
+      max-width: 400px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(107,191,78,.12);
+      border: 1.5px solid rgba(107,191,78,.28);
+      color: #6BBF4E;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 9px 22px;
+      border-radius: 24px;
+      letter-spacing: .3px;
+    }
+    .badge span { font-size: 18px; animation: honk-bounce .8s ease-in-out infinite alternate; display:inline-block; }
+    @keyframes honk-bounce { to { transform: scale(1.25) rotate(-8deg); } }
+
+    .footer {
+      margin-top: 28px;
+      font-size: 12px;
+      color: rgba(255,255,255,.25);
+      line-height: 1.8;
+    }
+    .footer a { color: rgba(107,191,78,.6); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Background particles -->
+  <div class="particles">
+    <div class="particle"></div><div class="particle"></div>
+    <div class="particle"></div><div class="particle"></div>
+    <div class="particle"></div><div class="particle"></div>
+  </div>
+
+  <div class="container">
+
+    <!-- Brand -->
+    <div class="brand">
+      <svg viewBox="0 0 38 38" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="14" y="2"  width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="14" y="26" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="2"  y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="26" y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
+        <rect x="14" y="14" width="10" height="10" rx="2" fill="#4e9938"/>
+      </svg>
+      <div>
+        <div class="brand-text">iRam</div>
+        <div class="brand-sub">Staff Help Portal</div>
+      </div>
+    </div>
+
+    <!-- Animated puzzle -->
+    <div class="puzzle-wrap">
+      <div class="sq sq-top">   <div class="puzzle-glint"></div></div>
+      <div class="sq sq-left">  <div class="puzzle-glint"></div></div>
+      <div class="sq sq-center"><div class="puzzle-glint"></div></div>
+      <div class="sq sq-right"> <div class="puzzle-glint"></div></div>
+      <div class="sq sq-bottom"><div class="puzzle-glint"></div></div>
+    </div>
+
+    <!-- Goose -->
+    <div class="goose-area">
+      <svg class="goose-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 270" width="240" height="270">
+
+        <!-- Drop shadow -->
+        <ellipse cx="118" cy="262" rx="72" ry="8" fill="rgba(107,191,78,.1)"/>
+
+        <!-- BODY -->
+        <ellipse cx="120" cy="188" rx="68" ry="50" fill="#f5f3e8"/>
+        <!-- Wing -->
+        <ellipse cx="126" cy="195" rx="54" ry="36" fill="#ebe8d6" transform="rotate(-8 126 195)"/>
+        <path d="M74 182 Q122 162 168 182" stroke="#d5d0be" stroke-width="1.8" fill="none"/>
+        <path d="M78 198 Q122 178 165 198" stroke="#d5d0be" stroke-width="1.4" fill="none"/>
+        <!-- Tail -->
+        <path d="M183 172 L205 154 L200 178 L188 186 Z" fill="#ebe8d6" stroke="#d5d0be" stroke-width="1.2"/>
+        <path d="M186 180 L206 164 L202 185 L192 190 Z" fill="#e4e0ce" stroke="#d5d0be" stroke-width="1"/>
+
+        <!-- NECK (S-curve, two-tone for depth) -->
+        <path d="M102 148 Q72 122 78 90 Q84 64 88 48"
+              stroke="#dedad0" stroke-width="28" fill="none" stroke-linecap="round"/>
+        <path d="M102 148 Q72 122 78 90 Q84 64 88 48"
+              stroke="#f5f3e8" stroke-width="23" fill="none" stroke-linecap="round"/>
+
+        <!-- HEAD + accessories group -->
+        <g class="goose-head-group">
+          <!-- HEAD -->
+          <ellipse cx="88" cy="38" rx="23" ry="18" fill="#f5f3e8" stroke="#dedad0" stroke-width="1.5"/>
+
+          <!-- HARD HAT -->
+          <ellipse cx="88" cy="23" rx="28" ry="8" fill="#FFD700"/>
+          <rect x="62" y="19" width="52" height="11" rx="5.5" fill="#FFD700"/>
+          <rect x="68" y="18" width="40" height="7" rx="3.5" fill="#FFC107"/>
+          <!-- Brim shadow -->
+          <ellipse cx="88" cy="30" rx="30" ry="5" fill="#FFB300" opacity="0.5"/>
+          <!-- Hat vent lines -->
+          <line x1="78" y1="20" x2="78" y2="25" stroke="#e6a800" stroke-width="1.5"/>
+          <line x1="88" y1="19" x2="88" y2="24" stroke="#e6a800" stroke-width="1.5"/>
+          <line x1="98" y1="20" x2="98" y2="25" stroke="#e6a800" stroke-width="1.5"/>
+
+          <!-- EYE -->
+          <circle cx="76" cy="34" r="6" fill="#1a1a1a"/>
+          <circle cx="75" cy="33" r="2.3" fill="white"/>
+          <!-- Eyebrow (determined look) -->
+          <path d="M70 28 Q76 26 82 28" stroke="#a8a090" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+          <!-- BEAK -->
+          <path d="M67 40 L46 37 L46 45 L67 43 Z" fill="#e07828"/>
+          <line x1="46" y1="41" x2="67" y2="41" stroke="#b86018" stroke-width="1"/>
+          <!-- Nostril -->
+          <ellipse cx="58" cy="39" rx="3" ry="2" fill="#c06020" opacity="0.5"/>
+        </g>
+
+        <!-- WRENCH ARM (extends from body, animated) -->
+        <g class="wrench-arm">
+          <!-- Arm/wing extension -->
+          <path d="M182 168 Q205 152 210 135" stroke="#f0eed8" stroke-width="18" fill="none" stroke-linecap="round"/>
+          <path d="M182 168 Q205 152 210 135" stroke="#e8e4d2" stroke-width="14" fill="none" stroke-linecap="round"/>
+          <!-- Wrench head -->
+          <g transform="translate(204,124) rotate(-28)">
+            <!-- Handle -->
+            <rect x="-5" y="-5" width="10" height="32" rx="4" fill="#8a8a8a"/>
+            <rect x="-4" y="-4" width="8" height="30" rx="3" fill="#b0b0b0"/>
+            <!-- C-spanner top -->
+            <path d="M-9,-5 Q0,-16 9,-5 L6,-2 Q0,-10 -6,-2 Z" fill="#8a8a8a"/>
+            <path d="M-7,-5 Q0,-13 7,-5 L5,-3 Q0,-10 -5,-3 Z" fill="#a8a8a8"/>
+            <!-- C-spanner bottom -->
+            <path d="M-9,22 Q0,32 9,22 L6,20 Q0,28 -6,20 Z" fill="#8a8a8a"/>
+          </g>
+          <!-- Sparkles around wrench (working) -->
+          <circle cx="218" cy="118" r="3" fill="#FFD700" opacity=".9">
+            <animate attributeName="opacity" values=".9;0;.9" dur="0.8s" repeatCount="indefinite"/>
+            <animate attributeName="r" values="3;5;3" dur="0.8s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="225" cy="130" r="2" fill="#FFD700" opacity=".7">
+            <animate attributeName="opacity" values=".7;0;.7" dur="1.1s" begin="0.3s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="212" cy="108" r="2.5" fill="#fff" opacity=".8">
+            <animate attributeName="opacity" values=".8;0;.8" dur="0.6s" begin="0.15s" repeatCount="indefinite"/>
+          </circle>
+        </g>
+
+        <!-- LEGS -->
+        <g class="leg-l">
+          <line x1="100" y1="234" x2="86"  y2="256" stroke="#e07828" stroke-width="6.5" stroke-linecap="round"/>
+          <path d="M86 256 L72 256 L79 250 M86 256 L90 262" stroke="#e07828" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+        <g class="leg-r">
+          <line x1="132" y1="236" x2="146" y2="258" stroke="#e07828" stroke-width="6.5" stroke-linecap="round"/>
+          <path d="M146 258 L132 258 L139 252 M146 258 L150 264" stroke="#e07828" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+
+      </svg>
+    </div>
+
+    <h1>Scheduled Maintenance</h1>
+    <p class="sub">Our technical goose is working on it.<br>The iRam Staff Help Portal will be back shortly.</p>
+    <div class="badge"><span>🪿</span> HONK — we'll be right back!</div>
+
+    <div class="footer">
+      For urgent IT support, email <a href="mailto:it-support@iram.co.za">it-support@iram.co.za</a><br>
+      For HR queries, email <a href="mailto:hr@iram.co.za">hr@iram.co.za</a>
+    </div>
+
+  </div>
+</body>
+</html>
