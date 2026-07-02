@@ -26,10 +26,10 @@
     </div>
 
     <div class="nav-section">Tickets</div>
-    <button class="nav-item active" onclick="setTab('Open', this)"><span class="icon">📬</span> Open Tickets</button>
+    <button class="nav-item" onclick="setTab('Open', this)"><span class="icon">📬</span> Open Tickets</button>
     <button class="nav-item" onclick="setTab('In Progress', this)"><span class="icon">⚙️</span> In Progress</button>
     <button class="nav-item" onclick="setTab('Resolved', this)"><span class="icon">✅</span> Resolved</button>
-    <button class="nav-item" onclick="setTab('All', this)"><span class="icon">🗂️</span> All Tickets</button>
+    <button class="nav-item active" onclick="setTab('All', this)"><span class="icon">🗂️</span> All Tickets</button>
 
     <div class="nav-section" style="margin-top:16px">Priority</div>
     <button class="nav-item" onclick="setPrio('Critical', this)"><span class="icon">🔴</span> Critical</button>
@@ -85,10 +85,10 @@
       <!-- Filter bar -->
       <div class="filter-bar">
         <div class="tab-group">
-          <button class="tab-btn active" data-tab="Open">Open</button>
+          <button class="tab-btn" data-tab="Open">Open</button>
           <button class="tab-btn" data-tab="In Progress">In Progress</button>
           <button class="tab-btn" data-tab="Resolved">Resolved</button>
-          <button class="tab-btn" data-tab="All">All</button>
+          <button class="tab-btn active" data-tab="All">All</button>
         </div>
         <input type="text" id="search-input" placeholder="Search by name, ticket ID, description…">
         <select id="prio-filter" class="filter-select">
@@ -220,139 +220,184 @@
 
   <!-- ── SETTINGS MODAL ── -->
   <div class="modal-overlay" id="settings-overlay" style="display:none;z-index:10000">
-    <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
-      <div class="modal-header">
+    <div class="modal" style="max-width:680px;width:95vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
+      <div class="modal-header" style="flex-shrink:0">
         <h3>⚙️ Portal Settings</h3>
         <button class="modal-close" id="settings-close">✕</button>
       </div>
-      <div class="modal-body" style="padding:0">
 
-        <!-- ── Change Admin Password ── -->
-        <div style="padding:24px;border-bottom:1px solid #eee">
-          <div class="modal-section-label" style="margin-bottom:14px">🔐 Change Admin Password</div>
-          <div style="display:flex;flex-direction:column;gap:12px">
-            <div>
-              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Current Password</label>
-              <input type="password" id="s-cur-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Enter current admin password">
+      <!-- Tab nav -->
+      <div style="display:flex;border-bottom:2px solid #eee;padding:0 8px;flex-shrink:0;overflow-x:auto">
+        <button class="s-stab active" data-stab="security">🔐 Security</button>
+        <button class="s-stab" data-stab="bot">🤖 Help Bot</button>
+        <button class="s-stab" data-stab="maintenance">🚧 Maintenance</button>
+        <button class="s-stab" data-stab="broadcast">📡 Broadcast</button>
+      </div>
+
+      <div class="modal-body" style="padding:0;overflow-y:auto;flex:1">
+
+        <!-- ── SECURITY PANEL ── -->
+        <div class="s-spanel" id="s-spanel-security" style="padding:28px;display:flex;flex-direction:column;gap:32px">
+
+          <!-- Change Admin Password -->
+          <div>
+            <div class="modal-section-label" style="margin-bottom:16px">🔐 Change Admin Password</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <div style="grid-column:1/-1">
+                <label class="s-lbl">Current Password</label>
+                <input type="password" id="s-cur-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Enter current admin password">
+              </div>
+              <div>
+                <label class="s-lbl">New Password <span style="color:#d83b01">*</span></label>
+                <input type="password" id="s-new-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Minimum 8 characters">
+              </div>
+              <div>
+                <label class="s-lbl">Confirm New Password <span style="color:#d83b01">*</span></label>
+                <input type="password" id="s-conf-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Repeat new password">
+              </div>
+              <div style="grid-column:1/-1">
+                <label class="s-lbl">Send New Password To <span style="color:#d83b01">*</span></label>
+                <input type="email" id="s-pw-email" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="admin@iram.co.za">
+                <div style="font-size:11.5px;color:#888;margin-top:5px">Required — new password is emailed to this address immediately.</div>
+              </div>
             </div>
-            <div>
-              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">New Password <span style="color:#d83b01">*</span></label>
-              <input type="password" id="s-new-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Minimum 8 characters">
+            <div id="s-pw-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-top:12px"></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px">
+              <button id="s-pw-btn" class="btn-save" style="padding:10px 28px">💾 Update Password</button>
             </div>
-            <div>
-              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Confirm New Password <span style="color:#d83b01">*</span></label>
-              <input type="password" id="s-conf-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Repeat new password">
-            </div>
-            <div>
-              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Send New Password To <span style="color:#d83b01">*</span></label>
-              <input type="email" id="s-pw-email" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="admin@iram.co.za">
-              <div style="font-size:11.5px;color:#888;margin-top:5px">Required — new password is emailed to this address immediately.</div>
-            </div>
-            <div id="s-pw-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px"></div>
-            <button id="s-pw-btn" class="btn-save" style="align-self:flex-end;padding:10px 24px">💾 Update Password</button>
           </div>
+
+          <!-- Change Manager Access Code -->
+          <div style="border-top:1px solid #eee;padding-top:28px">
+            <div class="modal-section-label" style="margin-bottom:6px">🔒 Change Manager Access Code</div>
+            <p style="font-size:13px;color:#666;margin:0 0 16px;line-height:1.6">The code managers enter on the HR page to access senior staff forms. HR is emailed the new code automatically.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <div>
+                <label class="s-lbl">New Access Code <span style="color:#d83b01">*</span></label>
+                <input type="text" id="s-new-code" class="ctrl-select" style="width:100%;box-sizing:border-box;font-family:monospace;letter-spacing:1px" placeholder="e.g. MGR2025!">
+              </div>
+              <div>
+                <label class="s-lbl">Confirm New Access Code <span style="color:#d83b01">*</span></label>
+                <input type="text" id="s-conf-code" class="ctrl-select" style="width:100%;box-sizing:border-box;font-family:monospace;letter-spacing:1px" placeholder="Repeat access code">
+              </div>
+              <div style="grid-column:1/-1">
+                <label class="s-lbl">Email New Code To HR <span style="color:#d83b01">*</span></label>
+                <input type="email" id="s-hr-email" class="ctrl-select" style="width:100%;box-sizing:border-box" value="hr@iram.co.za">
+                <div style="font-size:11.5px;color:#888;margin-top:5px">Required — new code is emailed to HR immediately on change.</div>
+              </div>
+            </div>
+            <div id="s-code-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-top:12px"></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px">
+              <button id="s-code-btn" class="btn-save" style="padding:10px 28px">💾 Update Access Code</button>
+            </div>
+          </div>
+
         </div>
 
-        <!-- ── Change Manager Access Code ── -->
-        <div style="padding:24px">
-          <div class="modal-section-label" style="margin-bottom:14px">🔒 Change Manager Access Code</div>
-          <p style="font-size:13px;color:#666;margin:0 0 14px;line-height:1.6">This is the code managers enter on the HR page to access the senior staff forms. HR will be emailed the new code automatically.</p>
-          <div style="display:flex;flex-direction:column;gap:12px">
-            <div>
-              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">New Access Code <span style="color:#d83b01">*</span></label>
-              <input type="text" id="s-new-code" class="ctrl-select" style="width:100%;box-sizing:border-box;font-family:monospace;letter-spacing:1px" placeholder="e.g. MGR2025!">
-            </div>
-            <div>
-              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Confirm New Access Code <span style="color:#d83b01">*</span></label>
-              <input type="text" id="s-conf-code" class="ctrl-select" style="width:100%;box-sizing:border-box;font-family:monospace;letter-spacing:1px" placeholder="Repeat access code">
-            </div>
-            <div>
-              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Email New Code To HR <span style="color:#d83b01">*</span></label>
-              <input type="email" id="s-hr-email" class="ctrl-select" style="width:100%;box-sizing:border-box" value="hr@iram.co.za">
-              <div style="font-size:11.5px;color:#888;margin-top:5px">Required — new code is emailed to HR immediately on change.</div>
-            </div>
-            <div id="s-code-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px"></div>
-            <button id="s-code-btn" class="btn-save" style="align-self:flex-end;padding:10px 24px">💾 Update Access Code</button>
-          </div>
-        </div>
-
-        <!-- ── Help Bot Settings ── -->
-        <div style="padding:24px;border-top:1px solid #eee">
+        <!-- ── BOT PANEL ── -->
+        <div class="s-spanel" id="s-spanel-bot" style="display:none;padding:28px">
           <div class="modal-section-label" style="margin-bottom:6px">🤖 Help Bot Settings</div>
-          <p style="font-size:13px;color:#666;margin:0 0 16px;line-height:1.6">The Help Bot appears on all portal pages. <strong>Rule-based</strong> mode is free and works offline. <strong>AI mode</strong> uses Claude and requires an Anthropic API key in Vercel.</p>
+          <p style="font-size:13px;color:#666;margin:0 0 20px;line-height:1.6">The Help Bot appears on all portal pages. <strong>Rule-based</strong> mode is free and works without API keys. <strong>AI mode</strong> uses Claude and requires an Anthropic API key set in Vercel.</p>
 
-          <div id="s-bot-loading" style="font-size:13px;color:#888">Loading bot status…</div>
+          <div id="s-bot-loading" style="font-size:13px;color:#888;padding:20px 0">Loading bot status…</div>
 
           <div id="s-bot-controls" style="display:none">
-            <div style="display:flex;align-items:center;justify-content:space-between;background:#f5f6f8;border:1.5px solid #e0e0e0;border-radius:8px;padding:14px 18px;margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f5f6f8;border:1.5px solid #e0e0e0;border-radius:10px;padding:18px 22px;margin-bottom:16px;gap:16px;flex-wrap:wrap">
               <div>
-                <div style="font-size:14px;font-weight:700;color:#2D2D2D">Current Mode: <span id="s-bot-mode-label" style="color:#4e9938">Rule-based</span></div>
-                <div id="s-bot-ai-status" style="font-size:12px;color:#888;margin-top:3px">AI mode: checking…</div>
+                <div style="font-size:15px;font-weight:700;color:#2D2D2D">Current Mode: <span id="s-bot-mode-label" style="color:#4e9938">Rule-based</span></div>
+                <div id="s-bot-ai-status" style="font-size:12px;color:#888;margin-top:4px">AI mode: checking…</div>
               </div>
-              <div style="display:flex;gap:8px">
-                <button id="s-bot-rules-btn" onclick="setBotMode('rules')" style="padding:7px 16px;border-radius:6px;border:1.5px solid #4e9938;background:#4e9938;color:#fff;font-weight:700;font-size:13px;cursor:pointer">Rule-based</button>
-                <button id="s-bot-ai-btn" onclick="setBotMode('ai')" style="padding:7px 16px;border-radius:6px;border:1.5px solid #dde;background:#fff;color:#444;font-weight:600;font-size:13px;cursor:pointer">AI (Claude)</button>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button id="s-bot-rules-btn" onclick="setBotMode('rules')" style="padding:9px 20px;border-radius:7px;border:1.5px solid #4e9938;background:#4e9938;color:#fff;font-weight:700;font-size:13px;cursor:pointer">Rule-based</button>
+                <button id="s-bot-ai-btn" onclick="setBotMode('ai')" style="padding:9px 20px;border-radius:7px;border:1.5px solid #dde;background:#fff;color:#444;font-weight:600;font-size:13px;cursor:pointer">AI (Claude)</button>
               </div>
             </div>
 
-            <div id="s-bot-ai-warning" style="display:none;background:#fff8e6;border:1.5px solid #f0c040;border-radius:6px;padding:10px 14px;font-size:12.5px;color:#6b4f00;margin-bottom:12px">
-              ⚠️ AI mode requires <strong>ANTHROPIC_API_KEY</strong> to be set in Vercel Environment Variables. Go to your Vercel project → Settings → Environment Variables to add it.
+            <div id="s-bot-ai-warning" style="display:none;background:#fff8e6;border:1.5px solid #f0c040;border-radius:6px;padding:12px 16px;font-size:12.5px;color:#6b4f00;margin-bottom:14px">
+              ⚠️ AI mode requires <strong>ANTHROPIC_API_KEY</strong> to be set in Vercel → Settings → Environment Variables.
             </div>
 
-            <div id="s-bot-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
+            <div id="s-bot-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px"></div>
 
-            <div style="background:#f0f7ee;border-radius:6px;padding:10px 14px;font-size:12px;color:#3d6b30">
+            <div style="background:#f0f7ee;border-radius:6px;padding:12px 16px;font-size:12px;color:#3d6b30">
               <strong>Note:</strong> Mode changes take ~60 seconds to go live after Vercel redeploys. The bot widget updates automatically on next page load.
             </div>
           </div>
         </div>
 
-        <!-- ── Maintenance Mode ── -->
-        <div style="padding:24px;border-top:1px solid #eee">
+        <!-- ── MAINTENANCE PANEL ── -->
+        <div class="s-spanel" id="s-spanel-maintenance" style="display:none;padding:28px">
           <div class="modal-section-label" style="margin-bottom:6px">🚧 Maintenance Mode</div>
-          <p style="font-size:13px;color:#666;margin:0 0 16px;line-height:1.6">When on, all portal pages redirect visitors to the animated maintenance page. Admins bypass it automatically. Takes ~60s to activate after Vercel redeploys.</p>
+          <p style="font-size:13px;color:#666;margin:0 0 20px;line-height:1.6">When on, all portal pages redirect visitors to the animated maintenance page. Admins bypass it automatically. Takes ~60s to activate after Vercel redeploys.</p>
 
-          <div id="s-maint-loading" style="font-size:13px;color:#888">Checking maintenance status…</div>
+          <div id="s-maint-loading" style="font-size:13px;color:#888;padding:20px 0">Checking maintenance status…</div>
 
           <div id="s-maint-controls" style="display:none">
-            <div id="s-maint-bar" style="display:flex;align-items:center;justify-content:space-between;border-radius:8px;padding:14px 18px;margin-bottom:14px;background:#edf7e8;border:1.5px solid #b3dea8;transition:background .3s,border-color .3s">
+            <div id="s-maint-bar" style="display:flex;align-items:center;justify-content:space-between;border-radius:10px;padding:18px 22px;margin-bottom:16px;background:#edf7e8;border:1.5px solid #b3dea8;transition:background .3s,border-color .3s;gap:16px">
               <div>
-                <div style="font-size:14px;font-weight:700" id="s-maint-label">Live — portal is accessible to all staff</div>
-                <div style="font-size:12px;color:#666;margin-top:3px" id="s-maint-sub">Toggle to put the site in maintenance mode</div>
+                <div style="font-size:15px;font-weight:700" id="s-maint-label">✅ Live — portal is accessible to all staff</div>
+                <div style="font-size:12px;color:#666;margin-top:4px" id="s-maint-sub">Toggle to put the site in maintenance mode</div>
               </div>
-              <!-- Toggle switch -->
-              <label style="position:relative;display:inline-block;width:54px;height:28px;cursor:pointer;flex-shrink:0">
+              <label style="position:relative;display:inline-block;width:58px;height:30px;cursor:pointer;flex-shrink:0">
                 <input type="checkbox" id="s-maint-toggle" style="opacity:0;width:0;height:0" onchange="setMaintenance(this.checked)">
-                <span id="s-maint-slider" style="position:absolute;inset:0;background:#ccc;border-radius:14px;transition:background .25s;display:flex;align-items:center">
-                  <span id="s-maint-knob" style="width:22px;height:22px;background:white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.25);margin-left:3px;transition:margin-left .25s;flex-shrink:0"></span>
+                <span id="s-maint-slider" style="position:absolute;inset:0;background:#4e9938;border-radius:15px;transition:background .25s;display:flex;align-items:center">
+                  <span id="s-maint-knob" style="width:24px;height:24px;background:white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.25);margin-left:3px;transition:margin-left .25s;flex-shrink:0"></span>
                 </span>
               </label>
             </div>
 
-            <div id="s-maint-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px"></div>
+            <div id="s-maint-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:14px"></div>
 
-            <div style="background:#fff8f0;border:1.5px solid #f0c080;border-radius:6px;padding:10px 14px;font-size:12px;color:#7a4800">
-              ⚠️ <strong>Admins are never redirected</strong> — you can always reach <strong>/admin</strong> during maintenance. The animated goose maintenance page shows to all other visitors.
+            <div style="background:#fff8f0;border:1.5px solid #f0c080;border-radius:6px;padding:12px 16px;font-size:12px;color:#7a4800">
+              ⚠️ <strong>Admins are never redirected</strong> — you can always reach <strong>/admin</strong> during maintenance. All other visitors see the animated goose maintenance page.
             </div>
           </div>
         </div>
 
-        <!-- ── Broadcast Refresh ── -->
-        <div style="padding:24px;border-top:1px solid #eee">
+        <!-- ── BROADCAST PANEL ── -->
+        <div class="s-spanel" id="s-spanel-broadcast" style="display:none;padding:28px">
           <div class="modal-section-label" style="margin-bottom:6px">📡 Broadcast Page Refresh</div>
-          <p style="font-size:13px;color:#666;margin:0 0 16px;line-height:1.6">Portal pages automatically detect when a new deploy is live and prompt visitors to refresh. Click below to trigger a silent redeploy and notify all open tabs within ~80 seconds.</p>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <button id="s-broadcast-btn" onclick="broadcastRefresh()" style="padding:10px 22px;background:#2D2D2D;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s">📡 Broadcast Refresh to All Users</button>
-          </div>
-          <div id="s-broadcast-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-top:12px"></div>
-          <div style="margin-top:12px;background:#f5f6f8;border-radius:6px;padding:10px 14px;font-size:12px;color:#666">
-            All open portal tabs poll <code style="background:#e8e8e8;padding:1px 5px;border-radius:3px">/api/version</code> every 20 seconds. When the deploy version changes, visitors see a toast and the page refreshes automatically.
+          <p style="font-size:13px;color:#666;margin:0 0 20px;line-height:1.6">Portal pages automatically detect when a new deploy is live and prompt visitors to refresh. Click below to trigger a silent redeploy and push a refresh notification to all open tabs within ~80 seconds.</p>
+
+          <button id="s-broadcast-btn" onclick="broadcastRefresh()" style="padding:12px 28px;background:#2D2D2D;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-bottom:16px">📡 Broadcast Refresh to All Users</button>
+
+          <div id="s-broadcast-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:14px"></div>
+
+          <div style="background:#f5f6f8;border-radius:6px;padding:12px 16px;font-size:12px;color:#666">
+            All open portal tabs poll <code style="background:#e8e8e8;padding:1px 5px;border-radius:3px">/api/version</code> every 20 seconds. When the version changes, visitors see a toast and the page auto-refreshes.
           </div>
         </div>
 
-      </div>
+      </div><!-- /modal-body -->
     </div>
   </div>
+
+  <style>
+    .s-stab {
+      padding: 13px 18px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+      cursor: pointer;
+      white-space: nowrap;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+    }
+    .s-stab:hover { color: #2D2D2D; }
+    .s-stab.active { color: #4e9938; border-bottom-color: #4e9938; }
+    .s-lbl {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      margin-bottom: 6px;
+    }
+  </style>
 
   <script src="../assets/config.js"></script>
   <script>
@@ -360,7 +405,6 @@
     function setTab(tab, el) {
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       el.classList.add('active');
-      // sync tab buttons
       document.querySelectorAll('.tab-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.tab === tab);
       });
@@ -375,6 +419,19 @@
       renderTable();
     }
     document.getElementById('btn-cancel-modal').addEventListener('click', () => closeModal());
+
+    // Settings sub-tab switching
+    document.querySelectorAll('.s-stab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.s-stab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.s-spanel').forEach(p => p.style.display = 'none');
+        btn.classList.add('active');
+        document.getElementById('s-spanel-' + btn.dataset.stab).style.display = 'block';
+        // Lazy-load bot/maintenance status when those tabs are first opened
+        if (btn.dataset.stab === 'bot')         loadBotSettings();
+        if (btn.dataset.stab === 'maintenance')  loadMaintenanceSettings();
+      });
+    });
   </script>
   <script src="/admin/assets/admin.js"></script>
 </body>

@@ -34,7 +34,7 @@ function populateAssignDropdown() {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let allTickets   = [];
-let activeTab    = 'Open';
+let activeTab    = 'All';
 let searchQuery  = '';
 let filterPrio   = 'all';
 let openTicket   = null;
@@ -397,12 +397,18 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 document.getElementById('settings-btn').addEventListener('click', () => {
   document.getElementById('settings-overlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  // Reset all message divs
   ['s-pw-msg','s-code-msg','s-bot-msg','s-maint-msg','s-broadcast-msg'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.style.display = 'none'; el.textContent = ''; }
   });
-  loadBotSettings();
-  loadMaintenanceSettings();
+  // Reset to Security tab on open
+  document.querySelectorAll('.s-stab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.s-spanel').forEach(p => p.style.display = 'none');
+  const secTab = document.querySelector('.s-stab[data-stab="security"]');
+  if (secTab) secTab.classList.add('active');
+  const secPanel = document.getElementById('s-spanel-security');
+  if (secPanel) secPanel.style.display = 'block';
 });
 
 document.getElementById('settings-close').addEventListener('click', closeSettings);

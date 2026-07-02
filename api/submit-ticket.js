@@ -35,14 +35,17 @@ module.exports = async function handler(req, res) {
       html:    submitterHtml({ ...body, ticketID })
     });
 
-    // Line manager notification
-    if (body.managerEmail) {
-      await sendEmail({
-        to:      body.managerEmail,
-        subject: `FYI: IT Ticket ${ticketID} logged for ${body.submitterName}`,
-        html:    managerHtml({ ...body, ticketID })
-      });
-    }
+    // Line manager notification — fallback to hr@iram.co.za if no manager email given
+    const hrFallback = process.env.HR_EMAIL || 'hr@iram.co.za';
+    const managerTo  = (body.managerEmail && body.managerEmail.trim()) ? body.managerEmail.trim() : null;
+    await sendEmail({
+      to:      managerTo || hrFallback,
+      bcc:     managerTo ? hrFallback : undefined, // HR always gets a copy as bounce safety net
+      subject: managerTo
+        ? `FYI: IT Ticket ${ticketID} logged for ${body.submitterName}`
+        : `IT Ticket ${ticketID} — no line manager provided (${body.submitterName})`,
+      html:    managerHtml({ ...body, ticketID, noManager: !managerTo })
+    });
 
     // IT person notification
     const itEmail = process.env.IT_EMAIL;
@@ -60,19 +63,21 @@ module.exports = async function handler(req, res) {
   return res.status(200).json({ ticketID });
 };
 
-async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, bcc, subject, html }) {
+  const payload = {
+    from:    'iRam IT Support <noreply@outerjoin.co.za>',
+    to:      [to],
+    subject,
+    html
+  };
+  if (bcc) payload.bcc = [bcc];
   const r = await fetch('https://api.resend.com/emails', {
     method:  'POST',
     headers: {
       'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
       'Content-Type':  'application/json'
     },
-    body: JSON.stringify({
-      from:    'iRam IT Support <noreply@outerjoin.co.za>',
-      to:      [to],
-      subject,
-      html
-    })
+    body: JSON.stringify(payload)
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
@@ -185,7 +190,14 @@ function itHtml({ submitterName, submitterEmail, submitterPhone, department, loc
 </body></html>`;
 }
 
-function managerHtml({ submitterName, submitterEmail, managerName, category, location, suggestedPriority, description, ticketID }) {
+function managerHtml({ submitterName, submitterEmail, managerName, category, location, suggestedPriority, description, ticketID, noManager }) {
+  const greeting = noManager
+    ? 'Hi <strong>HR Team</strong>,'
+    : `Hi <strong>${esc(managerName || 'Manager')}</strong>,`;
+  const intro = noManager
+    ? `A staff member logged an IT ticket but did not provide a line manager. This notification has been sent to HR as the fallback contact.`
+    : `A member of your team has logged an IT support ticket. This notification is for your information — no action is required from you.`;
+
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;font-family:Segoe UI,Arial,sans-serif;background:#f4f6f8">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 20px">
@@ -193,12 +205,12 @@ function managerHtml({ submitterName, submitterEmail, managerName, category, loc
 
   <tr><td style="background:#2D2D2D;padding:28px 32px;text-align:center">
     <p style="margin:0;color:#ffffff;font-size:22px;font-weight:700">iRam IT Support</p>
-    <p style="margin:8px 0 0;color:#aaa;font-size:12px;text-transform:uppercase;letter-spacing:1.5px">Line Manager Notification</p>
+    <p style="margin:8px 0 0;color:#aaa;font-size:12px;text-transform:uppercase;letter-spacing:1.5px">${noManager ? 'HR Notification — No Manager Listed' : 'Line Manager Notification'}</p>
   </td></tr>
 
   <tr><td style="padding:28px 32px">
-    <p style="margin:0 0 16px;font-size:15px;color:#333">Hi <strong>${esc(managerName || 'Manager')}</strong>,</p>
-    <p style="margin:0 0 24px;font-size:14px;color:#555;line-height:1.7">A member of your team has logged an IT support ticket. This notification is for your information — no action is required from you.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#333">${greeting}</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#555;line-height:1.7">${intro}</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden;font-size:13px">
       <tr><td style="background:#edf7e8;padding:11px 16px;font-weight:600;color:#555;width:130px">Ticket</td>
