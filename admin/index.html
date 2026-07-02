@@ -51,6 +51,7 @@
       <h1>Ticket Dashboard</h1>
       <div class="topbar-right">
         <button id="refresh-btn" style="background:none;border:1.5px solid #dde;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;">↻ Refresh</button>
+        <button id="settings-btn" style="background:none;border:1.5px solid #dde;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;">⚙️ Settings</button>
         <span class="agent-chip">IT Admin</span>
       </div>
     </div>
@@ -216,6 +217,68 @@
   </div><!-- /overlay -->
 
   <div class="toast" id="toast"></div>
+
+  <!-- ── SETTINGS MODAL ── -->
+  <div class="modal-overlay" id="settings-overlay" style="display:none;z-index:10000">
+    <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
+      <div class="modal-header">
+        <h3>⚙️ Portal Settings</h3>
+        <button class="modal-close" id="settings-close">✕</button>
+      </div>
+      <div class="modal-body" style="padding:0">
+
+        <!-- ── Change Admin Password ── -->
+        <div style="padding:24px;border-bottom:1px solid #eee">
+          <div class="modal-section-label" style="margin-bottom:14px">🔐 Change Admin Password</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Current Password</label>
+              <input type="password" id="s-cur-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Enter current admin password">
+            </div>
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">New Password <span style="color:#d83b01">*</span></label>
+              <input type="password" id="s-new-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Minimum 8 characters">
+            </div>
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Confirm New Password <span style="color:#d83b01">*</span></label>
+              <input type="password" id="s-conf-pw" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="Repeat new password">
+            </div>
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Send New Password To <span style="color:#d83b01">*</span></label>
+              <input type="email" id="s-pw-email" class="ctrl-select" style="width:100%;box-sizing:border-box" placeholder="admin@iram.co.za">
+              <div style="font-size:11.5px;color:#888;margin-top:5px">Required — new password is emailed to this address immediately.</div>
+            </div>
+            <div id="s-pw-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px"></div>
+            <button id="s-pw-btn" class="btn-save" style="align-self:flex-end;padding:10px 24px">💾 Update Password</button>
+          </div>
+        </div>
+
+        <!-- ── Change Manager Access Code ── -->
+        <div style="padding:24px">
+          <div class="modal-section-label" style="margin-bottom:14px">🔒 Change Manager Access Code</div>
+          <p style="font-size:13px;color:#666;margin:0 0 14px;line-height:1.6">This is the code managers enter on the HR page to access the senior staff forms. HR will be emailed the new code automatically.</p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">New Access Code <span style="color:#d83b01">*</span></label>
+              <input type="text" id="s-new-code" class="ctrl-select" style="width:100%;box-sizing:border-box;font-family:monospace;letter-spacing:1px" placeholder="e.g. MGR2025!">
+            </div>
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Confirm New Access Code <span style="color:#d83b01">*</span></label>
+              <input type="text" id="s-conf-code" class="ctrl-select" style="width:100%;box-sizing:border-box;font-family:monospace;letter-spacing:1px" placeholder="Repeat access code">
+            </div>
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Email New Code To HR <span style="color:#d83b01">*</span></label>
+              <input type="email" id="s-hr-email" class="ctrl-select" style="width:100%;box-sizing:border-box" value="hr@iram.co.za">
+              <div style="font-size:11.5px;color:#888;margin-top:5px">Required — new code is emailed to HR immediately on change.</div>
+            </div>
+            <div id="s-code-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:13px"></div>
+            <button id="s-code-btn" class="btn-save" style="align-self:flex-end;padding:10px 24px">💾 Update Access Code</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
   <script src="../assets/config.js"></script>
   <script>

@@ -393,6 +393,135 @@ document.getElementById('logout-btn').addEventListener('click', () => {
   window.location.href = '../login.html';
 });
 
+// ── Settings modal ────────────────────────────────────────────────────────────
+document.getElementById('settings-btn').addEventListener('click', () => {
+  document.getElementById('settings-overlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  // Clear any previous messages
+  ['s-pw-msg','s-code-msg'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.display = 'none'; el.textContent = '';
+  });
+});
+
+document.getElementById('settings-close').addEventListener('click', closeSettings);
+document.getElementById('settings-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('settings-overlay')) closeSettings();
+});
+
+function closeSettings() {
+  document.getElementById('settings-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function showSettingsMsg(elId, text, ok) {
+  const el = document.getElementById(elId);
+  el.textContent  = text;
+  el.style.display = 'block';
+  el.style.background = ok ? '#edf7e8' : '#fff3ef';
+  el.style.color      = ok ? '#107c10' : '#d83b01';
+  el.style.border     = ok ? '1px solid #b3dea8' : '1px solid #f4b8a8';
+}
+
+function setBtnLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.disabled    = loading;
+  btn.textContent = loading ? '⏳ Please wait…' : (btnId === 's-pw-btn' ? '💾 Update Password' : '💾 Update Access Code');
+}
+
+// Change admin password
+document.getElementById('s-pw-btn').addEventListener('click', async () => {
+  const curPw    = document.getElementById('s-cur-pw').value;
+  const newPw    = document.getElementById('s-new-pw').value;
+  const confPw   = document.getElementById('s-conf-pw').value;
+  const email    = document.getElementById('s-pw-email').value.trim();
+
+  if (!curPw || !newPw || !confPw || !email) {
+    showSettingsMsg('s-pw-msg', 'Please fill in all fields.', false); return;
+  }
+  if (newPw.length < 8) {
+    showSettingsMsg('s-pw-msg', 'New password must be at least 8 characters.', false); return;
+  }
+  if (newPw !== confPw) {
+    showSettingsMsg('s-pw-msg', 'New passwords do not match.', false); return;
+  }
+
+  setBtnLoading('s-pw-btn', true);
+  try {
+    const res  = await adminFetch('/api/admin/change-password', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ currentPassword: curPw, newPassword: newPw, confirmPassword: confPw, notifyEmail: email })
+    });
+    const data = await res.json();
+
+    if (res.status === 401) { showSettingsMsg('s-pw-msg', data.error || 'Current password is incorrect.', false); return; }
+    if (!res.ok)             { showSettingsMsg('s-pw-msg', data.error || 'Failed to update password.', false); return; }
+
+    let msg = data.emailSent ? `✅ New password emailed to ${email}.` : '⚠️ Email could not be sent — note the new password manually.';
+    if (data.requiresManualVercel) msg += ' Update ADMIN_PASSWORD in Vercel then redeploy to activate.';
+    else if (data.requiresManualDeploy) msg += ' Trigger a Vercel redeploy to activate (~60s).';
+    else if (data.deployed) msg += ' New password active in ~60 seconds.';
+
+    showSettingsMsg('s-pw-msg', msg, true);
+
+    // Clear the form and force re-login since the password changed
+    ['s-cur-pw','s-new-pw','s-conf-pw'].forEach(id => document.getElementById(id).value = '');
+    if (data.vercelUpdated) {
+      setTimeout(() => {
+        showToast('Password updated — logging you out. Log in with your new password.', 'success');
+        setTimeout(() => { sessionStorage.clear(); window.location.href = '../login.html'; }, 2500);
+      }, 1500);
+    }
+  } catch (_) {
+    showSettingsMsg('s-pw-msg', 'Network error — could not reach the server.', false);
+  } finally {
+    setBtnLoading('s-pw-btn', false);
+  }
+});
+
+// Change manager access code
+document.getElementById('s-code-btn').addEventListener('click', async () => {
+  const newCode  = document.getElementById('s-new-code').value.trim();
+  const confCode = document.getElementById('s-conf-code').value.trim();
+  const hrEmail  = document.getElementById('s-hr-email').value.trim();
+
+  if (!newCode || !confCode || !hrEmail) {
+    showSettingsMsg('s-code-msg', 'Please fill in all fields.', false); return;
+  }
+  if (newCode.length < 4) {
+    showSettingsMsg('s-code-msg', 'Access code must be at least 4 characters.', false); return;
+  }
+  if (newCode !== confCode) {
+    showSettingsMsg('s-code-msg', 'Access codes do not match.', false); return;
+  }
+
+  setBtnLoading('s-code-btn', true);
+  try {
+    const res  = await adminFetch('/api/admin/change-manager-code', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ newCode, confirmCode: confCode, hrEmail })
+    });
+    const data = await res.json();
+
+    if (!res.ok) { showSettingsMsg('s-code-msg', data.error || 'Failed to update access code.', false); return; }
+
+    let msg = data.emailSent ? `✅ New access code emailed to ${hrEmail}.` : '⚠️ Email could not be sent — share the new code with HR manually.';
+    if (data.requiresManualVercel) msg += ' Update MANAGER_PASSWORD in Vercel then redeploy to activate.';
+    else if (data.requiresManualDeploy) msg += ' Trigger a Vercel redeploy to activate (~60s).';
+    else if (data.deployed) msg += ' New code active in ~60 seconds.';
+
+    showSettingsMsg('s-code-msg', msg, true);
+    document.getElementById('s-new-code').value  = '';
+    document.getElementById('s-conf-code').value = '';
+  } catch (_) {
+    showSettingsMsg('s-code-msg', 'Network error — could not reach the server.', false);
+  } finally {
+    setBtnLoading('s-code-btn', false);
+  }
+});
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 populateAssignDropdown();
 fetchTickets();
