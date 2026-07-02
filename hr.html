@@ -9,189 +9,157 @@
   <style>
     .hr-hero {
       background: linear-gradient(135deg, #2D2D2D 0%, #3a3a3a 100%);
-      padding: 52px 32px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
+      padding: 52px 32px; text-align: center; position: relative; overflow: hidden;
     }
     .hr-hero::before {
-      content: ''; position: absolute; top: -60px; right: -60px;
-      width: 260px; height: 260px; background: #6BBF4E; opacity: 0.07; border-radius: 50%;
+      content:''; position:absolute; top:-60px; right:-60px;
+      width:260px; height:260px; background:#6BBF4E; opacity:.07; border-radius:50%;
     }
-    .hr-hero h1 { color: #fff; font-size: clamp(22px, 4vw, 34px); font-weight: 700; margin-bottom: 10px; }
-    .hr-hero h1 span { color: #6BBF4E; }
-    .hr-hero p { color: rgba(255,255,255,0.65); font-size: 15px; max-width: 520px; margin: 0 auto; }
+    .hr-hero h1 { color:#fff; font-size:clamp(22px,4vw,34px); font-weight:700; margin-bottom:10px; }
+    .hr-hero h1 span { color:#6BBF4E; }
+    .hr-hero p { color:rgba(255,255,255,.65); font-size:15px; max-width:520px; margin:0 auto; }
 
-    /* Section headings */
-    .section-head {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 16px; margin-top: 10px;
-    }
-    .section-head h2 { font-size: 17px; font-weight: 700; color: #2D2D2D; }
+    .section-head { display:flex; align-items:center; gap:10px; margin:10px 0 16px; }
+    .section-head h2 { font-size:17px; font-weight:700; color:#2D2D2D; }
 
-    /* ── HR Contacts ── */
-    .contact-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-      gap: 16px; margin-bottom: 28px;
-    }
-    .contact-card {
-      background: #fff; border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.07);
-      padding: 22px 20px; border-top: 3px solid #6BBF4E;
-    }
-    .contact-card.inbox-card { border-top-color: #0078d4; }
-    .cc-avatar {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: #edf7e8; border: 2px solid #6BBF4E;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; margin-bottom: 12px;
-    }
-    .inbox-card .cc-avatar { background: #e8f4fd; border-color: #0078d4; }
-    .cc-name  { font-size: 15px; font-weight: 700; color: #2D2D2D; margin-bottom: 2px; }
-    .cc-role  { font-size: 11.5px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-    .cc-row   { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px; font-size: 13px; }
-    .cc-icon  { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
-    .cc-row a { color: #4e9938; text-decoration: none; font-weight: 500; word-break: break-all; }
-    .cc-row a:hover { text-decoration: underline; }
-    .inbox-card .cc-row a { color: #0067b8; }
+    /* Contact cards */
+    .contact-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(225px,1fr)); gap:16px; margin-bottom:28px; }
+    .contact-card { background:#fff; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.07); padding:22px 20px; border-top:3px solid #6BBF4E; }
+    .contact-card.inbox-card { border-top-color:#0078d4; }
+    .cc-avatar { width:48px; height:48px; border-radius:50%; background:#edf7e8; border:2px solid #6BBF4E; display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:12px; }
+    .inbox-card .cc-avatar { background:#e8f4fd; border-color:#0078d4; }
+    .cc-name  { font-size:15px; font-weight:700; color:#2D2D2D; margin-bottom:2px; }
+    .cc-role  { font-size:11.5px; color:#888; text-transform:uppercase; letter-spacing:.5px; margin-bottom:12px; }
+    .cc-row   { display:flex; align-items:flex-start; gap:8px; margin-bottom:7px; font-size:13px; }
+    .cc-icon  { font-size:14px; flex-shrink:0; margin-top:1px; }
+    .cc-row a { color:#4e9938; text-decoration:none; font-weight:500; word-break:break-all; }
+    .cc-row a:hover { text-decoration:underline; }
+    .inbox-card .cc-row a { color:#0067b8; }
 
-    /* ── Office Hours ── */
-    .hours-card {
-      background: #fff; border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.07);
-      padding: 24px 28px; margin-bottom: 28px;
-    }
-    .hours-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
-    .hours-block { background: #f5f6f8; border-radius: 8px; padding: 14px 16px; }
-    .hours-block .hb-day  { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 4px; }
-    .hours-block .hb-time { font-size: 15px; font-weight: 600; color: #2D2D2D; }
-    .hours-block.closed .hb-time { color: #999; }
-    .hours-block.open   { border-left: 3px solid #6BBF4E; }
-    .hours-block.closed { border-left: 3px solid #ddd; }
+    /* Hours */
+    .hours-card { background:#fff; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.07); padding:24px 28px; margin-bottom:28px; }
+    .hours-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:16px; }
+    .hours-block { background:#f5f6f8; border-radius:8px; padding:14px 16px; }
+    .hb-day  { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#888; margin-bottom:4px; }
+    .hb-time { font-size:15px; font-weight:600; color:#2D2D2D; }
+    .hours-block.closed .hb-time { color:#999; }
+    .hours-block.open   { border-left:3px solid #6BBF4E; }
+    .hours-block.closed { border-left:3px solid #ddd; }
 
-    /* ── Generic card wrapper ── */
-    .white-card {
-      background: #fff; border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.07);
-      margin-bottom: 28px;
-    }
-    .white-card-header {
-      background: #edf7e8; border-bottom: 2px solid #6BBF4E;
-      padding: 14px 24px; border-radius: 10px 10px 0 0;
-      display: flex; align-items: center; gap: 10px;
-    }
-    .white-card-header h2 { font-size: 16px; font-weight: 700; color: #2D2D2D; }
-    .white-card-body { padding: 24px; }
+    /* White card */
+    .white-card { background:#fff; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.07); margin-bottom:28px; }
+    .white-card-header { background:#edf7e8; border-bottom:2px solid #6BBF4E; padding:14px 24px; border-radius:10px 10px 0 0; display:flex; align-items:center; gap:10px; }
+    .white-card-header h2 { font-size:16px; font-weight:700; color:#2D2D2D; }
+    .white-card-body { padding:24px; }
 
-    /* ── SimplePay ── */
-    .simplepay-wrap {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start;
-    }
-    .simplepay-img {
-      width: 100%; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-    }
-    .sp-links { display: flex; flex-direction: column; gap: 12px; }
-    .sp-link-btn {
-      display: flex; align-items: center; gap: 12px;
-      background: #f5f6f8; border-radius: 10px; padding: 14px 18px;
-      text-decoration: none; color: #2D2D2D; transition: background 0.15s, box-shadow 0.15s;
-      border: 1.5px solid transparent;
-    }
-    .sp-link-btn:hover { background: #fff; box-shadow: 0 4px 16px rgba(107,191,78,0.2); border-color: #6BBF4E; }
-    .sp-link-btn .sp-icon { font-size: 28px; flex-shrink: 0; }
-    .sp-link-btn .sp-label { font-size: 14px; font-weight: 700; color: #2D2D2D; }
-    .sp-link-btn .sp-sub   { font-size: 12px; color: #888; margin-top: 1px; }
-    .sp-link-btn .sp-arrow { margin-left: auto; color: #6BBF4E; font-size: 18px; }
+    /* SimplePay */
+    .simplepay-wrap { display:grid; grid-template-columns:1fr 1fr; gap:28px; align-items:start; }
+    .simplepay-img-wrap { position:relative; cursor:zoom-in; }
+    .simplepay-img { width:100%; border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.12); display:block; transition:box-shadow .2s; }
+    .simplepay-img-wrap:hover .simplepay-img { box-shadow:0 8px 28px rgba(0,0,0,.2); }
+    .zoom-hint { position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,.6); color:#fff; font-size:11px; padding:4px 9px; border-radius:20px; pointer-events:none; }
+    .sp-links { display:flex; flex-direction:column; gap:12px; }
+    .sp-link-btn { display:flex; align-items:center; gap:12px; background:#f5f6f8; border-radius:10px; padding:14px 18px; text-decoration:none; color:#2D2D2D; transition:background .15s,box-shadow .15s; border:1.5px solid transparent; }
+    .sp-link-btn:hover { background:#fff; box-shadow:0 4px 16px rgba(107,191,78,.2); border-color:#6BBF4E; }
+    .sp-icon  { font-size:28px; flex-shrink:0; }
+    .sp-label { font-size:14px; font-weight:700; color:#2D2D2D; }
+    .sp-sub   { font-size:12px; color:#888; margin-top:1px; }
+    .sp-arrow { margin-left:auto; color:#6BBF4E; font-size:18px; }
 
-    /* ── Flexicare docs ── */
-    .docs-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 14px; margin-bottom: 4px;
-    }
-    .doc-card {
-      background: #fff; border-radius: 10px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.07);
-      padding: 18px 20px; display: flex; align-items: center; gap: 14px;
-      text-decoration: none; color: inherit; transition: box-shadow 0.15s, transform 0.15s;
-      border: 1.5px solid transparent;
-    }
-    .doc-card:hover { box-shadow: 0 6px 24px rgba(107,191,78,0.2); border-color: #6BBF4E; transform: translateY(-2px); }
-    .doc-card .dc-icon  { font-size: 30px; flex-shrink: 0; }
-    .doc-card .dc-title { font-size: 13.5px; font-weight: 700; color: #2D2D2D; margin-bottom: 2px; }
-    .doc-card .dc-sub   { font-size: 12px; color: #888; }
-    .doc-card .dc-arrow { margin-left: auto; color: #6BBF4E; font-size: 18px; flex-shrink: 0; }
+    /* Lightbox */
+    .lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:9999; align-items:center; justify-content:center; padding:24px; cursor:zoom-out; }
+    .lightbox.open { display:flex; }
+    .lightbox img { max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,.5); }
+    .lightbox-close { position:fixed; top:18px; right:22px; color:#fff; font-size:28px; cursor:pointer; line-height:1; }
 
-    /* ── Cognito Forms ── */
-    .forms-section { margin-bottom: 0; }
-    .forms-label {
-      font-size: 11.5px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.8px; color: #888; margin: 20px 0 10px; padding-left: 4px;
-    }
-    .forms-label:first-child { margin-top: 0; }
-    .forms-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 12px;
-    }
-    .form-link {
-      display: flex; align-items: center; gap: 12px;
-      background: #f5f6f8; border-radius: 8px; padding: 13px 16px;
-      text-decoration: none; color: #2D2D2D; transition: background 0.15s, box-shadow 0.15s;
-      border: 1.5px solid transparent;
-    }
-    .form-link:hover { background: #fff; box-shadow: 0 4px 14px rgba(107,191,78,0.18); border-color: #6BBF4E; }
-    .form-link .fl-icon  { font-size: 20px; flex-shrink: 0; }
-    .form-link .fl-title { font-size: 13px; font-weight: 600; color: #2D2D2D; }
-    .form-link .fl-arrow { margin-left: auto; color: #6BBF4E; font-size: 14px; flex-shrink: 0; }
-    .senior-badge {
-      display: inline-block; background: #2D2D2D; color: #6BBF4E;
-      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
-      border-radius: 4px; padding: 2px 7px; margin-left: 6px; vertical-align: middle;
-    }
+    /* Docs */
+    .docs-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; }
+    .doc-card { background:#fff; border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.07); padding:18px 20px; display:flex; align-items:center; gap:14px; text-decoration:none; color:inherit; transition:box-shadow .15s,transform .15s; border:1.5px solid transparent; }
+    .doc-card:hover { box-shadow:0 6px 24px rgba(107,191,78,.2); border-color:#6BBF4E; transform:translateY(-2px); }
+    .dc-icon  { font-size:30px; flex-shrink:0; }
+    .dc-title { font-size:13.5px; font-weight:700; color:#2D2D2D; margin-bottom:2px; }
+    .dc-sub   { font-size:12px; color:#888; }
+    .dc-arrow { margin-left:auto; color:#6BBF4E; font-size:18px; flex-shrink:0; }
 
-    /* ── Policies ── */
-    .policy-accordion { margin-bottom: 4px; }
-    .policy-item {
-      background: #fff; border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-      margin-bottom: 10px; overflow: hidden;
-    }
-    .policy-header {
-      display: flex; align-items: center; gap: 12px;
-      padding: 15px 20px; cursor: pointer; user-select: none; transition: background 0.15s;
-    }
-    .policy-header:hover { background: #f9f9f9; }
-    .ph-icon  { font-size: 18px; flex-shrink: 0; }
-    .ph-title { font-size: 14.5px; font-weight: 600; color: #2D2D2D; flex: 1; }
-    .ph-arrow { color: #aaa; font-size: 13px; transition: transform 0.2s; margin-left: auto; flex-shrink: 0; }
-    .policy-header.open .ph-arrow { transform: rotate(90deg); }
-    .policy-body {
-      display: none; padding: 4px 20px 18px 50px;
-      font-size: 13px; color: #555; line-height: 1.7;
-    }
-    .policy-body.open { display: block; }
-    .policy-body ul { padding-left: 16px; margin: 4px 0; }
-    .policy-body ul li { margin-bottom: 5px; }
-    .policy-dl {
-      display: inline-flex; align-items: center; gap: 6px;
-      margin-top: 12px; padding: 8px 16px; background: #edf7e8;
-      border-radius: 6px; text-decoration: none; color: #4e9938;
-      font-size: 13px; font-weight: 600; transition: background 0.15s;
-    }
-    .policy-dl:hover { background: #d8f0cd; }
-    .hr-note {
-      background: #fffbef; border-left: 3px solid #f7c948;
-      border-radius: 4px; padding: 10px 14px; margin-top: 10px; font-size: 12.5px; color: #7d5a00;
-    }
+    /* Cognito Forms */
+    .forms-label { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#888; margin:20px 0 10px; padding-left:4px; }
+    .forms-label:first-child { margin-top:0; }
+    .forms-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+    .form-link { display:flex; align-items:center; gap:12px; background:#f5f6f8; border-radius:8px; padding:13px 16px; text-decoration:none; color:#2D2D2D; transition:background .15s,box-shadow .15s; border:1.5px solid transparent; }
+    .form-link:hover { background:#fff; box-shadow:0 4px 14px rgba(107,191,78,.18); border-color:#6BBF4E; }
+    .fl-icon  { font-size:20px; flex-shrink:0; }
+    .fl-title { font-size:13px; font-weight:600; color:#2D2D2D; }
+    .fl-arrow { margin-left:auto; color:#6BBF4E; font-size:14px; flex-shrink:0; }
+    .senior-badge { display:inline-block; background:#2D2D2D; color:#6BBF4E; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; border-radius:4px; padding:2px 7px; margin-left:6px; vertical-align:middle; }
 
-    @media (max-width: 720px) {
-      .simplepay-wrap { grid-template-columns: 1fr; }
-      .hr-hero { padding: 36px 16px; }
-      .hours-grid { grid-template-columns: 1fr 1fr; }
+    /* Senior staff lock gate */
+    .lock-gate { position:relative; }
+    .lock-overlay {
+      position:absolute; inset:0; background:rgba(255,255,255,.92);
+      border-radius:8px; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:12px; z-index:10;
+      backdrop-filter:blur(3px);
     }
-    @media (max-width: 480px) {
-      .contact-grid { grid-template-columns: 1fr; }
-      .hours-grid { grid-template-columns: 1fr; }
+    .lock-overlay.hidden { display:none; }
+    .lock-overlay .lo-icon  { font-size:36px; }
+    .lock-overlay .lo-title { font-size:15px; font-weight:700; color:#2D2D2D; }
+    .lock-overlay .lo-sub   { font-size:13px; color:#666; text-align:center; max-width:280px; }
+    .lock-overlay .lo-btn   { background:#2D2D2D; color:#fff; border:none; border-radius:8px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer; transition:background .15s; }
+    .lock-overlay .lo-btn:hover { background:#6BBF4E; }
+
+    /* Password modal */
+    .mgr-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9000; align-items:center; justify-content:center; }
+    .mgr-modal-bg.open { display:flex; }
+    .mgr-modal { background:#fff; border-radius:14px; padding:32px 28px; width:100%; max-width:380px; box-shadow:0 12px 48px rgba(0,0,0,.25); }
+    .mgr-modal h3 { font-size:18px; font-weight:700; color:#2D2D2D; margin:0 0 6px; }
+    .mgr-modal p  { font-size:13.5px; color:#666; margin:0 0 20px; line-height:1.6; }
+    .mgr-modal input { width:100%; box-sizing:border-box; padding:12px 14px; border:1.5px solid #dde; border-radius:8px; font-size:15px; outline:none; transition:border-color .2s; }
+    .mgr-modal input:focus { border-color:#6BBF4E; }
+    .mgr-modal input.err { border-color:#d83b01; }
+    .mgr-error { font-size:12.5px; color:#d83b01; margin:6px 0 0; display:none; }
+    .mgr-modal .mgr-actions { display:flex; gap:10px; margin-top:18px; }
+    .mgr-cancel { flex:1; background:#f5f6f8; border:none; border-radius:8px; padding:11px; font-size:14px; font-weight:600; cursor:pointer; color:#555; }
+    .mgr-submit { flex:2; background:#2D2D2D; color:#fff; border:none; border-radius:8px; padding:11px; font-size:14px; font-weight:600; cursor:pointer; transition:background .15s; }
+    .mgr-submit:hover { background:#6BBF4E; }
+
+    /* Welcome boxes */
+    .welcome-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:16px; }
+    .welcome-box {
+      background:#edf7e8; border-radius:8px; padding:14px 16px;
+      display:flex; align-items:center; gap:10px;
+      text-decoration:none; color:inherit;
+      border:1.5px solid transparent; transition:border-color .15s, box-shadow .15s, transform .15s;
+      cursor:pointer;
     }
+    .welcome-box:hover { border-color:#6BBF4E; box-shadow:0 4px 14px rgba(107,191,78,.18); transform:translateY(-2px); }
+    .welcome-box.confidential { background:#fff8f0; }
+    .welcome-box.confidential:hover { border-color:#d83b01; }
+    .wb-title { font-size:13px; font-weight:700; color:#2D2D2D; }
+    .wb-sub   { font-size:12px; color:#555; }
+
+    /* Policies */
+    .policy-accordion { margin-bottom:4px; }
+    .policy-item { background:#fff; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:10px; overflow:hidden; }
+    .policy-header { display:flex; align-items:center; gap:12px; padding:15px 20px; cursor:pointer; user-select:none; transition:background .15s; }
+    .policy-header:hover { background:#f9f9f9; }
+    .ph-icon  { font-size:18px; flex-shrink:0; }
+    .ph-title { font-size:14.5px; font-weight:600; color:#2D2D2D; flex:1; }
+    .ph-arrow { color:#aaa; font-size:13px; transition:transform .2s; margin-left:auto; flex-shrink:0; }
+    .policy-header.open .ph-arrow { transform:rotate(90deg); }
+    .policy-body { display:none; padding:4px 20px 18px 50px; font-size:13px; color:#555; line-height:1.7; }
+    .policy-body.open { display:block; }
+    .policy-body ul { padding-left:16px; margin:4px 0 10px; }
+    .policy-body ul li { margin-bottom:5px; }
+    .policy-summary { font-size:13px; color:#444; background:#f9f9f9; border-radius:6px; padding:10px 14px; margin-bottom:12px; line-height:1.6; border-left:3px solid #6BBF4E; }
+    .policy-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .policy-dl { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#edf7e8; border-radius:6px; text-decoration:none; color:#4e9938; font-size:12.5px; font-weight:600; transition:background .15s; }
+    .policy-dl:hover { background:#d8f0cd; }
+    .policy-dl.mail { background:#e8f4fd; color:#0067b8; }
+    .policy-dl.mail:hover { background:#d0e8fa; }
+    .hr-note { background:#fffbef; border-left:3px solid #f7c948; border-radius:4px; padding:10px 14px; margin-top:10px; font-size:12.5px; color:#7d5a00; }
+
+    @media (max-width:720px) { .simplepay-wrap { grid-template-columns:1fr; } }
+    @media (max-width:480px) { .contact-grid { grid-template-columns:1fr; } .hours-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -211,7 +179,7 @@
         <span class="sub">HR &amp; People</span>
       </span>
     </a>
-    <a href="/" class="header-badge" style="text-decoration:none">← IT Support</a>
+    <a href="/" class="header-ghost" style="font-size:12px;text-decoration:none">← Portal Home</a>
   </header>
 
   <!-- ── HERO ── -->
@@ -222,9 +190,7 @@
 
   <main class="main-content">
 
-    <!-- ══════════════════════════════════════════════════════════════
-         1. HR TEAM CONTACTS
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ 1. HR TEAM CONTACTS ══ -->
     <div class="section-head"><span style="font-size:22px">👥</span><h2>HR Team Contacts</h2></div>
     <div class="contact-grid">
 
@@ -284,327 +250,234 @@
         <div class="cc-row"><span class="cc-icon">📞</span><a href="tel:+27735396462">073 539 6462</a></div>
       </div>
 
-      <!-- General inbox -->
       <div class="contact-card inbox-card">
         <div class="cc-avatar">📬</div>
         <div class="cc-name">General HR Inbox</div>
         <div class="cc-role">All HR Queries</div>
         <div class="cc-row"><span class="cc-icon">📧</span><a href="mailto:hr@iram.co.za">hr@iram.co.za</a></div>
-        <div class="cc-row" style="font-size:12px;color:#888;gap:6px">
-          For all HR-related queries, please email this address — someone on the team will assist you.
-        </div>
+        <div class="cc-row" style="font-size:12px;color:#888">For all HR-related queries — someone on the team will assist you.</div>
       </div>
 
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         2. OFFICE HOURS
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ 2. OFFICE HOURS ══ -->
     <div class="hours-card">
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:22px">🕐</span>
         <h2 style="font-size:17px;font-weight:700">HR Office Hours</h2>
       </div>
-      <p style="font-size:13px;color:#888;margin:6px 0 4px">For urgent matters outside these hours, email <a href="mailto:hr@iram.co.za" style="color:#4e9938">hr@iram.co.za</a> — response within 1 business day.</p>
+      <p style="font-size:13px;color:#888;margin:6px 0 4px">After-hours urgent queries: email <a href="mailto:hr@iram.co.za" style="color:#4e9938">hr@iram.co.za</a> — response within 1 business day.</p>
       <div class="hours-grid">
-        <div class="hours-block open">
-          <div class="hb-day">Monday – Friday</div>
-          <div class="hb-time">08:00 – 17:00</div>
-        </div>
-        <div class="hours-block closed">
-          <div class="hb-day">Saturday</div>
-          <div class="hb-time">Closed</div>
-        </div>
-        <div class="hours-block closed">
-          <div class="hb-day">Sunday &amp; Public Holidays</div>
-          <div class="hb-time">Closed</div>
-        </div>
+        <div class="hours-block open"><div class="hb-day">Monday – Friday</div><div class="hb-time">08:00 – 17:00</div></div>
+        <div class="hours-block closed"><div class="hb-day">Saturday</div><div class="hb-time">Closed</div></div>
+        <div class="hours-block closed"><div class="hb-day">Sunday &amp; Public Holidays</div><div class="hb-time">Closed</div></div>
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         3. SIMPLEPAY — PAYROLL
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ 3. SIMPLEPAY ══ -->
     <div class="white-card">
-      <div class="white-card-header">
-        <span style="font-size:20px">💰</span>
-        <h2>Payroll — SimplePay Self-Service</h2>
-      </div>
+      <div class="white-card-header"><span style="font-size:20px">💰</span><h2>Payroll — SimplePay Self-Service</h2></div>
       <div class="white-card-body">
-        <p style="font-size:13.5px;color:#555;margin-bottom:20px;line-height:1.7">View your payslips, apply for leave, and manage your payroll details through the SimplePay Self-Service app or web portal. You will receive an activation email to the address on the payroll system when your account is created.</p>
-
+        <p style="font-size:13.5px;color:#555;margin-bottom:20px;line-height:1.7">View payslips, apply for leave, and manage your payroll details. You'll receive an activation email to your payroll address when your account is created. <strong>Click the image to enlarge.</strong></p>
         <div class="simplepay-wrap">
-          <div>
+          <div class="simplepay-img-wrap" onclick="openLightbox()">
             <img src="hr-assets/simplepay-guide.jpg" alt="SimplePay Self-Service Guide" class="simplepay-img">
+            <span class="zoom-hint">🔍 Click to enlarge</span>
           </div>
           <div class="sp-links">
             <p style="font-size:13.5px;font-weight:600;color:#2D2D2D;margin-bottom:6px">Access SimplePay:</p>
 
-            <a href="https://apps.apple.com/za/app/simplepay-self-service/id1543459680" target="_blank" rel="noopener" class="sp-link-btn">
+            <a href="https://apps.apple.com/za/app/simplepay-self-service/id1501139428" target="_blank" rel="noopener" class="sp-link-btn">
               <span class="sp-icon">🍎</span>
-              <div>
-                <div class="sp-label">App Store</div>
-                <div class="sp-sub">Download for iPhone / iPad</div>
-              </div>
+              <div><div class="sp-label">App Store</div><div class="sp-sub">Download for iPhone / iPad</div></div>
               <span class="sp-arrow">→</span>
             </a>
 
-            <a href="https://play.google.com/store/apps/details?id=com.simplepay.selfservice" target="_blank" rel="noopener" class="sp-link-btn">
+            <a href="https://play.google.com/store/search?q=simple+pay&c=apps" target="_blank" rel="noopener" class="sp-link-btn">
               <span class="sp-icon">🤖</span>
-              <div>
-                <div class="sp-label">Google Play</div>
-                <div class="sp-sub">Download for Android</div>
-              </div>
+              <div><div class="sp-label">Google Play</div><div class="sp-sub">Download for Android</div></div>
               <span class="sp-arrow">→</span>
             </a>
 
-            <a href="https://app.simplepay.co.za/" target="_blank" rel="noopener" class="sp-link-btn">
+            <a href="https://payroll.simplepay.cloud/login?country_code=za" target="_blank" rel="noopener" class="sp-link-btn">
               <span class="sp-icon">🌐</span>
-              <div>
-                <div class="sp-label">Web Portal</div>
-                <div class="sp-sub">Access from any browser / PC</div>
-              </div>
+              <div><div class="sp-label">Web Portal</div><div class="sp-sub">Access from any browser / PC</div></div>
               <span class="sp-arrow">→</span>
             </a>
 
-            <div style="background:#f0f7ff;border-radius:8px;padding:12px 16px;margin-top:4px;font-size:12.5px;color:#0067b8;line-height:1.6">
-              💡 <strong>First time?</strong> Check your email for your activation link. The infographic on the left walks you through setup step by step.
+            <div style="background:#f0f7ff;border-radius:8px;padding:12px 16px;font-size:12.5px;color:#0067b8;line-height:1.6">
+              💡 <strong>First time?</strong> Check your email for your activation link, then follow the infographic steps to set up your password and log in.
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         4. FLEXICARE — MEDICAL BENEFIT
-    ══════════════════════════════════════════════════════════════ -->
-    <div class="white-card">
-      <div class="white-card-header">
-        <span style="font-size:20px">🏥</span>
-        <h2>Flexicare — Medical Benefit</h2>
-      </div>
-      <div class="white-card-body">
-        <p style="font-size:13.5px;color:#555;margin-bottom:18px;line-height:1.7">iRam staff have access to the Flexicare medical benefit scheme. Download the documents below to find your nearest GP and dentist, and to learn how to use Flexicare's digital tools.</p>
-        <div class="docs-grid">
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+      <span class="lightbox-close">✕</span>
+      <img src="hr-assets/simplepay-guide.jpg" alt="SimplePay Guide">
+    </div>
 
+    <!-- ══ 4. FLEXICARE ══ -->
+    <div class="white-card">
+      <div class="white-card-header"><span style="font-size:20px">🏥</span><h2>Flexicare — Medical Benefit</h2></div>
+      <div class="white-card-body">
+        <p style="font-size:13.5px;color:#555;margin-bottom:18px;line-height:1.7">iRam staff have access to the Flexicare medical benefit scheme. Download the documents below to find your nearest GP or dentist, and to learn how to use Flexicare's digital tools.</p>
+        <div class="docs-grid">
           <a href="hr-assets/flexicare-digital-tools.pdf" target="_blank" rel="noopener" class="doc-card">
             <span class="dc-icon">📱</span>
-            <div>
-              <div class="dc-title">Digital Tools Guide</div>
-              <div class="dc-sub">App, portal &amp; online features</div>
-            </div>
+            <div><div class="dc-title">Digital Tools Guide</div><div class="dc-sub">App, portal &amp; online features</div></div>
             <span class="dc-arrow">↓</span>
           </a>
-
           <a href="hr-assets/flexicare-gp-network.pdf" target="_blank" rel="noopener" class="doc-card">
             <span class="dc-icon">🩺</span>
-            <div>
-              <div class="dc-title">GP Network List</div>
-              <div class="dc-sub">Find a Flexicare GP near you</div>
-            </div>
+            <div><div class="dc-title">GP Network List</div><div class="dc-sub">Find a Flexicare GP near you</div></div>
             <span class="dc-arrow">↓</span>
           </a>
-
           <a href="hr-assets/flexicare-dental-network.pdf" target="_blank" rel="noopener" class="doc-card">
             <span class="dc-icon">🦷</span>
-            <div>
-              <div class="dc-title">Dental Network List</div>
-              <div class="dc-sub">Find a Flexicare dentist near you</div>
-            </div>
+            <div><div class="dc-title">Dental Network List</div><div class="dc-sub">Find a Flexicare dentist near you</div></div>
             <span class="dc-arrow">↓</span>
           </a>
-
         </div>
-        <p style="font-size:12.5px;color:#aaa;margin-top:14px">Questions about your Flexicare cover? Contact HR at <a href="mailto:hr@iram.co.za" style="color:#4e9938">hr@iram.co.za</a>.</p>
+        <p style="font-size:12.5px;color:#aaa;margin-top:14px">Flexicare questions? Contact HR at <a href="mailto:hr@iram.co.za" style="color:#4e9938">hr@iram.co.za</a>.</p>
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         5. FUEL ALLOWANCE
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ 5. FUEL ALLOWANCE ══ -->
     <div class="white-card">
-      <div class="white-card-header">
-        <span style="font-size:20px">⛽</span>
-        <h2>Fuel Allowance</h2>
-      </div>
+      <div class="white-card-header"><span style="font-size:20px">⛽</span><h2>Fuel Allowance</h2></div>
       <div class="white-card-body">
         <p style="font-size:13.5px;color:#555;margin-bottom:18px;line-height:1.7">If your role includes a fuel allowance, the infographic below explains how it works, what is covered, and how to claim.</p>
         <a href="hr-assets/fuel-allowance.pdf" target="_blank" rel="noopener" class="doc-card" style="max-width:320px">
           <span class="dc-icon">⛽</span>
-          <div>
-            <div class="dc-title">Fuel Allowance Infographic</div>
-            <div class="dc-sub">How your fuel allowance works</div>
-          </div>
+          <div><div class="dc-title">Fuel Allowance Infographic</div><div class="dc-sub">How your fuel allowance works</div></div>
           <span class="dc-arrow">↓</span>
         </a>
-        <p style="font-size:12.5px;color:#aaa;margin-top:14px">For fuel card or reimbursement queries, contact HR at <a href="mailto:hr@iram.co.za" style="color:#4e9938">hr@iram.co.za</a>.</p>
+        <p style="font-size:12.5px;color:#aaa;margin-top:14px">Fuel card or reimbursement queries? Email <a href="mailto:hr@iram.co.za" style="color:#4e9938">hr@iram.co.za</a>.</p>
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         6. COGNITO FORMS
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ 6. COGNITO FORMS ══ -->
     <div class="white-card">
-      <div class="white-card-header">
-        <span style="font-size:20px">📋</span>
-        <h2>HR Forms &amp; Requests</h2>
-      </div>
-      <div class="white-card-body forms-section">
+      <div class="white-card-header"><span style="font-size:20px">📋</span><h2>HR Forms &amp; Requests</h2></div>
+      <div class="white-card-body">
 
         <div class="forms-label">All Staff</div>
         <div class="forms-grid">
-
           <a href="https://www.cognitoforms.com/IRam1/CGCSACardOrderFormTopUpRequest" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">💳</span>
-            <span class="fl-title">CGCSA Card Top-Up Request</span>
-            <span class="fl-arrow">→</span>
+            <span class="fl-icon">💳</span><span class="fl-title">CGCSA Card Top-Up Request</span><span class="fl-arrow">→</span>
           </a>
-
           <a href="https://www.cognitoforms.com/IRam1/AssetOrderFormUniform" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">👔</span>
-            <span class="fl-title">Uniform Order Form</span>
-            <span class="fl-arrow">→</span>
+            <span class="fl-icon">👔</span><span class="fl-title">Uniform Order Form</span><span class="fl-arrow">→</span>
           </a>
-
           <a href="https://www.cognitoforms.com/IRam1/CompanySimSwap" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">📱</span>
-            <span class="fl-title">Company SIM Swap</span>
-            <span class="fl-arrow">→</span>
+            <span class="fl-icon">📱</span><span class="fl-title">Company SIM Swap</span><span class="fl-arrow">→</span>
           </a>
-
           <a href="https://www.cognitoforms.com/IRam1/TrainingAttendanceRegister" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">📝</span>
-            <span class="fl-title">Training Attendance Register</span>
-            <span class="fl-arrow">→</span>
+            <span class="fl-icon">📝</span><span class="fl-title">Training Attendance Register</span><span class="fl-arrow">→</span>
           </a>
-
           <a href="https://www.cognitoforms.com/IRam1/ChangeInBankingDetails" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">🏦</span>
-            <span class="fl-title">Change Bank Details</span>
-            <span class="fl-arrow">→</span>
+            <span class="fl-icon">🏦</span><span class="fl-title">Change Bank Details</span><span class="fl-arrow">→</span>
           </a>
-
         </div>
 
-        <div class="forms-label" style="margin-top:24px">Senior Staff <span class="senior-badge">Managers &amp; Above</span></div>
-        <div class="forms-grid">
-
-          <a href="https://www.cognitoforms.com/IRam1/StaffRecognitionMotivation" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">⭐</span>
-            <span class="fl-title">Staff Recognition</span>
-            <span class="fl-arrow">→</span>
-          </a>
-
-          <a href="https://www.cognitoforms.com/IRam1/RequestForTravel" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">✈️</span>
-            <span class="fl-title">Request for Travel</span>
-            <span class="fl-arrow">→</span>
-          </a>
-
-          <a href="https://www.cognitoforms.com/IRam1/IRamRecruitmentRequisitionFormFNL" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">🧑‍💼</span>
-            <span class="fl-title">Recruitment Requisition</span>
-            <span class="fl-arrow">→</span>
-          </a>
-
-          <a href="https://www.cognitoforms.com/IRam1/DisciplineRequestForm" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">⚖️</span>
-            <span class="fl-title">Discipline Request Form</span>
-            <span class="fl-arrow">→</span>
-          </a>
-
-          <a href="https://www.cognitoforms.com/IRam1/InstructionToHireFNL" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">✅</span>
-            <span class="fl-title">Instruction to Hire</span>
-            <span class="fl-arrow">→</span>
-          </a>
-
-          <a href="https://www.cognitoforms.com/IRam1/StaffMovementAndContractRoleUpdate" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">🔄</span>
-            <span class="fl-title">Staff Movement &amp; Role Update</span>
-            <span class="fl-arrow">→</span>
-          </a>
-
-          <a href="https://www.cognitoforms.com/IRam1/StaffResignationAndExit" target="_blank" rel="noopener" class="form-link">
-            <span class="fl-icon">🚪</span>
-            <span class="fl-title">Resignation &amp; Exit</span>
-            <span class="fl-arrow">→</span>
-          </a>
-
+        <!-- Senior staff — locked until password entered -->
+        <div class="forms-label" style="margin-top:24px">
+          Senior Staff <span class="senior-badge">Managers &amp; Above</span>
         </div>
+        <div class="lock-gate" id="senior-gate">
+          <div class="forms-grid">
+            <a href="https://www.cognitoforms.com/IRam1/StaffRecognitionMotivation" target="_blank" rel="noopener" class="form-link">
+              <span class="fl-icon">⭐</span><span class="fl-title">Staff Recognition</span><span class="fl-arrow">→</span>
+            </a>
+            <a href="https://www.cognitoforms.com/IRam1/RequestForTravel" target="_blank" rel="noopener" class="form-link">
+              <span class="fl-icon">✈️</span><span class="fl-title">Request for Travel</span><span class="fl-arrow">→</span>
+            </a>
+            <a href="https://www.cognitoforms.com/IRam1/IRamRecruitmentRequisitionFormFNL" target="_blank" rel="noopener" class="form-link">
+              <span class="fl-icon">🧑‍💼</span><span class="fl-title">Recruitment Requisition</span><span class="fl-arrow">→</span>
+            </a>
+            <a href="https://www.cognitoforms.com/IRam1/DisciplineRequestForm" target="_blank" rel="noopener" class="form-link">
+              <span class="fl-icon">⚖️</span><span class="fl-title">Discipline Request Form</span><span class="fl-arrow">→</span>
+            </a>
+            <a href="https://www.cognitoforms.com/IRam1/InstructionToHireFNL" target="_blank" rel="noopener" class="form-link">
+              <span class="fl-icon">✅</span><span class="fl-title">Instruction to Hire</span><span class="fl-arrow">→</span>
+            </a>
+            <a href="https://www.cognitoforms.com/IRam1/StaffMovementAndContractRoleUpdate" target="_blank" rel="noopener" class="form-link">
+              <span class="fl-icon">🔄</span><span class="fl-title">Staff Movement &amp; Role Update</span><span class="fl-arrow">→</span>
+            </a>
+            <a href="https://www.cognitoforms.com/IRam1/StaffResignationAndExit" target="_blank" rel="noopener" class="form-link">
+              <span class="fl-icon">🚪</span><span class="fl-title">Resignation &amp; Exit</span><span class="fl-arrow">→</span>
+            </a>
+          </div>
+
+          <!-- Overlay shown until authenticated -->
+          <div class="lock-overlay" id="lock-overlay">
+            <span class="lo-icon">🔒</span>
+            <div class="lo-title">Manager Access Required</div>
+            <div class="lo-sub">These forms are restricted to managers and above. Enter your manager access code to continue.</div>
+            <button class="lo-btn" onclick="openMgrModal()">Enter Access Code</button>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         7. WELCOME PACKAGE & ONBOARDING
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ 7. WELCOME PACKAGE ══ -->
     <div class="white-card">
-      <div class="white-card-header">
-        <span style="font-size:20px">🎉</span>
-        <h2>Welcome Package &amp; Onboarding</h2>
-      </div>
+      <div class="white-card-header"><span style="font-size:20px">🎉</span><h2>Welcome Package &amp; Onboarding</h2></div>
       <div class="white-card-body">
-        <p style="font-size:13.5px;color:#555;margin-bottom:16px;line-height:1.7">New employees receive a Welcome Package by email on their first day. Your welcome email includes:</p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px">
-          <div style="background:#edf7e8;border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:10px">
-            <span style="font-size:20px">📘</span>
-            <div>
-              <div style="font-size:13px;font-weight:700;color:#2D2D2D">Employee Handbook</div>
-              <div style="font-size:12px;color:#555">Company overview &amp; expectations</div>
-            </div>
-          </div>
-          <div style="background:#edf7e8;border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:10px">
-            <span style="font-size:20px">⭐</span>
-            <div>
-              <div style="font-size:13px;font-weight:700;color:#2D2D2D">5 Fundamental Rules</div>
-              <div style="font-size:12px;color:#555">The non-negotiable standards</div>
-            </div>
-          </div>
-          <div style="background:#fff8f0;border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:10px">
-            <span style="font-size:20px">🔒</span>
-            <div>
-              <div style="font-size:13px;font-weight:700;color:#2D2D2D">5 Confidential Rules</div>
-              <div style="font-size:12px;color:#555">What stays within iRam</div>
-            </div>
-          </div>
+        <p style="font-size:13.5px;color:#555;margin-bottom:16px;line-height:1.7">New employees receive a Welcome Package by email on their first day. Click any item below to request a copy from HR.</p>
+        <div class="welcome-grid">
+          <a href="mailto:hr@iram.co.za?subject=Document Request — Employee Handbook" class="welcome-box">
+            <span style="font-size:24px">📘</span>
+            <div><div class="wb-title">Employee Handbook</div><div class="wb-sub">Company overview &amp; expectations</div></div>
+          </a>
+          <a href="mailto:hr@iram.co.za?subject=Document Request — 5 Fundamental Rules" class="welcome-box">
+            <span style="font-size:24px">⭐</span>
+            <div><div class="wb-title">5 Fundamental Rules</div><div class="wb-sub">The non-negotiable standards</div></div>
+          </a>
+          <a href="mailto:hr@iram.co.za?subject=Document Request — 5 Confidential Rules" class="welcome-box confidential">
+            <span style="font-size:24px">🔒</span>
+            <div><div class="wb-title">5 Confidential Rules</div><div class="wb-sub">What stays within iRam</div></div>
+          </a>
         </div>
-        <p style="font-size:12.5px;color:#888">Didn't receive your welcome package? Contact <a href="mailto:hr@iram.co.za" style="color:#4e9938">hr@iram.co.za</a> and we'll resend it.</p>
+        <p style="font-size:12.5px;color:#888">Didn't receive your welcome package? <a href="mailto:hr@iram.co.za?subject=Welcome Package Resend Request" style="color:#4e9938">Email HR</a> and we'll resend it.</p>
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         8. COMPANY POLICIES
-    ══════════════════════════════════════════════════════════════ -->
+    <!-- ══ 8. COMPANY POLICIES ══ -->
     <div class="section-head"><span style="font-size:22px">📖</span><h2>Company Policies</h2></div>
-    <p style="font-size:13px;color:#888;margin:-8px 0 16px">Click a category to expand. All policies are subject to review. Contact HR for the latest version of any document.</p>
+    <p style="font-size:13px;color:#888;margin:-8px 0 16px">Click a category to expand. Contact HR for the latest version of any document.</p>
     <div class="policy-accordion">
 
-      <!-- Leave & Time -->
       <div class="policy-item">
         <div class="policy-header" onclick="togglePolicy(this)">
-          <span class="ph-icon">🏖️</span>
-          <span class="ph-title">Leave &amp; Time Off</span>
-          <span class="ph-arrow">▶</span>
+          <span class="ph-icon">🏖️</span><span class="ph-title">Leave &amp; Time Off</span><span class="ph-arrow">▶</span>
         </div>
         <div class="policy-body">
+          <div class="policy-summary">iRam's leave policy covers annual leave, sick leave, family responsibility leave, and special leave. Leave must be applied for in advance via SimplePay and is subject to operational requirements and manager approval. Sick leave requires supporting documentation for absences over two consecutive days.</div>
           <ul>
-            <li>Annual Leave Policy — iRam_Annual Leave Policy FINAL</li>
+            <li>Annual Leave Policy</li>
             <li>Training Attendance Etiquette Policy</li>
             <li>Training Costs Agreement Policy</li>
           </ul>
-          <div class="hr-note">⚠️ Some leave policies are still under review. Contact HR for the current confirmed version.</div>
-          <a href="mailto:hr@iram.co.za?subject=Policy Request — Leave" class="policy-dl">📧 Request Policy Document</a>
+          <div class="policy-links">
+            <a href="hr-assets/policies/training-attendance.pdf" target="_blank" rel="noopener" class="policy-dl">↓ Training Attendance Policy</a>
+            <a href="hr-assets/policies/training-costs.pdf" target="_blank" rel="noopener" class="policy-dl">↓ Training Costs Agreement</a>
+            <a href="mailto:hr@iram.co.za?subject=Policy Request — Annual Leave" class="policy-dl mail">📧 Request Annual Leave Policy</a>
+          </div>
+          <div class="hr-note">⚠️ Some leave policies are still under team review. Contact HR for the current confirmed version.</div>
         </div>
       </div>
 
-      <!-- Conduct & Discipline -->
       <div class="policy-item">
         <div class="policy-header" onclick="togglePolicy(this)">
-          <span class="ph-icon">⚖️</span>
-          <span class="ph-title">Code of Conduct &amp; Discipline</span>
-          <span class="ph-arrow">▶</span>
+          <span class="ph-icon">⚖️</span><span class="ph-title">Code of Conduct &amp; Discipline</span><span class="ph-arrow">▶</span>
         </div>
         <div class="policy-body">
+          <div class="policy-summary">iRam requires all staff to maintain professional standards at all times. The disciplinary process follows a progressive structure — verbal warning, written warning, final written warning, and dismissal — and is aligned with CCMA procedures. Employees have the right to representation at any disciplinary hearing.</div>
           <ul>
             <li>Code of Conduct</li>
             <li>Disciplinary Code</li>
@@ -614,18 +487,18 @@
             <li>Smoking Policy</li>
             <li>Desertion / Absconsion Policy</li>
           </ul>
-          <a href="mailto:hr@iram.co.za?subject=Policy Request — Conduct" class="policy-dl">📧 Request Policy Document</a>
+          <div class="policy-links">
+            <a href="mailto:hr@iram.co.za?subject=Policy Request — Code of Conduct" class="policy-dl mail">📧 Request Conduct Policies</a>
+          </div>
         </div>
       </div>
 
-      <!-- IT & Communications -->
       <div class="policy-item">
         <div class="policy-header" onclick="togglePolicy(this)">
-          <span class="ph-icon">💻</span>
-          <span class="ph-title">IT, Technology &amp; Communications</span>
-          <span class="ph-arrow">▶</span>
+          <span class="ph-icon">💻</span><span class="ph-title">IT, Technology &amp; Communications</span><span class="ph-arrow">▶</span>
         </div>
         <div class="policy-body">
+          <div class="policy-summary">All company devices, systems, and communications channels must be used responsibly and professionally. Personal use of company IT is limited, and all electronic communications on company systems are subject to monitoring. Social media use that reflects negatively on iRam or its clients is prohibited.</div>
           <ul>
             <li>Tech Policy 2.0</li>
             <li>Electronic Communication and Security Policy</li>
@@ -633,18 +506,19 @@
             <li>Social Media Policy</li>
             <li>Confidentiality and NDA</li>
           </ul>
-          <a href="mailto:hr@iram.co.za?subject=Policy Request — IT and Tech" class="policy-dl">📧 Request Policy Document</a>
+          <div class="policy-links">
+            <a href="hr-assets/policies/social-media.pdf" target="_blank" rel="noopener" class="policy-dl">↓ Social Media Policy</a>
+            <a href="mailto:hr@iram.co.za?subject=Policy Request — IT and Communications" class="policy-dl mail">📧 Request Other IT Policies</a>
+          </div>
         </div>
       </div>
 
-      <!-- Vehicles & Fuel -->
       <div class="policy-item">
         <div class="policy-header" onclick="togglePolicy(this)">
-          <span class="ph-icon">🚗</span>
-          <span class="ph-title">Vehicles, Fuel &amp; Travel</span>
-          <span class="ph-arrow">▶</span>
+          <span class="ph-icon">🚗</span><span class="ph-title">Vehicles, Fuel &amp; Travel</span><span class="ph-arrow">▶</span>
         </div>
         <div class="policy-body">
+          <div class="policy-summary">iRam provides fuel allowances and fleet cards to eligible staff based on role requirements. Company vehicles must be used for business purposes only and any fines or traffic violations incurred in a company vehicle are the responsibility of the driver. Travel claims must be submitted within 30 days of the expense.</div>
           <ul>
             <li>Fuel Allowance Policy</li>
             <li>Fuel Fleet Card Policy</li>
@@ -652,20 +526,21 @@
             <li>Personal Vehicle Policy</li>
             <li>Travel Claims and Reimbursement</li>
           </ul>
-          <a href="hr-assets/fuel-allowance.pdf" target="_blank" rel="noopener" class="policy-dl">⛽ Fuel Allowance Infographic (PDF)</a>
-          <br>
-          <a href="mailto:hr@iram.co.za?subject=Policy Request — Vehicles and Fuel" class="policy-dl" style="margin-top:8px">📧 Request Full Policy</a>
+          <div class="policy-links">
+            <a href="hr-assets/fuel-allowance.pdf" target="_blank" rel="noopener" class="policy-dl">↓ Fuel Allowance Infographic</a>
+            <a href="hr-assets/policies/fuel-fleet-card.pdf" target="_blank" rel="noopener" class="policy-dl">↓ Fuel Fleet Card Policy</a>
+            <a href="hr-assets/policies/company-vehicle.pdf" target="_blank" rel="noopener" class="policy-dl">↓ Company Vehicle Policy</a>
+            <a href="mailto:hr@iram.co.za?subject=Policy Request — Travel Claims" class="policy-dl mail">📧 Request Travel Claims Policy</a>
+          </div>
         </div>
       </div>
 
-      <!-- Benefits & Assets -->
       <div class="policy-item">
         <div class="policy-header" onclick="togglePolicy(this)">
-          <span class="ph-icon">🎁</span>
-          <span class="ph-title">Benefits, Assets &amp; Workwear</span>
-          <span class="ph-arrow">▶</span>
+          <span class="ph-icon">🎁</span><span class="ph-title">Benefits, Assets &amp; Workwear</span><span class="ph-arrow">▶</span>
         </div>
         <div class="policy-body">
+          <div class="policy-summary">Company assets issued to staff (laptops, phones, uniforms) remain iRam property and must be returned in good condition on exit. Staff loans are available subject to approval and payroll deduction agreement. Gifts or benefits received from clients or suppliers above a nominal value must be declared to management.</div>
           <ul>
             <li>Asset Policy</li>
             <li>Workwear Policy</li>
@@ -673,30 +548,32 @@
             <li>Discussion of Salaries Policy</li>
             <li>COI, Bribes and Gifts Policy</li>
           </ul>
-          <a href="mailto:hr@iram.co.za?subject=Policy Request — Benefits" class="policy-dl">📧 Request Policy Document</a>
+          <div class="policy-links">
+            <a href="mailto:hr@iram.co.za?subject=Policy Request — Benefits and Assets" class="policy-dl mail">📧 Request Policy Documents</a>
+          </div>
         </div>
       </div>
 
-      <!-- Health, Safety & Compliance -->
       <div class="policy-item">
         <div class="policy-header" onclick="togglePolicy(this)">
-          <span class="ph-icon">🦺</span>
-          <span class="ph-title">Health, Safety &amp; Compliance</span>
-          <span class="ph-arrow">▶</span>
+          <span class="ph-icon">🦺</span><span class="ph-title">Health, Safety &amp; Compliance</span><span class="ph-arrow">▶</span>
         </div>
         <div class="policy-body">
+          <div class="policy-summary">iRam is committed to providing a safe working environment in compliance with the Occupational Health and Safety Act. All staff are required to report hazards, injuries, or near-misses immediately. iRam complies with the Employment Equity Act and POPIA — all staff personal data is handled confidentially and with strict access controls.</div>
           <ul>
-            <li>OHS (Occupational Health &amp; Safety) Policy</li>
+            <li>Occupational Health &amp; Safety (OHS) Policy</li>
             <li>Employment Equity (AA) Plan</li>
             <li>BCEA Compliance</li>
             <li>Confidentiality and NDA</li>
             <li>Exit Policy</li>
           </ul>
-          <a href="mailto:hr@iram.co.za?subject=Policy Request — Health and Safety" class="policy-dl">📧 Request Policy Document</a>
+          <div class="policy-links">
+            <a href="mailto:hr@iram.co.za?subject=Policy Request — Health and Safety" class="policy-dl mail">📧 Request Policy Documents</a>
+          </div>
         </div>
       </div>
 
-    </div><!-- /policy-accordion -->
+    </div>
 
   </main>
 
@@ -704,7 +581,27 @@
     <p>iRam HR &amp; People &nbsp;|&nbsp; Questions? Email <span>hr@iram.co.za</span></p>
   </footer>
 
+  <!-- Manager password modal -->
+  <div class="mgr-modal-bg" id="mgr-modal-bg">
+    <div class="mgr-modal">
+      <h3>🔒 Manager Access</h3>
+      <p>Enter your manager access code to view the senior staff forms. Contact HR if you don't have your code.</p>
+      <input type="password" id="mgr-pw-input" placeholder="Access code" autocomplete="off">
+      <div class="mgr-error" id="mgr-error">Incorrect access code. Please try again.</div>
+      <div class="mgr-actions">
+        <button class="mgr-cancel" onclick="closeMgrModal()">Cancel</button>
+        <button class="mgr-submit" onclick="submitMgrPassword()">Unlock →</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // ── SimplePay lightbox ──
+    function openLightbox()  { document.getElementById('lightbox').classList.add('open'); }
+    function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLightbox(); closeMgrModal(); } });
+
+    // ── Policies accordion ──
     function togglePolicy(header) {
       const body = header.nextElementSibling;
       const isOpen = body.classList.contains('open');
@@ -712,6 +609,56 @@
       document.querySelectorAll('.policy-header').forEach(h => h.classList.remove('open'));
       if (!isOpen) { body.classList.add('open'); header.classList.add('open'); }
     }
+
+    // ── Manager gate ──
+    const MGR_KEY = 'iram_mgr_auth';
+
+    function initMgrGate() {
+      if (sessionStorage.getItem(MGR_KEY) === 'true') {
+        unlockSenior();
+      }
+    }
+
+    function openMgrModal() {
+      document.getElementById('mgr-modal-bg').classList.add('open');
+      document.getElementById('mgr-pw-input').value = '';
+      document.getElementById('mgr-pw-input').classList.remove('err');
+      document.getElementById('mgr-error').style.display = 'none';
+      setTimeout(() => document.getElementById('mgr-pw-input').focus(), 50);
+    }
+    function closeMgrModal() { document.getElementById('mgr-modal-bg').classList.remove('open'); }
+
+    document.getElementById('mgr-pw-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitMgrPassword();
+    });
+
+    async function submitMgrPassword() {
+      const pw = document.getElementById('mgr-pw-input').value.trim();
+      if (!pw) return;
+      try {
+        const r    = await fetch('/api/manager-login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
+        const data = await r.json();
+        if (data.ok) {
+          sessionStorage.setItem(MGR_KEY, 'true');
+          closeMgrModal();
+          unlockSenior();
+        } else {
+          document.getElementById('mgr-pw-input').classList.add('err');
+          document.getElementById('mgr-error').style.display = 'block';
+        }
+      } catch {
+        document.getElementById('mgr-error').textContent = 'Could not connect. Please try again.';
+        document.getElementById('mgr-error').style.display = 'block';
+      }
+    }
+
+    function unlockSenior() {
+      const overlay = document.getElementById('lock-overlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+
+    initMgrGate();
   </script>
+
 </body>
 </html>

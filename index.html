@@ -3,251 +3,144 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>iRam IT Support — Log a Ticket</title>
-  <meta name="description" content="iRam IT Support Portal — log a support ticket online and get your ticket number instantly.">
+  <title>iRam Staff Portal</title>
   <link rel="stylesheet" href="assets/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f8; }
+
+    .portal-hero {
+      background: linear-gradient(140deg, #1e1e1e 0%, #2D2D2D 60%, #3a3a3a 100%);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 24px;
+      position: relative; overflow: hidden;
+      text-align: center;
+    }
+    .portal-hero::before {
+      content: ''; position: absolute; top: -120px; right: -120px;
+      width: 500px; height: 500px; background: #6BBF4E; opacity: 0.05; border-radius: 50%;
+    }
+    .portal-hero::after {
+      content: ''; position: absolute; bottom: -80px; left: -80px;
+      width: 360px; height: 360px; background: #6BBF4E; opacity: 0.04; border-radius: 50%;
+    }
+
+    .portal-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 40px; }
+    .portal-logo svg { width: 52px; height: 52px; }
+    .portal-logo-text .brand { font-size: 32px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+    .portal-logo-text .sub   { font-size: 13px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 2px; }
+
+    .portal-hero h1 {
+      color: #fff; font-size: clamp(24px, 5vw, 42px); font-weight: 700;
+      margin: 0 0 14px; line-height: 1.2;
+    }
+    .portal-hero h1 span { color: #6BBF4E; }
+    .portal-hero p {
+      color: rgba(255,255,255,0.55); font-size: 16px; max-width: 480px;
+      margin: 0 auto 52px; line-height: 1.7;
+    }
+
+    .portal-cards {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px; max-width: 860px; width: 100%; position: relative; z-index: 1;
+    }
+    .portal-card {
+      background: rgba(255,255,255,0.05);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 32px 28px;
+      text-decoration: none; color: inherit;
+      transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      display: flex; flex-direction: column; align-items: flex-start;
+      backdrop-filter: blur(6px);
+    }
+    .portal-card:hover {
+      background: rgba(107,191,78,0.12); border-color: #6BBF4E;
+      transform: translateY(-4px); box-shadow: 0 12px 40px rgba(107,191,78,0.15);
+    }
+    .portal-card.disabled { cursor: default; opacity: 0.5; pointer-events: none; }
+
+    .pc-icon {
+      font-size: 36px; margin-bottom: 18px;
+      width: 64px; height: 64px; background: rgba(107,191,78,0.12);
+      border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    }
+    .pc-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .pc-desc  { font-size: 13.5px; color: rgba(255,255,255,0.55); line-height: 1.6; flex: 1; }
+    .pc-cta {
+      margin-top: 22px; display: inline-flex; align-items: center; gap: 6px;
+      background: #6BBF4E; color: #fff; font-size: 13px; font-weight: 700;
+      padding: 9px 18px; border-radius: 8px; transition: background 0.15s;
+    }
+    .portal-card:hover .pc-cta { background: #4e9938; }
+    .pc-badge {
+      margin-top: 22px; display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4);
+      font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .portal-footer {
+      position: absolute; bottom: 20px; left: 0; right: 0; text-align: center;
+      color: rgba(255,255,255,0.25); font-size: 12px; z-index: 1;
+    }
+
+    @media (max-width: 600px) {
+      .portal-logo-text .brand { font-size: 26px; }
+      .portal-cards { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- ── HEADER ── -->
-  <header class="site-header">
-    <a href="/" class="logo">
-      <svg class="logo-icon" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <div class="portal-hero">
+
+    <div class="portal-logo">
+      <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="14" y="2"  width="10" height="10" rx="2" fill="#6BBF4E"/>
         <rect x="14" y="26" width="10" height="10" rx="2" fill="#6BBF4E"/>
         <rect x="2"  y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
         <rect x="26" y="14" width="10" height="10" rx="2" fill="#6BBF4E"/>
         <rect x="14" y="14" width="10" height="10" rx="2" fill="#4e9938"/>
       </svg>
-      <span class="logo-text">
-        <span class="brand">iRam</span>
-        <span class="sub">IT Support</span>
-      </span>
-    </a>
-    <div class="header-actions">
-      <button type="button" id="btn-new-header" class="header-new-btn" style="display:none">
-        <span>＋</span> Log New Ticket
-      </button>
-      <a href="track.html" class="header-ghost"><span>🔎</span> Track a Ticket</a>
-      <a href="hr.html" class="header-badge" style="text-decoration:none">HR Contact</a>
-    </div>
-  </header>
-
-  <!-- ── HERO ── -->
-  <section class="hero">
-    <h1>IT Support <span>Request Portal</span></h1>
-    <p>Fill in the form below to log a ticket. Your ticket number is generated instantly and a support slot is booked in your IT technician's calendar.</p>
-    <div class="hero-channels">
-      <span class="channel-pill"><span class="dot"></span> Web Form</span>
-      <span class="channel-pill"><span class="dot"></span> Email</span>
-      <span class="channel-pill"><span class="dot"></span> WhatsApp</span>
-      <span class="channel-pill"><span class="dot"></span> Auto Calendar Booking</span>
-    </div>
-  </section>
-
-  <!-- ── MAIN ── -->
-  <main class="main-content">
-
-    <div class="info-grid">
-      <div class="info-card">
-        <div class="ic-icon">⚡</div>
-        <div class="ic-title">Instant Ticket</div>
-        <div class="ic-body">Get your ticket number the moment you submit</div>
-      </div>
-      <div class="info-card">
-        <div class="ic-icon">📅</div>
-        <div class="ic-title">Auto Booking</div>
-        <div class="ic-body">A support slot is booked in your calendar automatically</div>
-      </div>
-      <div class="info-card">
-        <div class="ic-icon">🧠</div>
-        <div class="ic-title">Smart Priority</div>
-        <div class="ic-body">Our system analyses your issue and suggests the right urgency level</div>
+      <div class="portal-logo-text">
+        <div class="brand">iRam</div>
+        <div class="sub">Staff Portal</div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <span class="icon">🎫</span>
-        <h2>Log a New IT Support Ticket</h2>
+    <h1>Welcome to the <span>iRam</span> Staff Portal</h1>
+    <p>Your central hub for IT support, HR resources, and team tools. Select a portal below to get started.</p>
+
+    <div class="portal-cards">
+
+      <a href="it-support" class="portal-card">
+        <div class="pc-icon">🖥️</div>
+        <div class="pc-title">IT Support</div>
+        <div class="pc-desc">Log a new IT support ticket, track an existing request, or access the IT admin dashboard.</div>
+        <span class="pc-cta">Open IT Portal →</span>
+      </a>
+
+      <div class="portal-card disabled">
+        <div class="pc-icon">⚡</div>
+        <div class="pc-title">Perigee Support</div>
+        <div class="pc-desc">Support and resources for the Perigee platform. This portal is currently being set up.</div>
+        <span class="pc-badge">🔧 Coming Soon</span>
       </div>
-      <div class="card-body">
 
-        <!-- FORM STATE -->
-        <div id="form-state">
-          <form id="ticket-form" novalidate>
+      <a href="hr" class="portal-card">
+        <div class="pc-icon">👥</div>
+        <div class="pc-title">HR &amp; People</div>
+        <div class="pc-desc">Contact the HR team, access payroll, Flexicare benefits, company policies, and HR forms.</div>
+        <span class="pc-cta">Open HR Portal →</span>
+      </a>
 
-            <!-- ── SECTION: Your Details ── -->
-            <div class="form-section-label">Your Details</div>
-            <div class="form-grid">
+    </div>
 
-              <div class="form-group">
-                <label for="name">Full Name <span class="req">*</span></label>
-                <input type="text" id="name" placeholder="e.g. Jane Smith" autocomplete="name">
-                <span class="error-msg">Please enter your full name</span>
-              </div>
+    <div class="portal-footer">iRam Staff Portal &nbsp;·&nbsp; Powered by iRam &amp; OuterJoin</div>
 
-              <div class="form-group">
-                <label for="email">Email Address <span class="req">*</span></label>
-                <input type="email" id="email" placeholder="you@iram.co.za" autocomplete="email">
-                <span class="error-msg">Please enter a valid email address</span>
-              </div>
+  </div>
 
-              <div class="form-group">
-                <label for="phone">Phone / WhatsApp</label>
-                <input type="tel" id="phone" placeholder="+27 82 000 0000" autocomplete="tel">
-              </div>
-
-              <div class="form-group">
-                <label for="department">Department <span class="req">*</span></label>
-                <input type="text" id="department" placeholder="e.g. Finance, Operations, Sales">
-                <span class="error-msg">Please enter your department</span>
-              </div>
-
-              <div class="form-group">
-                <label for="location">Location <span class="req">*</span></label>
-                <select id="location">
-                  <option value="" disabled selected>Select location…</option>
-                  <option value="Office">🏢 Office</option>
-                  <option value="Head Office">🏛️ Head Office</option>
-                  <option value="Remote">🏠 Remote / Work From Home</option>
-                </select>
-                <span class="error-msg">Please select your location</span>
-              </div>
-
-            </div>
-
-            <!-- ── SECTION: Line Manager ── -->
-            <div class="form-section-label" style="margin-top:24px">Line Manager <span style="font-weight:400;color:#888;font-size:12px">(optional — they will be notified about this ticket)</span></div>
-            <div class="form-grid">
-
-              <div class="form-group">
-                <label for="manager-name">Manager's Name</label>
-                <input type="text" id="manager-name" placeholder="e.g. David Jones">
-              </div>
-
-              <div class="form-group">
-                <label for="manager-email">Manager's Email</label>
-                <input type="email" id="manager-email" placeholder="manager@iram.co.za">
-              </div>
-
-            </div>
-
-            <!-- ── SECTION: Issue Details ── -->
-            <div class="form-section-label" style="margin-top:24px">Issue Details</div>
-            <div class="form-grid">
-
-              <div class="form-group full">
-                <label for="category">Issue Category <span class="req">*</span></label>
-                <select id="category">
-                  <option value="" disabled selected>Select category…</option>
-                  <optgroup label="Hardware">
-                    <option value="Hardware - PC / Laptop / Desktop">🖥️ Hardware — PC / Laptop / Desktop</option>
-                    <option value="Hardware - Phone / Mobile Device">📱 Hardware — Phone / Mobile Device</option>
-                    <option value="Hardware - Printer / Scanner">🖨️ Hardware — Printer / Scanner</option>
-                  </optgroup>
-                  <optgroup label="Connectivity & Access">
-                    <option value="Network / Internet / VPN">🌐 Network / Internet / VPN</option>
-                    <option value="Access / Passwords / Permissions">🔐 Access / Passwords / Permissions</option>
-                  </optgroup>
-                  <optgroup label="Software & Communication">
-                    <option value="Software / Application">💻 Software / Application</option>
-                    <option value="Email / Outlook / Teams">📧 Email / Outlook / Teams</option>
-                  </optgroup>
-                  <option value="Other">❓ Other</option>
-                </select>
-                <span class="error-msg">Please select a category</span>
-              </div>
-
-              <div class="form-group full">
-                <label for="description">Describe the Issue <span class="req">*</span></label>
-                <textarea id="description" placeholder="Describe the issue in as much detail as possible — what happened, when it started, any error messages, how many people are affected…"></textarea>
-                <span class="error-msg">Please describe the issue</span>
-              </div>
-
-            </div>
-
-            <!-- Hidden field — set by smart priority engine -->
-            <input type="hidden" id="priority" value="">
-
-            <!-- ── Smart Priority Indicator ── -->
-            <div id="priority-indicator" class="priority-indicator" style="display:none">
-              <div class="pi-top">
-                <span class="pi-emoji"></span>
-                <div class="pi-info">
-                  <div class="pi-label"></div>
-                  <div class="pi-sla"></div>
-                </div>
-                <div class="pi-badge">System Suggested</div>
-              </div>
-              <div class="pi-triggers"></div>
-              <div class="pi-note">IT staff may adjust this priority based on further assessment.</div>
-            </div>
-
-            <!-- Submit -->
-            <button type="submit" class="btn-submit">
-              <span>🎫</span> Submit Ticket
-            </button>
-
-          </form>
-
-          <a href="#" id="wa-link" class="wa-strip" target="_blank" rel="noopener">
-            <span class="wa-icon">💬</span>
-            <span class="wa-text">
-              <strong>Prefer WhatsApp?</strong>
-              <span>Send us a message and we'll create a ticket for you automatically</span>
-            </span>
-            <span style="margin-left:auto;font-size:18px;color:#25d366;">→</span>
-          </a>
-        </div><!-- /form-state -->
-
-        <!-- LOADING STATE -->
-        <div id="loading-state" style="display:none">
-          <div style="text-align:center;padding:60px 28px">
-            <div class="spinner"></div>
-            <p style="color:#888;font-size:15px;margin-top:16px">Creating your ticket and booking a support slot…</p>
-          </div>
-        </div>
-
-        <!-- SUCCESS STATE -->
-        <div id="success-state" style="display:none;text-align:center;padding:50px 28px">
-          <div class="success-icon">✅</div>
-          <h2 style="font-size:22px;margin-bottom:8px">Ticket Created!</h2>
-          <p style="color:#888;font-size:14px;margin-bottom:24px;max-width:420px;margin-left:auto;margin-right:auto">
-            Your request has been logged. Check your email for a confirmation and a calendar invite with your support appointment time.
-          </p>
-
-          <div class="ticket-badge">
-            <div class="t-label">Your Ticket Number</div>
-            <div class="t-number" id="s-ticket-id">IT-2024-00000</div>
-            <div class="t-sub">Quote this number for all follow-up queries</div>
-          </div>
-
-          <div class="success-details">
-            <div class="row"><span class="key">Name</span>      <span class="val" id="s-name">—</span></div>
-            <div class="row"><span class="key">Email</span>     <span class="val" id="s-email">—</span></div>
-            <div class="row"><span class="key">Category</span>  <span class="val" id="s-category">—</span></div>
-            <div class="row"><span class="key">Location</span>  <span class="val" id="s-location">—</span></div>
-            <div class="row"><span class="key">Priority</span>  <span class="val" id="s-priority">—</span></div>
-            <div class="row"><span class="key">Submitted</span> <span class="val" id="s-submitted">—</span></div>
-          </div>
-
-          <button class="btn-new" id="btn-new">+ Log Another Ticket</button>
-          <p style="margin-top:18px;font-size:13px;color:#888">
-            Want to check on this later? <a id="track-this-link" href="track.html" style="color:#4e9938;font-weight:600">Track this ticket →</a>
-          </p>
-        </div>
-
-      </div><!-- /card-body -->
-    </div><!-- /card -->
-  </main>
-
-  <footer class="site-footer">
-    <p>iRam IT Support Portal &nbsp;|&nbsp; Powered by <span>iRam</span> &amp; Microsoft 365</p>
-  </footer>
-
-  <script src="assets/config.js"></script>
-  <script src="assets/script.js"></script>
 </body>
 </html>

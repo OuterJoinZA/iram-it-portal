@@ -2,8 +2,10 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "routes": [
-    { "src": "/admin", "dest": "/admin/index.html" },
-    { "src": "/hr",    "dest": "/hr.html" },
-    { "src": "/login", "dest": "/login.html" }
+    { "src": "/admin",       "dest": "/admin/index.html" },
+    { "src": "/hr",          "dest": "/hr.html" },
+    { "src": "/login",       "dest": "/login.html" },
+    { "src": "/it-support",  "dest": "/it-support.html" },
+    { "src": "/track",       "dest": "/track.html" }
   ]
 }
