@@ -183,7 +183,36 @@ async function fetchTickets(background = false) {
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
+// SharePoint returns Choice/Lookup/Person columns as objects ({Value}/{DisplayName}),
+// stores the ticket number in "Title", and the row id in "ID". The UI (and the demo
+// data) expect plain strings and the field names below, so normalise every ticket
+// before rendering. Idempotent — already-clean rows (e.g. demo data) pass through.
+function spVal(v) {
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    return v.Value ?? v.DisplayName ?? v.displayName ?? '';
+  }
+  return v ?? '';
+}
+function normalizeTicket(t) {
+  if (!t || typeof t !== 'object') return t;
+  return {
+    ...t,
+    id:                t.id ?? t.ID ?? t.ItemInternalId,
+    TicketID:          t.TicketID ?? t.Title ?? t.ticketID ?? '',
+    SubmitterName:     spVal(t.SubmitterName),
+    Department:        spVal(t.Department),
+    Location:          spVal(t.Location),
+    Category:          spVal(t.Category),
+    Priority:          spVal(t.Priority),
+    SuggestedPriority: spVal(t.SuggestedPriority),
+    Status:            spVal(t.Status) || 'Open',
+    AssignedTo:        spVal(t.AssignedTo),
+    Channel:           spVal(t.Channel)
+  };
+}
+
 function renderAll() {
+  allTickets = (Array.isArray(allTickets) ? allTickets : []).map(normalizeTicket);
   renderStats();
   renderTable();
 }
