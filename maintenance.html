@@ -336,5 +336,21 @@
     </div>
 
   </div>
+
+  <script>
+    // Don't strand visitors here. If maintenance mode is OFF, bounce back to the
+    // portal — on load, and again every 15s so anyone left on this page is sent
+    // out the moment maintenance is switched off. If the check fails, stay put.
+    (function () {
+      function check() {
+        fetch('/api/version', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { if (d && d.maintenance === false) location.replace('/'); })
+          .catch(function () {});
+      }
+      check();
+      setInterval(check, 15000);
+    })();
+  </script>
 </body>
 </html>
