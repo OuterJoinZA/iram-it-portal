@@ -40,21 +40,31 @@ module.exports = async function handler(req, res) {
                : Array.isArray(data.value) ? data.value[0]
                : (data.found === false ? null : data);
 
-    if (!item || item.found === false || !(item.ticketID || item.TicketID)) {
+    // SharePoint Choice/Lookup/Person columns come back as objects like
+    // { Value: "High" } or { DisplayName: "..." }. This flattens them to a
+    // plain string so the flow can just return the raw item unchanged.
+    const val = v => (v && typeof v === 'object')
+      ? (v.Value ?? v.DisplayName ?? v.displayName ?? '')
+      : (v ?? '');
+
+    // The ticket number lives in the SharePoint "Title" column.
+    if (!item || item.found === false ||
+        !(item.ticketID || item.TicketID || item.Title)) {
       return res.status(404).json({ found: false });
     }
 
-    // Whitelist — only ever expose these fields publicly.
+    // Whitelist — only ever expose these fields publicly. Accepts either a
+    // pre-shaped payload (ticketID/status/…) or a raw SharePoint item.
     return res.status(200).json({
       found:        true,
-      ticketID:     item.ticketID    ?? item.TicketID    ?? ticketID,
-      status:       item.status      ?? item.Status      ?? 'Open',
-      category:     item.category    ?? item.Category    ?? '',
-      priority:     item.priority    ?? item.Priority    ?? '',
-      submittedAt:  item.submittedAt ?? item.Created     ?? item.submitted ?? '',
-      lastUpdated:  item.lastUpdated ?? item.Modified    ?? '',
-      assignedTo:   item.assignedTo  ?? item.AssignedTo  ?? '',
-      publicUpdate: item.publicUpdate ?? item.PublicUpdate ?? ''
+      ticketID:     item.ticketID ?? item.TicketID ?? item.Title ?? ticketID,
+      status:       val(item.status      ?? item.Status)   || 'Open',
+      category:     val(item.category    ?? item.Category),
+      priority:     val(item.priority    ?? item.Priority),
+      submittedAt:  item.submittedAt ?? item.Created  ?? item.submitted ?? '',
+      lastUpdated:  item.lastUpdated ?? item.Modified ?? '',
+      assignedTo:   val(item.assignedTo  ?? item.AssignedTo),
+      publicUpdate: val(item.publicUpdate ?? item.PublicUpdate)
     });
   } catch (err) {
     console.error('Track error:', err.message);
