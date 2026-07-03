@@ -30,7 +30,14 @@ module.exports = async function handler(req, res) {
       signal:  controller.signal
     });
     clearTimeout(timeout);
-    if (!r.ok) throw new Error(`Flow returned ${r.status}`);
+    if (!r.ok) {
+      // Flow was reached but returned an error. Surface its status so the
+      // admin panel can show it (401/403 = expired flow URL, 5xx = flow step
+      // error, 404 = flow turned off/deleted).
+      const body = await r.text().catch(() => '');
+      console.error('Admin tickets: flow returned', r.status, body.slice(0, 500));
+      return res.status(502).json({ error: 'flow_error', flowStatus: r.status });
+    }
     const text = await r.text();
     const data = text ? JSON.parse(text) : [];
     const list = Array.isArray(data) ? data : (Array.isArray(data.value) ? data.value : []);
@@ -39,6 +46,7 @@ module.exports = async function handler(req, res) {
     clearTimeout(timeout);
     const timedOut = err.name === 'AbortError';
     console.error('Admin tickets error:', timedOut ? 'timed out after 18s' : err.message);
-    return res.status(timedOut ? 504 : 502).json({ error: timedOut ? 'flow_timeout' : 'Could not load tickets.' });
+    return res.status(timedOut ? 504 : 502)
+      .json({ error: timedOut ? 'flow_timeout' : 'flow_unreachable', detail: String(err.message || err) });
   }
 };

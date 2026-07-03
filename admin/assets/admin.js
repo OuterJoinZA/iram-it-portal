@@ -153,7 +153,22 @@ async function fetchTickets(background = false) {
       else showToast('Background refresh timed out — data may be stale.', 'error');
       return;
     }
-    if (!res.ok) throw new Error(`Status ${res.status}`);
+    if (!res.ok) {
+      // Reached the API but the Power Automate flow errored. Show the flow's
+      // status so the cause is obvious (401/403 = expired flow URL, 404 = flow
+      // off/deleted, 5xx = a step inside the flow failed).
+      let detail = `HTTP ${res.status}`;
+      try {
+        const j = await res.json();
+        if (j && j.flowStatus) detail = `flow returned ${j.flowStatus}`;
+        else if (j && j.detail) detail = j.detail;
+      } catch (_) {}
+      if (!background) {
+        allTickets = DEMO_TICKETS; renderAll();
+        showToast(`Live tickets failed (${detail}) — showing demo data.`, 'error');
+      }
+      return;
+    }
 
     const data = await res.json();
     allTickets = Array.isArray(data) ? data : (data.value || []);
@@ -162,7 +177,8 @@ async function fetchTickets(background = false) {
     if (background) showToast('Tickets refreshed ✓', 'success');
 
   } catch(err) {
-    if (!background) { allTickets = DEMO_TICKETS; renderAll(); showToast('Could not load live tickets — showing demo data.', 'error'); }
+    // Never even reached the API (network/connection failure).
+    if (!background) { allTickets = DEMO_TICKETS; renderAll(); showToast('Could not reach the server — showing demo data. Check your connection.', 'error'); }
   }
 }
 
