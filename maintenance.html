@@ -136,17 +136,6 @@
       30%     { transform: translateY(-12px) rotate(1.5deg); }
       70%     { transform: translateY(-5px)  rotate(-1deg); }
     }
-    /* Wrench swings */
-    .wrench-arm {
-      animation: wrench-swing 1.6s ease-in-out infinite;
-      transform-box: fill-box;
-      transform-origin: 30% 80%;
-    }
-    @keyframes wrench-swing {
-      0%,100% { transform: rotate(0deg); }
-      40%     { transform: rotate(28deg); }
-      70%     { transform: rotate(-8deg); }
-    }
     /* Legs alternate */
     .leg-l {
       animation: leg-left  .8s ease-in-out infinite alternate;
@@ -158,16 +147,17 @@
     }
     @keyframes leg-left  { to { transform: rotate(14deg);  } }
     @keyframes leg-right { to { transform: rotate(-14deg); } }
-    /* Head nods at puzzle */
+    /* Head nods at the work — pivot sits at the neck joint so the
+       head (and the wrench in its bill) rock together naturally */
     .goose-head-group {
       animation: head-nod 2.4s ease-in-out infinite;
       transform-box: fill-box;
-      transform-origin: 50% 90%;
+      transform-origin: 69% 74%;
     }
     @keyframes head-nod {
       0%,100% { transform: rotate(0deg); }
-      40%     { transform: rotate(-12deg); }
-      70%     { transform: rotate(4deg);  }
+      40%     { transform: rotate(-8deg); }
+      70%     { transform: rotate(3deg);  }
     }
 
     /* ── Text ── */
@@ -291,34 +281,28 @@
           <!-- Belly shading -->
           <path d="M44 132 C64 147 98 150 122 141 C102 150 66 150 48 138 Z" fill="#d8e5e0" opacity=".7"/>
 
-          <!-- WRENCH ARM (animated, rises from the wing) -->
-          <g class="wrench-arm">
-            <path d="M96 100 Q112 80 118 62" stroke="#d8e5e0" stroke-width="12" fill="none" stroke-linecap="round"/>
-            <path d="M96 100 Q112 80 118 62" stroke="#eef4f2" stroke-width="9" fill="none" stroke-linecap="round"/>
-            <!-- Wrench -->
-            <g transform="translate(121,54) rotate(-30) scale(.8)">
-              <rect x="-5" y="-5" width="10" height="32" rx="4" fill="#8a8a8a"/>
-              <rect x="-4" y="-4" width="8" height="30" rx="3" fill="#b0b0b0"/>
-              <path d="M-9,-5 Q0,-16 9,-5 L6,-2 Q0,-10 -6,-2 Z" fill="#8a8a8a"/>
-              <path d="M-7,-5 Q0,-13 7,-5 L5,-3 Q0,-10 -5,-3 Z" fill="#a8a8a8"/>
-              <path d="M-9,22 Q0,32 9,22 L6,20 Q0,28 -6,20 Z" fill="#8a8a8a"/>
-            </g>
-            <!-- Sparkles (working) -->
-            <circle cx="130" cy="44" r="2.5" fill="#FFD700" opacity=".9">
-              <animate attributeName="opacity" values=".9;0;.9" dur="0.8s" repeatCount="indefinite"/>
-              <animate attributeName="r" values="2.5;4;2.5" dur="0.8s" repeatCount="indefinite"/>
-            </circle>
-            <circle cx="136" cy="56" r="1.8" fill="#FFD700" opacity=".7">
-              <animate attributeName="opacity" values=".7;0;.7" dur="1.1s" begin="0.3s" repeatCount="indefinite"/>
-            </circle>
-            <circle cx="124" cy="36" r="2" fill="#fff" opacity=".8">
-              <animate attributeName="opacity" values=".8;0;.8" dur="0.6s" begin="0.15s" repeatCount="indefinite"/>
-            </circle>
-          </g>
-
           <!-- HEAD + hard hat group (animated nod) -->
           <g class="goose-head-group">
-            <!-- Bill (root hides under head) -->
+            <!-- Wrench held in the bill (drawn first so the bill clamps over it) -->
+            <g transform="translate(7,28) rotate(-12)">
+              <!-- Open-end jaw -->
+              <path d="M -3 -21 A 7.6 7.6 0 1 0 3 -21 L 2 -12.5 A 2.5 2.5 0 0 1 -2 -12.5 Z" fill="#97a3ab"/>
+              <!-- Handle -->
+              <rect x="-2.75" y="-9" width="5.5" height="27" rx="2.75" fill="#97a3ab"/>
+              <rect x="-1.6" y="-7" width="1.7" height="22" rx=".85" fill="#c9d2d8"/>
+            </g>
+            <!-- Sparkles near the wrench jaw (working) -->
+            <circle cx="0" cy="3" r="2.2" fill="#FFD700" opacity=".9">
+              <animate attributeName="opacity" values=".9;0;.9" dur="0.8s" repeatCount="indefinite"/>
+              <animate attributeName="r" values="2.2;3.5;2.2" dur="0.8s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="15" cy="12" r="1.6" fill="#FFD700" opacity=".7">
+              <animate attributeName="opacity" values=".7;0;.7" dur="1.1s" begin="0.3s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="11" cy="0" r="1.8" fill="#fff" opacity=".8">
+              <animate attributeName="opacity" values=".8;0;.8" dur="0.6s" begin="0.15s" repeatCount="indefinite"/>
+            </circle>
+            <!-- Bill (root hides under head, clamps the wrench) -->
             <path d="M27 22 C17 21 9 24 5 28 C9 31 17 32 27 31 Z" fill="#FFA726"/>
             <path d="M6 29 C12 32 19 33 27 33 C27 31.5 18 31 6 29 Z" fill="#ef9416"/>
             <!-- Head -->
