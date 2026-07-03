@@ -54,9 +54,6 @@ async function handler(req, res) {
   }
 }
 
+// maxDuration for this function is set in vercel.json (60s) — Pro plan allows
+// raising it above the 15s default so a slow SharePoint flow isn't cut off.
 module.exports = handler;
-// Vercel Pro allows raising this above the 15s default. The SharePoint flow can
-// be slow on first call; 60s stops the platform cutting it off mid-request.
-// Still optimise the flow (Filter Query / Top Count / select columns) to keep
-// the real load time low — this is a ceiling, not a target.
-module.exports.config = { maxDuration: 60 };
