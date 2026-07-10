@@ -1,3 +1,5 @@
+const { estimateMinutes, formatDuration } = require('../assets/duration.js');
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,6 +14,11 @@ module.exports = async function handler(req, res) {
   const uniqueID = String(Math.floor(Math.random() * 90000) + 10000);
   const ticketID = `IT-${year}-${uniqueID}`;
 
+  // Work out how long this job actually needs. Computed here rather than trusting
+  // the browser, so the calendar slot always matches what we booked it for.
+  const estimatedMinutes = estimateMinutes(body.category, body.description);
+  const estimatedLabel   = formatDuration(estimatedMinutes);
+
   // Call Power Automate for SharePoint + Calendar
   const paUrl = process.env.POWER_AUTOMATE_URL;
   if (paUrl) {
@@ -19,7 +26,7 @@ module.exports = async function handler(req, res) {
       await fetch(paUrl, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ...body, ticketID })
+        body:    JSON.stringify({ ...body, ticketID, estimatedMinutes, estimatedLabel })
       });
     } catch (err) {
       console.error('PA call error:', err.message);
