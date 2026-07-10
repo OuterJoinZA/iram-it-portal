@@ -229,6 +229,9 @@
       <!-- Tab nav -->
       <div style="display:flex;border-bottom:2px solid #eee;padding:0 8px;flex-shrink:0;overflow-x:auto">
         <button class="s-stab active" data-stab="security">🔐 Security</button>
+        <button class="s-stab" data-stab="staff">👥 IT Staff</button>
+        <button class="s-stab" data-stab="categories">🏷️ Categories</button>
+        <button class="s-stab" data-stab="priority">🎯 Smart Priority</button>
         <button class="s-stab" data-stab="bot">🤖 Help Bot</button>
         <button class="s-stab" data-stab="maintenance">🚧 Maintenance</button>
         <button class="s-stab" data-stab="broadcast">📡 Broadcast</button>
@@ -368,11 +371,127 @@
           </div>
         </div>
 
+        <!-- ── IT STAFF PANEL ── -->
+        <div class="s-spanel" id="s-spanel-staff" style="display:none;padding:28px">
+          <div class="modal-section-label" style="margin-bottom:6px">👥 IT Staff</div>
+          <p style="font-size:13px;color:#666;margin:0 0 18px;line-height:1.6">
+            Staff who can be assigned to a ticket. The <strong>email</strong> is the mailbox whose calendar the ticket's appointment is booked into — leave it blank and that person can't be auto-booked.
+          </p>
+          <div class="cfg-warn" id="cfg-storage-warn" style="display:none"></div>
+          <div class="cfg-head cfg-head-staff"><span>Name</span><span>Role</span><span>Calendar email</span><span></span></div>
+          <div id="cfg-staff-rows"></div>
+          <button type="button" class="cfg-add" onclick="addStaffRow()">+ Add staff member</button>
+          <div id="s-staff-msg" class="cfg-msg"></div>
+          <button id="s-staff-btn" class="cfg-save" onclick="savePortalConfig('s-staff-msg','s-staff-btn')">💾 Save IT Staff</button>
+        </div>
+
+        <!-- ── CATEGORIES PANEL ── -->
+        <div class="s-spanel" id="s-spanel-categories" style="display:none;padding:28px">
+          <div class="modal-section-label" style="margin-bottom:6px">🏷️ Issue Categories &amp; Booking Time</div>
+          <p style="font-size:13px;color:#666;margin:0 0 18px;line-height:1.6">
+            Categories shown on the IT Support form. <strong>Minutes</strong> is how long that job normally takes — it's the calendar slot the appointment books. <strong>Priority score</strong> is the starting score for the Smart Priority engine (higher = more urgent).
+          </p>
+          <div class="cfg-head cfg-head-cat"><span>Category name</span><span>Minutes</span><span>Priority score</span><span></span></div>
+          <div id="cfg-cat-rows"></div>
+          <button type="button" class="cfg-add" onclick="addCategoryRow()">+ Add category</button>
+
+          <div class="modal-section-label" style="margin:30px 0 6px">⏱️ Time Overrides</div>
+          <p style="font-size:13px;color:#666;margin:0 0 16px;line-height:1.6">
+            Words in the ticket description that override the category's minutes. A <strong>longer-job</strong> match always wins over a quicker one, so "set up new laptop" books 4 hours even under a 90-minute category. Separate words with commas.
+          </p>
+
+          <div style="font-size:12px;font-weight:700;color:#a4262c;margin-bottom:8px">LONGER JOBS</div>
+          <div class="cfg-head cfg-head-rule"><span>Minutes</span><span>Trigger words</span><span></span></div>
+          <div id="cfg-long-rows"></div>
+          <button type="button" class="cfg-add" onclick="addRuleRow('cfg-long-rows')">+ Add longer-job rule</button>
+
+          <div style="font-size:12px;font-weight:700;color:#498205;margin:22px 0 8px">QUICKER JOBS</div>
+          <div class="cfg-head cfg-head-rule"><span>Minutes</span><span>Trigger words</span><span></span></div>
+          <div id="cfg-quick-rows"></div>
+          <button type="button" class="cfg-add" onclick="addRuleRow('cfg-quick-rows')">+ Add quicker-job rule</button>
+
+          <div id="s-cat-msg" class="cfg-msg"></div>
+          <button id="s-cat-btn" class="cfg-save" onclick="savePortalConfig('s-cat-msg','s-cat-btn')">💾 Save Categories</button>
+        </div>
+
+        <!-- ── SMART PRIORITY PANEL ── -->
+        <div class="s-spanel" id="s-spanel-priority" style="display:none;padding:28px">
+          <div class="modal-section-label" style="margin-bottom:6px">🎯 Smart Priority Keywords</div>
+          <p style="font-size:13px;color:#666;margin:0 0 20px;line-height:1.6">
+            The form scores each ticket: it starts at the category's priority score, then every matching word below adds its band's weight. Higher totals mean higher urgency. Put one word or phrase per line — matching is case-insensitive.
+          </p>
+
+          <div id="cfg-priority-bands"></div>
+
+          <div style="background:#f5f6f8;border-radius:6px;padding:12px 16px;font-size:12px;color:#666;margin-top:18px;line-height:1.7">
+            Totals: <strong>90+</strong> → Critical &nbsp;·&nbsp; <strong>50–89</strong> → High &nbsp;·&nbsp; <strong>20–49</strong> → Medium &nbsp;·&nbsp; <strong>under 20</strong> → Low.
+            Use a negative weight (like the Low band) to <em>reduce</em> urgency.
+          </div>
+
+          <div id="s-prio-msg" class="cfg-msg"></div>
+          <button id="s-prio-btn" class="cfg-save" onclick="savePortalConfig('s-prio-msg','s-prio-btn')">💾 Save Smart Priority</button>
+        </div>
+
       </div><!-- /modal-body -->
     </div>
   </div>
 
   <style>
+    /* Editable-config tabs (IT Staff / Categories / Smart Priority) */
+    .cfg-head {
+      display: grid; gap: 10px; align-items: center;
+      font-size: 11px; font-weight: 700; color: #888;
+      text-transform: uppercase; letter-spacing: .4px;
+      padding: 0 2px 6px;
+    }
+    .cfg-head-staff { grid-template-columns: 1fr 1fr 1.4fr 34px; }
+    .cfg-head-cat   { grid-template-columns: 2fr 90px 110px 34px; }
+    .cfg-head-rule  { grid-template-columns: 90px 1fr 34px; }
+    .cfg-row {
+      display: grid; gap: 10px; align-items: center; margin-bottom: 8px;
+    }
+    .cfg-row-staff { grid-template-columns: 1fr 1fr 1.4fr 34px; }
+    .cfg-row-cat   { grid-template-columns: 2fr 90px 110px 34px; }
+    .cfg-row-rule  { grid-template-columns: 90px 1fr 34px; }
+    .cfg-input {
+      width: 100%; box-sizing: border-box;
+      padding: 9px 11px; border: 1.5px solid #ddd; border-radius: 6px;
+      font-size: 13px; font-family: inherit; color: #2D2D2D; background: #fff;
+    }
+    .cfg-input:focus { outline: none; border-color: #4e9938; }
+    .cfg-x {
+      width: 34px; height: 34px; border: none; border-radius: 6px;
+      background: #fbeaea; color: #a4262c; font-size: 15px; font-weight: 700;
+      cursor: pointer; line-height: 1;
+    }
+    .cfg-x:hover { background: #f5d0d0; }
+    .cfg-add {
+      margin-top: 6px; padding: 8px 16px; background: #fff;
+      border: 1.5px dashed #bbb; border-radius: 6px;
+      font-size: 12.5px; font-weight: 600; color: #555; cursor: pointer;
+    }
+    .cfg-add:hover { border-color: #4e9938; color: #4e9938; }
+    .cfg-save {
+      margin-top: 18px; padding: 12px 28px; background: #4e9938; color: #fff;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .cfg-save:hover { background: #3d7828; }
+    .cfg-msg { display: none; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-top: 16px; }
+    .cfg-warn {
+      background: #fff4e5; border: 1px solid #f0c48a; color: #8a5a00;
+      border-radius: 6px; padding: 10px 14px; font-size: 12.5px;
+      margin-bottom: 16px; line-height: 1.6;
+    }
+    .cfg-band {
+      border: 1.5px solid #eee; border-radius: 8px; padding: 16px; margin-bottom: 14px;
+    }
+    .cfg-band textarea {
+      width: 100%; box-sizing: border-box; min-height: 96px; resize: vertical;
+      padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 6px;
+      font-size: 12.5px; font-family: inherit; line-height: 1.6; color: #2D2D2D;
+    }
+    .cfg-band textarea:focus { outline: none; border-color: #4e9938; }
+
     .s-stab {
       padding: 13px 18px;
       background: none;
@@ -427,9 +546,10 @@
         document.querySelectorAll('.s-spanel').forEach(p => p.style.display = 'none');
         btn.classList.add('active');
         document.getElementById('s-spanel-' + btn.dataset.stab).style.display = 'block';
-        // Lazy-load bot/maintenance status when those tabs are first opened
+        // Lazy-load status/config when those tabs are first opened
         if (btn.dataset.stab === 'bot')         loadBotSettings();
         if (btn.dataset.stab === 'maintenance')  loadMaintenanceSettings();
+        if (['staff','categories','priority'].includes(btn.dataset.stab)) loadPortalConfig();
       });
     });
   </script>

@@ -24,10 +24,14 @@ function staffLabel(s) {
   if (typeof s === 'string') return s;
   return s.role ? `${s.name} · ${s.role}` : s.name;
 }
+// Admin-edited staff (from /api/config). Falls back to the hard-coded config.js
+// list until the editable config has loaded, so the dropdown is never empty.
+let staffOverride = null;
+
 function populateAssignDropdown() {
   const sel = document.getElementById('m-assigned');
   if (!sel) return;
-  const staff = Array.isArray(CFG.itStaff) ? CFG.itStaff : [];
+  const staff = staffOverride || (Array.isArray(CFG.itStaff) ? CFG.itStaff : []);
   sel.innerHTML = '<option value="">Unassigned</option>' +
     staff.map(s => { const l = staffLabel(s); return `<option value="${esc(l)}">${esc(l)}</option>`; }).join('');
 }
@@ -771,6 +775,180 @@ window.broadcastRefresh = async function () {
   }
 };
 
+// ── Editable portal config: IT staff, categories, Smart Priority ──────────────
+// One config object drives all three tabs. Every tab's Save posts the WHOLE
+// config (the server sanitises it), so the forms must be rendered before saving.
+let portalConfig       = null;
+let portalConfigLoaded = false;
+
+const escAttr     = s => esc(s).replace(/"/g, '&quot;');
+const splitTerms  = s => String(s || '').split(/[,\n]/).map(t => t.trim().toLowerCase()).filter(Boolean);
+
+function staffRowHtml(s = { name: '', role: '', email: '' }) {
+  return `<div class="cfg-row cfg-row-staff">
+    <input class="cfg-input" data-f="name"  value="${escAttr(s.name)}"  placeholder="Sean">
+    <input class="cfg-input" data-f="role"  value="${escAttr(s.role)}"  placeholder="Support">
+    <input class="cfg-input" data-f="email" value="${escAttr(s.email)}" placeholder="sean@iram.co.za" type="email">
+    <button type="button" class="cfg-x" title="Remove" onclick="this.parentNode.remove()">✕</button>
+  </div>`;
+}
+function categoryRowHtml(c = { name: '', baseMinutes: 30, priorityScore: 10 }) {
+  return `<div class="cfg-row cfg-row-cat">
+    <input class="cfg-input" data-f="name"  value="${escAttr(c.name)}" placeholder="Hardware - Printer / Scanner">
+    <input class="cfg-input" data-f="min"   value="${c.baseMinutes}"   type="number" min="5" max="480" step="5">
+    <input class="cfg-input" data-f="score" value="${c.priorityScore}" type="number" min="0" max="100">
+    <button type="button" class="cfg-x" title="Remove" onclick="this.parentNode.remove()">✕</button>
+  </div>`;
+}
+function ruleRowHtml(r = { minutes: 60, terms: [] }) {
+  return `<div class="cfg-row cfg-row-rule">
+    <input class="cfg-input" data-f="min"   value="${r.minutes}" type="number" min="5" max="480" step="5">
+    <input class="cfg-input" data-f="terms" value="${escAttr((r.terms || []).join(', '))}" placeholder="new laptop, onboarding, reimage">
+    <button type="button" class="cfg-x" title="Remove" onclick="this.parentNode.remove()">✕</button>
+  </div>`;
+}
+
+const PRIO_BANDS = [
+  { id: 'critical', label: '🔴 Critical', hint: '' },
+  { id: 'high',     label: '🟠 High',     hint: '' },
+  { id: 'low',      label: '🟢 Low',      hint: 'Negative weight — these words push a ticket down to Low.' }
+];
+function bandHtml(id, label, hint, band) {
+  return `<div class="cfg-band">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="font-size:13.5px;font-weight:700;color:#2D2D2D;flex:1">${label}</div>
+      <span class="s-lbl" style="margin:0">Weight per match</span>
+      <input class="cfg-input" style="width:88px" id="cfg-w-${id}" type="number" value="${band.weight}" min="-100" max="100">
+    </div>
+    <textarea id="cfg-t-${id}" placeholder="one word or phrase per line">${esc((band.terms || []).join('\n'))}</textarea>
+    ${hint ? `<div style="font-size:11.5px;color:#888;margin-top:6px">${hint}</div>` : ''}
+  </div>`;
+}
+
+function renderPortalConfig() {
+  if (!portalConfig) return;
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  const dr  = portalConfig.durationRules || { long: [], quick: [] };
+
+  set('cfg-staff-rows', (portalConfig.itStaff    || []).map(staffRowHtml).join(''));
+  set('cfg-cat-rows',   (portalConfig.categories || []).map(categoryRowHtml).join(''));
+  set('cfg-long-rows',  (dr.long  || []).map(ruleRowHtml).join(''));
+  set('cfg-quick-rows', (dr.quick || []).map(ruleRowHtml).join(''));
+  set('cfg-priority-bands', PRIO_BANDS
+    .map(b => bandHtml(b.id, b.label, b.hint, (portalConfig.priorityRules || {})[b.id] || { weight: 0, terms: [] }))
+    .join(''));
+}
+
+window.addStaffRow    = () => document.getElementById('cfg-staff-rows').insertAdjacentHTML('beforeend', staffRowHtml());
+window.addCategoryRow = () => document.getElementById('cfg-cat-rows').insertAdjacentHTML('beforeend', categoryRowHtml());
+window.addRuleRow     = id => document.getElementById(id).insertAdjacentHTML('beforeend', ruleRowHtml());
+
+window.loadPortalConfig = async function (force) {
+  if (portalConfigLoaded && !force) return;
+  try {
+    const res = await adminFetch('/api/admin/config');
+    if (res.status === 401) {
+      showToast('Session expired — please log in again.', 'error');
+      setTimeout(() => { sessionStorage.clear(); window.location.href = '../login.html'; }, 1500);
+      return;
+    }
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+
+    const data = await res.json();
+    portalConfig       = data.config;
+    portalConfigLoaded = true;
+    staffOverride      = portalConfig.itStaff;
+    renderPortalConfig();
+    populateAssignDropdown();
+
+    const warn = document.getElementById('cfg-storage-warn');
+    if (warn) {
+      warn.style.display = data.storageReady ? 'none' : 'block';
+      if (!data.storageReady) {
+        warn.innerHTML = '⚠️ <strong>Storage not connected.</strong> You can browse these settings, but saving will fail until a Vercel Blob store is connected and the project is redeployed.';
+      }
+    }
+  } catch (err) {
+    showToast('Could not load settings: ' + err.message, 'error');
+  }
+};
+
+function collectPortalConfig() {
+  const rows = sel => Array.from(document.querySelectorAll(sel + ' .cfg-row'));
+  const val  = (r, f) => r.querySelector(`[data-f="${f}"]`).value;
+  const num  = (r, f) => Number(val(r, f));
+
+  const ruleRows = sel => rows(sel)
+    .map(r => ({ minutes: num(r, 'min'), terms: splitTerms(val(r, 'terms')) }))
+    .filter(x => x.terms.length);
+
+  const band = id => ({
+    weight: Number(document.getElementById('cfg-w-' + id).value),
+    terms:  splitTerms(document.getElementById('cfg-t-' + id).value)
+  });
+
+  return {
+    itStaff: rows('#cfg-staff-rows')
+      .map(r => ({ name: val(r, 'name').trim(), role: val(r, 'role').trim(), email: val(r, 'email').trim() }))
+      .filter(s => s.name),
+    categories: rows('#cfg-cat-rows')
+      .map(r => ({ name: val(r, 'name').trim(), baseMinutes: num(r, 'min'), priorityScore: num(r, 'score') }))
+      .filter(c => c.name),
+    durationRules: { long: ruleRows('#cfg-long-rows'), quick: ruleRows('#cfg-quick-rows') },
+    priorityRules: { critical: band('critical'), high: band('high'), low: band('low') }
+  };
+}
+
+window.savePortalConfig = async function (msgId, btnId) {
+  // Every tab posts the whole config, so refuse to save from forms that were never
+  // populated — empty inputs would be sanitised back to defaults and wipe real settings.
+  if (!portalConfigLoaded) {
+    showSettingsMsg(msgId, 'Settings have not loaded yet — reopen this tab and try again.', false);
+    return;
+  }
+
+  const payload = collectPortalConfig();
+  if (!payload.categories.length) {
+    showSettingsMsg(msgId, 'Keep at least one category — the ticket form needs something to offer.', false);
+    return;
+  }
+
+  setBtnLoading(btnId, true);
+  try {
+    const res  = await adminFetch('/api/admin/config', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showSettingsMsg(msgId, data.error || `Save failed (${res.status}).`, false); return; }
+
+    portalConfig  = data.config;   // re-render from the server's sanitised version
+    staffOverride = portalConfig.itStaff;
+    renderPortalConfig();
+    populateAssignDropdown();
+    showSettingsMsg(msgId, '✅ Saved — live immediately, no redeploy needed.', true);
+    showToast('Settings saved ✓', 'success');
+  } catch (_) {
+    showSettingsMsg(msgId, 'Network error — could not reach the server.', false);
+  } finally {
+    setBtnLoading(btnId, false);
+  }
+};
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 populateAssignDropdown();
 fetchTickets();
+
+// Pull admin-edited staff so "Assigned to" is right without opening Settings.
+(async () => {
+  try {
+    const res = await fetch('/api/config', { cache: 'no-store' });
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (Array.isArray(cfg.itStaff) && cfg.itStaff.length) {
+      staffOverride = cfg.itStaff;
+      populateAssignDropdown();
+    }
+  } catch (_) { /* dropdown falls back to config.js */ }
+})();
