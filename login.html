@@ -127,6 +127,14 @@
       document.getElementById('password').focus();
     }
 
+    // Opt-in escape hatch, empty by default. NEVER hard-code a password here or in
+    // config.js — this page is served to every visitor, so anything written here is
+    // readable via View Source. The real check lives server-side in /api/admin/login,
+    // which compares against the ADMIN_PASSWORD environment variable.
+    function localFallback() {
+      return (typeof IRAM_CONFIG !== 'undefined' && IRAM_CONFIG.adminPassword) || '';
+    }
+
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const entered = document.getElementById('password').value;
@@ -141,16 +149,18 @@
 
         if (res.ok && data.ok) { loginOk(entered); return; }
 
+        // Server reports no ADMIN_PASSWORD configured. Only a deliberately-set
+        // local fallback can authenticate; an empty one always fails.
         if (data.mode === 'legacy') {
-          // Server password not configured yet — fall back to the config.js check.
-          const correct = (typeof IRAM_CONFIG !== 'undefined') ? IRAM_CONFIG.adminPassword : 'iRamIT2024!';
-          if (entered === correct) { loginOk(entered); return; }
+          const fallback = localFallback();
+          if (fallback && entered === fallback) { loginOk(entered); return; }
         }
         loginFail();
       } catch (_) {
-        // Network/server issue — fall back to local check so admins aren't locked out.
-        const correct = (typeof IRAM_CONFIG !== 'undefined') ? IRAM_CONFIG.adminPassword : 'iRamIT2024!';
-        if (entered === correct) { loginOk(entered); } else { loginFail(); }
+        // Network/server issue — same rule: no fallback configured, no way in.
+        const fallback = localFallback();
+        if (fallback && entered === fallback) { loginOk(entered); return; }
+        loginFail();
       }
     });
   </script>
