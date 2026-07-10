@@ -16,10 +16,6 @@ module.exports = async function handler(req, res) {
   // from a store that simply hasn't been written to yet.
   return res.status(200).json(Object.assign(publicView(config), {
     source,
-    storageReady: blob.isConfigured(),
-    // TEMPORARY setup diagnostic: variable NAMES only, never values. Connecting a
-    // Blob store can prefix the token (e.g. MYSTORE_BLOB_READ_WRITE_TOKEN), which
-    // otherwise looks identical to "no store connected". Remove once storage is live.
-    blobEnvKeys: Object.keys(process.env).filter(k => /BLOB/i.test(k))
+    storageReady: blob.isConfigured()
   }));
 };
