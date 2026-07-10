@@ -64,7 +64,9 @@
     ] }
   ];
 
-  const MIN_MINUTES = 10;
+  // Must match the bounds portal-config.js validates admin input against, or an
+  // admin-set 5-minute rule would silently be rounded up to the floor.
+  const MIN_MINUTES = 5;
   const MAX_MINUTES = 480; // one working day — anything bigger is a project, not a ticket
 
   function matched(rules, text) {
@@ -81,21 +83,31 @@
 
   /**
    * Estimate how long a ticket will take, in minutes.
-   * @param {string} category    one of CATEGORY_BASE_MINUTES' keys
+   * @param {string} category    an issue category name
    * @param {string} description free text the submitter wrote
+   * @param {object} [cfg]       admin-editable overrides from /api/config:
+   *                             { categories:[{name,baseMinutes}], durationRules:{long,quick} }
+   *                             Falls back to the built-in defaults when absent.
    * @returns {number} minutes
    */
-  function estimateMinutes(category, description) {
+  function estimateMinutes(category, description, cfg) {
     const text = String(description || '').toLowerCase();
-    const base = CATEGORY_BASE_MINUTES[category] ?? 30;
 
-    const long = matched(LONG_JOB_RULES, text);
+    const baseMap = (cfg && Array.isArray(cfg.categories) && cfg.categories.length)
+      ? cfg.categories.reduce((m, c) => (m[c.name] = c.baseMinutes, m), {})
+      : CATEGORY_BASE_MINUTES;
+
+    const rules      = (cfg && cfg.durationRules) || {};
+    const longRules  = Array.isArray(rules.long)  && rules.long.length  ? rules.long  : LONG_JOB_RULES;
+    const quickRules = Array.isArray(rules.quick) && rules.quick.length ? rules.quick : QUICK_JOB_RULES;
+
+    const long = matched(longRules, text);
     if (long.length) return roundSlot(Math.max(...long));
 
-    const quick = matched(QUICK_JOB_RULES, text);
+    const quick = matched(quickRules, text);
     if (quick.length) return roundSlot(Math.min(...quick));
 
-    return roundSlot(base);
+    return roundSlot(baseMap[category] ?? 30);
   }
 
   /** "10 min" · "1 hr" · "1 hr 30 min" · "4 hrs" */

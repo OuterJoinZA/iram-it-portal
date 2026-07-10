@@ -1,4 +1,5 @@
 const { estimateMinutes, formatDuration } = require('../assets/duration.js');
+const { load: loadConfig }                = require('../lib/portal-config.js');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,8 +16,10 @@ module.exports = async function handler(req, res) {
   const ticketID = `IT-${year}-${uniqueID}`;
 
   // Work out how long this job actually needs. Computed here rather than trusting
-  // the browser, so the calendar slot always matches what we booked it for.
-  const estimatedMinutes = estimateMinutes(body.category, body.description);
+  // the browser, so the calendar slot always matches what we booked it for, and
+  // driven by the admin-editable category durations / keyword rules.
+  const { config } = await loadConfig();
+  const estimatedMinutes = estimateMinutes(body.category, body.description, config);
   const estimatedLabel   = formatDuration(estimatedMinutes);
 
   // Call Power Automate for SharePoint + Calendar
