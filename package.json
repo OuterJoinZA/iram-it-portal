@@ -1,0 +1,8 @@
+{
+  "name": "iram-it-portal",
+  "private": true,
+  "description": "iRam IT Staff Portal — static pages + Vercel serverless functions",
+  "dependencies": {
+    "@vercel/blob": "^2.6.1"
+  }
+}
