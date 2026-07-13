@@ -152,6 +152,71 @@ function resetForm() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ── Optional error-image attachment ───────────────────────────────────────────
+// Resized in the browser to keep the upload well under Vercel's request limit —
+// most screenshots end up a few hundred KB, so a plain JSON POST is enough and we
+// avoid a direct-to-Blob upload flow. attachmentDataUrl holds the result (or null).
+let attachmentDataUrl = null;
+const MAX_ATTACH_BYTES = 10 * 1024 * 1024; // 10 MB before shrinking
+const MAX_ATTACH_DIM   = 1600;             // longest edge after shrinking
+
+(function initAttachment() {
+  const input   = document.getElementById('attachment');
+  const btn     = document.getElementById('attach-btn');
+  const preview = document.getElementById('attach-preview');
+  const imgEl   = document.getElementById('attach-img');
+  const nameEl  = document.getElementById('attach-name');
+  const removeBtn = document.getElementById('attach-remove');
+  if (!input || !btn) return; // form variant without the picker
+
+  const reset = () => {
+    attachmentDataUrl = null;
+    input.value = '';
+    preview.style.display = 'none';
+    btn.style.display = 'block';
+    imgEl.removeAttribute('src');
+  };
+
+  btn.addEventListener('click', () => input.click());
+  removeBtn.addEventListener('click', reset);
+
+  input.addEventListener('change', () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); reset(); return; }
+    if (file.size > MAX_ATTACH_BYTES)    { alert('That image is over 10 MB. Please choose a smaller one.'); reset(); return; }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // Scale the longest edge down to MAX_ATTACH_DIM, keep aspect ratio.
+        let { width, height } = img;
+        const scale = Math.min(1, MAX_ATTACH_DIM / Math.max(width, height));
+        width  = Math.round(width  * scale);
+        height = Math.round(height * scale);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+        // PNGs (typical screenshots) keep transparency; everything else → JPEG.
+        const isPng = file.type === 'image/png';
+        attachmentDataUrl = canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', 0.82);
+
+        imgEl.src = attachmentDataUrl;
+        nameEl.textContent = file.name;
+        preview.style.display = 'block';
+        btn.style.display = 'none';
+      };
+      img.onerror = () => { alert('Could not read that image. Please try another file.'); reset(); };
+      img.src = reader.result;
+    };
+    reader.onerror = () => { alert('Could not read that file.'); reset(); };
+    reader.readAsDataURL(file);
+  });
+})();
+
 // ── Submit ────────────────────────────────────────────────────────────────────
 document.getElementById('ticket-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -197,7 +262,10 @@ document.getElementById('ticket-form').addEventListener('submit', async (e) => {
     category:         cat,
     suggestedPriority: prio,
     description:      desc,
-    submittedAt:      new Date().toISOString()
+    submittedAt:      new Date().toISOString(),
+    // Optional error screenshot (already shrunk client-side). The server uploads
+    // it to Blob and swaps in a URL before forwarding to Power Automate.
+    attachmentDataUrl: attachmentDataUrl || undefined
   };
 
   let ticketID = generateOptimisticID();

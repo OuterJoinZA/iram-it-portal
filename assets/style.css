@@ -571,3 +571,55 @@ select {
   .ticket-badge    { padding: 18px 24px; }
   .ticket-badge .t-number { font-size: 28px; }
 }
+
+/* ── Optional error-image attachment ─────────────────────────────────────────── */
+.attach-btn {
+  width: 100%;
+  background: var(--bg);
+  border: 1.5px dashed var(--border);
+  border-radius: 7px;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.attach-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+.attach-preview {
+  margin-top: 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--white);
+}
+.attach-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 6px;
+  margin: 0 auto;
+}
+.attach-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.attach-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-remove {
+  flex-shrink: 0;
+  background: #fbeaea;
+  color: #a4262c;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.attach-remove:hover { background: #f5d0d0; }
+.attach-hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }

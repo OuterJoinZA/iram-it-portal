@@ -341,8 +341,41 @@ function openTicketModal(id) {
   document.getElementById('m-notes').value         = t.Notes || '';
   document.getElementById('m-reply').value         = '';
 
+  loadAttachment(t.AttachmentUrl);
+
   document.getElementById('modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+// The attachment proxy is admin-gated, so an <img src> can't send the key.
+// Fetch it with the key and show it via an object URL instead.
+let attachmentObjectUrl = null;
+async function loadAttachment(url) {
+  const field = document.getElementById('m-attachment-field');
+  const imgEl = document.getElementById('m-attachment-img');
+  const linkEl = document.getElementById('m-attachment-link');
+  const msgEl = document.getElementById('m-attachment-msg');
+  if (!field) return;
+
+  if (attachmentObjectUrl) { URL.revokeObjectURL(attachmentObjectUrl); attachmentObjectUrl = null; }
+  if (!url) { field.style.display = 'none'; return; }
+
+  field.style.display = 'block';
+  imgEl.style.display = 'none';
+  msgEl.textContent = 'Loading image…';
+
+  try {
+    const res = await adminFetch(url);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const blob = await res.blob();
+    attachmentObjectUrl = URL.createObjectURL(blob);
+    imgEl.src = attachmentObjectUrl;
+    linkEl.href = attachmentObjectUrl;
+    imgEl.style.display = 'block';
+    msgEl.textContent = '';
+  } catch (_) {
+    msgEl.textContent = 'Could not load the attached image.';
+  }
 }
 
 document.getElementById('modal-close').addEventListener('click', closeModal);

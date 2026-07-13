@@ -1,5 +1,6 @@
 const { estimateMinutes, formatDuration } = require('../assets/duration.js');
 const { load: loadConfig }                = require('../lib/portal-config.js');
+const blob                                = require('../lib/blob.js');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,7 +9,9 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const body = req.body || {};
+  // Pull the (optional) inline error image off the payload — never forward the
+  // multi-MB data URL to Power Automate or the emails.
+  const { attachmentDataUrl, ...body } = req.body || {};
 
   // Generate unique ticket ID
   const year     = new Date().getFullYear();
@@ -22,6 +25,24 @@ module.exports = async function handler(req, res) {
   const estimatedMinutes = estimateMinutes(body.category, body.description, config);
   const estimatedLabel   = formatDuration(estimatedMinutes);
 
+  // Store the error screenshot in Blob and forward only a URL. Non-fatal: if the
+  // upload fails the ticket is still logged, just without the image.
+  let attachmentUrl = '';
+  if (attachmentDataUrl && blob.isConfigured()) {
+    const m = /^data:(image\/(png|jpeg|jpg|gif|webp));base64,([A-Za-z0-9+/=]+)$/i.exec(attachmentDataUrl);
+    if (m) {
+      try {
+        const ext  = m[2].toLowerCase() === 'png' ? 'png' : m[2].toLowerCase() === 'jpeg' ? 'jpg' : m[2].toLowerCase();
+        const buf  = Buffer.from(m[3], 'base64');
+        const path = `tickets/${ticketID}/error-${Date.now()}.${ext}`;
+        await blob.putFile(path, buf, m[1]);
+        attachmentUrl = `/api/attachment?path=${encodeURIComponent(path)}`;
+      } catch (err) {
+        console.error('Attachment upload failed:', err.message);
+      }
+    }
+  }
+
   // Call Power Automate for SharePoint + Calendar
   const paUrl = process.env.POWER_AUTOMATE_URL;
   if (paUrl) {
@@ -29,7 +50,7 @@ module.exports = async function handler(req, res) {
       await fetch(paUrl, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ...body, ticketID, estimatedMinutes, estimatedLabel })
+        body:    JSON.stringify({ ...body, ticketID, estimatedMinutes, estimatedLabel, attachmentUrl })
       });
     } catch (err) {
       console.error('PA call error:', err.message);

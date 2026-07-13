@@ -167,6 +167,21 @@
                 <span class="error-msg">Please describe the issue</span>
               </div>
 
+              <!-- Optional screenshot / photo of the error -->
+              <div class="form-group full">
+                <label for="attachment">Add an image of the error <span style="font-weight:400;color:#999">(optional)</span></label>
+                <input type="file" id="attachment" accept="image/*" style="display:none">
+                <button type="button" id="attach-btn" class="attach-btn">📎 Attach a screenshot or photo</button>
+                <div id="attach-preview" class="attach-preview" style="display:none">
+                  <img id="attach-img" alt="Attached image preview">
+                  <div class="attach-meta">
+                    <span id="attach-name"></span>
+                    <button type="button" id="attach-remove" class="attach-remove">Remove</button>
+                  </div>
+                </div>
+                <div class="attach-hint">Screenshots help IT fix it faster. Max 10 MB — large images are shrunk automatically.</div>
+              </div>
+
             </div>
 
             <!-- Hidden field — set by smart priority engine -->
