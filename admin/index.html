@@ -220,24 +220,27 @@
 
   <!-- ── SETTINGS MODAL ── -->
   <div class="modal-overlay" id="settings-overlay" style="display:none;z-index:10000">
-    <div class="modal" style="max-width:680px;width:95vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
+    <div class="modal" style="max-width:940px;width:96vw;height:88vh;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
       <div class="modal-header" style="flex-shrink:0">
         <h3>⚙️ Portal Settings</h3>
         <button class="modal-close" id="settings-close">✕</button>
       </div>
 
-      <!-- Tab nav -->
-      <div style="display:flex;border-bottom:2px solid #eee;padding:0 8px;flex-shrink:0;overflow-x:auto">
-        <button class="s-stab active" data-stab="security">🔐 Security</button>
-        <button class="s-stab" data-stab="staff">👥 IT Staff</button>
-        <button class="s-stab" data-stab="categories">🏷️ Categories</button>
-        <button class="s-stab" data-stab="priority">🎯 Smart Priority</button>
-        <button class="s-stab" data-stab="bot">🤖 Help Bot</button>
-        <button class="s-stab" data-stab="maintenance">🚧 Maintenance</button>
-        <button class="s-stab" data-stab="broadcast">📡 Broadcast</button>
-      </div>
+      <!-- Sidebar (vertical menu) + panel -->
+      <div class="s-modal-body-wrap" style="display:flex;flex:1;min-height:0;overflow:hidden">
 
-      <div class="modal-body" style="padding:0;overflow-y:auto;flex:1">
+        <!-- Vertical tab nav -->
+        <div class="s-sidebar">
+          <button class="s-stab active" data-stab="security">🔐 Security</button>
+          <button class="s-stab" data-stab="staff">👥 IT Staff</button>
+          <button class="s-stab" data-stab="categories">🏷️ Categories</button>
+          <button class="s-stab" data-stab="priority">🎯 Smart Priority</button>
+          <button class="s-stab" data-stab="bot">🤖 Help Bot</button>
+          <button class="s-stab" data-stab="maintenance">🚧 Maintenance</button>
+          <button class="s-stab" data-stab="broadcast">📡 Broadcast</button>
+        </div>
+
+        <div class="modal-body" style="padding:0;overflow-y:auto;flex:1">
 
         <!-- ── SECURITY PANEL ── -->
         <div class="s-spanel" id="s-spanel-security" style="padding:28px;display:flex;flex-direction:column;gap:32px">
@@ -432,11 +435,25 @@
           <button id="s-prio-btn" class="cfg-save" onclick="savePortalConfig('s-prio-msg','s-prio-btn')">💾 Save Smart Priority</button>
         </div>
 
-      </div><!-- /modal-body -->
+        </div><!-- /modal-body -->
+      </div><!-- /sidebar+panel wrap -->
     </div>
   </div>
 
   <style>
+    /* Settings modal: vertical sidebar menu */
+    .s-sidebar {
+      flex-shrink: 0;
+      width: 188px;
+      border-right: 2px solid #eee;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow-y: auto;
+      background: #fafbfc;
+    }
+
     /* Editable-config tabs (IT Staff / Categories / Smart Priority) */
     .cfg-head {
       display: grid; gap: 10px; align-items: center;
@@ -493,20 +510,46 @@
     .cfg-band textarea:focus { outline: none; border-color: #4e9938; }
 
     .s-stab {
-      padding: 13px 18px;
+      display: flex;
+      align-items: center;
+      width: 100%;
+      text-align: left;
+      padding: 11px 14px;
       background: none;
       border: none;
-      border-bottom: 3px solid transparent;
+      border-left: 3px solid transparent;
+      border-radius: 0 6px 6px 0;
       font-size: 13px;
       font-weight: 600;
       color: #666;
       cursor: pointer;
       white-space: nowrap;
-      margin-bottom: -2px;
-      transition: color .15s, border-color .15s;
+      transition: color .15s, background .15s, border-color .15s;
     }
-    .s-stab:hover { color: #2D2D2D; }
-    .s-stab.active { color: #4e9938; border-bottom-color: #4e9938; }
+    .s-stab:hover { color: #2D2D2D; background: #f0f2f4; }
+    .s-stab.active { color: #4e9938; border-left-color: #4e9938; background: #edf7e8; }
+
+    /* Narrow screens: fall back to a horizontal scrolling strip on top */
+    @media (max-width: 600px) {
+      .s-modal-body-wrap { flex-direction: column !important; }
+      .s-sidebar {
+        width: 100%;
+        flex-direction: row;
+        gap: 0;
+        border-right: none;
+        border-bottom: 2px solid #eee;
+        overflow-x: auto;
+        padding: 0 8px;
+      }
+      .s-stab {
+        width: auto;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        border-radius: 0;
+        margin-bottom: -2px;
+      }
+      .s-stab.active { border-left-color: transparent; border-bottom-color: #4e9938; }
+    }
     .s-lbl {
       display: block;
       font-size: 11.5px;
