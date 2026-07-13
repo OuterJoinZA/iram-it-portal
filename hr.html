@@ -175,6 +175,39 @@
 
     @media (max-width:720px) { .simplepay-wrap { grid-template-columns:1fr; } }
     @media (max-width:480px) { .contact-grid { grid-template-columns:1fr; } .hours-grid { grid-template-columns:1fr; } }
+
+    /* ── Admin inline HR editor ── */
+    #hr-edit-bar {
+      position: fixed; left: 20px; bottom: 20px; z-index: 9997;
+      display: flex; align-items: center; gap: 12px;
+      background: #2D2D2D; color: #fff; padding: 10px 14px;
+      border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.32);
+      font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px;
+    }
+    #hr-edit-bar button {
+      border: none; border-radius: 8px; padding: 9px 16px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    #hr-editmode-btn, #hr-save-btn { background: #4e9938; color: #fff; }
+    #hr-editmode-btn:hover, #hr-save-btn:hover { background: #3d7828; }
+    #hr-cancel-btn { background: #4a4a4a; color: #fff; }
+    #hr-edit-msg { font-weight: 600; }
+
+    body.hr-editing [data-hr-text],
+    body.hr-editing [data-hr-doc] .dc-title,
+    body.hr-editing [data-hr-doc] .dc-sub {
+      outline: 2px dashed #6BBF4E; outline-offset: 3px; border-radius: 3px;
+      cursor: text; background: #f4fbf0;
+    }
+    body.hr-editing [data-hr-doc] { cursor: default; }
+    .hr-doc-ctrl { display: none; align-items: center; gap: 12px; margin: 8px 0 4px; }
+    .hr-replace {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #edf7e8; color: #3d7828; border: 1.5px solid #b3dea8;
+      border-radius: 7px; padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    .hr-replace:hover { background: #e0f2d6; }
+    .hr-doc-note { font-size: 12px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -340,19 +373,19 @@
     <div class="white-card">
       <div class="white-card-header"><span style="font-size:20px">🏥</span><h2>Flexicare — Medical Benefit</h2></div>
       <div class="white-card-body">
-        <p style="font-size:13.5px;color:#555;margin-bottom:18px;line-height:1.7">iRam staff have access to the Flexicare medical benefit scheme. Download the documents below to find your nearest GP or dentist, and to learn how to use Flexicare's digital tools.</p>
+        <p style="font-size:13.5px;color:#555;margin-bottom:18px;line-height:1.7" data-hr-text="flexicare-intro">iRam staff have access to the Flexicare medical benefit scheme. Download the documents below to find your nearest GP or dentist, and to learn how to use Flexicare's digital tools.</p>
         <div class="docs-grid">
-          <a href="hr-assets/flexicare-digital-tools.pdf" target="_blank" rel="noopener" class="doc-card">
+          <a href="hr-assets/flexicare-digital-tools.pdf" target="_blank" rel="noopener" class="doc-card" data-hr-doc="flexicare-digital">
             <span class="dc-icon">📱</span>
             <div><div class="dc-title">Digital Tools Guide</div><div class="dc-sub">App, portal &amp; online features</div></div>
             <span class="dc-arrow">↓</span>
           </a>
-          <a href="hr-assets/flexicare-gp-network.pdf" target="_blank" rel="noopener" class="doc-card">
+          <a href="hr-assets/flexicare-gp-network.pdf" target="_blank" rel="noopener" class="doc-card" data-hr-doc="flexicare-gp">
             <span class="dc-icon">🩺</span>
             <div><div class="dc-title">GP Network List</div><div class="dc-sub">Find a Flexicare GP near you</div></div>
             <span class="dc-arrow">↓</span>
           </a>
-          <a href="hr-assets/flexicare-dental-network.pdf" target="_blank" rel="noopener" class="doc-card">
+          <a href="hr-assets/flexicare-dental-network.pdf" target="_blank" rel="noopener" class="doc-card" data-hr-doc="flexicare-dental">
             <span class="dc-icon">🦷</span>
             <div><div class="dc-title">Dental Network List</div><div class="dc-sub">Find a Flexicare dentist near you</div></div>
             <span class="dc-arrow">↓</span>
@@ -366,8 +399,8 @@
     <div class="white-card">
       <div class="white-card-header"><span style="font-size:20px">⛽</span><h2>Fuel Allowance</h2></div>
       <div class="white-card-body">
-        <p style="font-size:13.5px;color:#555;margin-bottom:18px;line-height:1.7">If your role includes a fuel allowance, the infographic below explains how it works, what is covered, and how to claim.</p>
-        <a href="hr-assets/fuel-allowance.pdf" target="_blank" rel="noopener" class="doc-card" style="max-width:320px">
+        <p style="font-size:13.5px;color:#555;margin-bottom:18px;line-height:1.7" data-hr-text="fuel-intro">If your role includes a fuel allowance, the infographic below explains how it works, what is covered, and how to claim.</p>
+        <a href="hr-assets/fuel-allowance.pdf" target="_blank" rel="noopener" class="doc-card" style="max-width:320px" data-hr-doc="fuel">
           <span class="dc-icon">⛽</span>
           <div><div class="dc-title">Fuel Allowance Infographic</div><div class="dc-sub">How your fuel allowance works</div></div>
           <span class="dc-arrow">↓</span>
@@ -445,7 +478,7 @@
     <div class="white-card">
       <div class="white-card-header"><span style="font-size:20px">🎉</span><h2>Welcome Package &amp; Onboarding</h2></div>
       <div class="white-card-body">
-        <p style="font-size:13.5px;color:#555;margin-bottom:16px;line-height:1.7">New employees receive a Welcome Package by email on their first day. Click any item below to find out what it contains and request a copy from HR.</p>
+        <p style="font-size:13.5px;color:#555;margin-bottom:16px;line-height:1.7" data-hr-text="welcome-intro">New employees receive a Welcome Package by email on their first day. Click any item below to find out what it contains and request a copy from HR.</p>
         <div class="welcome-grid">
           <div class="welcome-box" onclick="openWelcomeModal('handbook')">
             <span style="font-size:24px">📘</span>
@@ -830,6 +863,7 @@
 
     initMgrGate();
   </script>
+  <script src="/assets/hr-edit.js" defer></script>
   <script src="/assets/maintenance-check.js"></script>
   <script src="/assets/version-check.js" defer></script>
   <script src="/assets/chat-bot.js" defer></script>
