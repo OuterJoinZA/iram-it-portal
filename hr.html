@@ -176,38 +176,20 @@
     @media (max-width:720px) { .simplepay-wrap { grid-template-columns:1fr; } }
     @media (max-width:480px) { .contact-grid { grid-template-columns:1fr; } .hours-grid { grid-template-columns:1fr; } }
 
-    /* ── Admin inline HR editor ── */
-    #hr-edit-bar {
-      position: fixed; left: 20px; bottom: 20px; z-index: 9997;
-      display: flex; align-items: center; gap: 12px;
-      background: #2D2D2D; color: #fff; padding: 10px 14px;
-      border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.32);
-      font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px;
+    /* ── Admin-added content blocks (rendered by hr-render.js) ── */
+    #hr-custom-blocks:empty { display: none; }
+    .hr-block {
+      background: #fff; border: 1px solid #eef0f2; border-left: 4px solid #4e9938;
+      border-radius: 10px; padding: 18px 22px; margin: 14px 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,.04);
     }
-    #hr-edit-bar button {
-      border: none; border-radius: 8px; padding: 9px 16px;
-      font-size: 13px; font-weight: 700; cursor: pointer;
+    .hr-block-h { font-size: 16px; font-weight: 700; color: #2D2D2D; margin: 0 0 8px; }
+    .hr-block-b { font-size: 13.5px; color: #555; line-height: 1.7; }
+    .hr-block-link {
+      display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 700;
+      color: #4e9938; text-decoration: none;
     }
-    #hr-editmode-btn, #hr-save-btn { background: #4e9938; color: #fff; }
-    #hr-editmode-btn:hover, #hr-save-btn:hover { background: #3d7828; }
-    #hr-cancel-btn { background: #4a4a4a; color: #fff; }
-    #hr-edit-msg { font-weight: 600; }
-
-    body.hr-editing [data-hr-text],
-    body.hr-editing [data-hr-doc] .dc-title,
-    body.hr-editing [data-hr-doc] .dc-sub {
-      outline: 2px dashed #6BBF4E; outline-offset: 3px; border-radius: 3px;
-      cursor: text; background: #f4fbf0;
-    }
-    body.hr-editing [data-hr-doc] { cursor: default; }
-    .hr-doc-ctrl { display: none; align-items: center; gap: 12px; margin: 8px 0 4px; }
-    .hr-replace {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: #edf7e8; color: #3d7828; border: 1.5px solid #b3dea8;
-      border-radius: 7px; padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer;
-    }
-    .hr-replace:hover { background: #e0f2d6; }
-    .hr-doc-note { font-size: 12px; font-weight: 600; }
+    .hr-block-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -648,6 +630,9 @@
         </div>
       </div>
 
+      <!-- Admin-added content blocks render here (managed in /admin/site-edit.html) -->
+      <div id="hr-custom-blocks"></div>
+
     </div>
 
   </main>
@@ -863,7 +848,7 @@
 
     initMgrGate();
   </script>
-  <script src="/assets/hr-edit.js" defer></script>
+  <script src="/assets/hr-render.js" defer></script>
   <script src="/assets/maintenance-check.js"></script>
   <script src="/assets/version-check.js" defer></script>
   <script src="/assets/chat-bot.js" defer></script>
