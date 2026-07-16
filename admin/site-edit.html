@@ -110,9 +110,20 @@
       idoc.head.appendChild(st);
 
       idoc.addEventListener('click', e => {
+        // The +Add / ✕Remove controls have their own handlers. A remove button
+        // on a doc-card sits INSIDE the tagged <a> itself (the card's root IS
+        // the link), so without this check the capturing listener below would
+        // intercept the click first (capture always runs before the button's
+        // own bubble-phase handler) and open text-editing instead of removing it.
+        if (e.target.closest('.hr-repeat-rm, .hr-repeat-add')) return;
         const el = e.target.closest('[data-hr-key]');
         if (el) { e.preventDefault(); e.stopPropagation(); select(el); }
       }, true);
+
+      // Repeater +Add/✕Remove controls — safe to enable unconditionally: this
+      // script only ever runs inside the admin-gated editor, never on the
+      // public page.
+      iwin.__hrEnableRepeaterControls && iwin.__hrEnableRepeaterControls();
 
       // load overrides for the storage-ready flag + blocks (frame already applied them).
       // Skipped on a reload we triggered ourselves right after a save — saveAll()
@@ -147,12 +158,38 @@
 
       if (kind === 'text') {
         prop.innerHTML = `<h2>📝 Text</h2><p class="p-sub">Edit the wording. Updates the page live.</p>
-          <span class="lbl">Text</span><textarea id="f-text"></textarea>`;
+          <span class="lbl">Text</span><textarea id="f-text"></textarea>
+          <div id="card-link-note"></div>`;
         const ta = document.getElementById('f-text');
         ta.value = el.textContent;
         ta.oninput = () => { el.textContent = ta.value; };
         ta.focus();
+        // This text is part of a document/welcome card (title, subtitle, …) —
+        // most of a card's visible area is covered by fields like this one, so
+        // clicking "the card itself" to reach its file/link is rarely reachable.
+        // Surface an explicit path to that editor instead of relying on it.
+        const cardLink = el.closest('a[data-hr-kind="link-card"]');
+        if (cardLink) {
+          document.getElementById('card-link-note').innerHTML =
+            `<button type="button" class="file-btn" style="margin-top:14px" id="goto-card-link">📎 Edit this card's link / file →</button>`;
+          document.getElementById('goto-card-link').onclick = () => select(cardLink);
+        }
+      } else if (kind === 'link-card') {
+        // Structured card link (icon + title/subtitle) — never edit its text
+        // here; that would flatten the card to plain text on save. Title and
+        // subtitle are their own independent text fields (click them directly).
+        prop.innerHTML = `<h2>🔗 Document</h2>
+          <p class="p-sub">This card's title and subtitle are separate fields — click them directly to edit their wording. This controls the file or link the whole card points to.</p>
+          <span class="lbl">Link URL</span><input type="text" id="f-lhref" placeholder="https://…">
+          <label class="file-btn">📎 Replace file<input type="file" accept="application/pdf,image/*" hidden id="f-lfile"></label>
+          <div class="file-note" id="f-lnote"></div>`;
+        const hr = document.getElementById('f-lhref');
+        hr.value = el.getAttribute('href') || '';
+        hr.oninput = () => { el.setAttribute('href', hr.value); };
+        document.getElementById('f-lfile').onchange = e => uploadFile(el, e.target.files[0]);
       } else {
+        // Plain link (mailto/tel/simple text link) — label and href are both
+        // this ONE element's own content, safe to edit directly.
         const isFile = /\.(pdf|png|jpe?g|gif|webp)$/i.test(el.getAttribute('href') || '') || /\/api\/hr-file\?/.test(el.getAttribute('href') || '');
         prop.innerHTML = `<h2>🔗 Link${isFile ? ' / Document' : ''}</h2>
           <p class="p-sub">Change the label, where it points, or replace the file behind it.</p>
@@ -214,14 +251,63 @@
     window.addBlock = () => { blocks.push({ heading:'', body:'', linkText:'', linkUrl:'' }); renderBlocks(); };
 
     // ── Collect + save ─────────────────────────────────────────────────────────
-    function collect() {
-      const text = {}, links = {};
-      idoc.querySelectorAll('[data-hr-key]').forEach(el => {
+    // querySelectorAll never includes its own root — matters for repeat items
+    // whose root IS a tagged element (a doc-card's root is the <a> itself).
+    function fieldsOf(el) {
+      return [...(el.hasAttribute('data-hr-key') ? [el] : []), ...el.querySelectorAll('[data-hr-key]')];
+    }
+
+    function collectFields(scope, text, links) {
+      fieldsOf(scope).forEach(el => {
         const k = el.dataset.hrKey;
         if (el.dataset.hrKind === 'text') text[k] = el.textContent;
-        else links[k] = { text: el.textContent, href: el.getAttribute('href') || '' };
+        else if (el.dataset.hrKind === 'link') links[k] = { text: el.textContent, href: el.getAttribute('href') || '' };
+        else if (el.dataset.hrKind === 'link-card') links[k] = { href: el.getAttribute('href') || '' }; // no text — see isCardLink()
       });
-      return { text, links, blocks };
+    }
+
+    // Repeat sections (HR contacts, document cards, welcome items, policy
+    // bullets): an original item hidden by the ✕ button becomes a removed id;
+    // an added item's OWN fields are collected scoped to just that item's
+    // subtree (never mixed into the global text/links maps — two added items
+    // in the same group would otherwise start from identical placeholder text
+    // and collide on the same key).
+    function collectRepeaters() {
+      const repeaters = {};
+      const groupIds = new Set([...idoc.querySelectorAll('[data-hr-group]')].map(el => el.dataset.hrGroup));
+      groupIds.forEach(id => {
+        const removed = [], added = [];
+        idoc.querySelectorAll(`[data-hr-group="${CSS.escape(id)}"]`).forEach(item => {
+          if (item.dataset.hrAdded === 'true') {
+            const text = {}, links = {};
+            collectFields(item, text, links);
+            added.push({ text, links });
+          } else if (item.style.display === 'none') {
+            removed.push(item.dataset.hrItemId);
+          }
+        });
+        if (removed.length || added.length) repeaters[id] = { removed, added };
+      });
+      return repeaters;
+    }
+
+    function collect() {
+      const text = {}, links = {};
+      // ORIGINAL repeat items (contacts, doc-cards, …) collect globally here
+      // exactly like any other page field — there's only one instance of each,
+      // so their content-based keys are already unique. Only ADDED items are
+      // excluded and collected separately (scoped, see collectRepeaters above):
+      // every added item starts from the SAME placeholder text, so without
+      // per-item scoping two added items in one group would collide on the
+      // same key and overwrite each other's saved values.
+      idoc.querySelectorAll('[data-hr-key]').forEach(el => {
+        if (el.closest('[data-hr-added="true"]')) return;
+        const k = el.dataset.hrKey;
+        if (el.dataset.hrKind === 'text') text[k] = el.textContent;
+        else if (el.dataset.hrKind === 'link') links[k] = { text: el.textContent, href: el.getAttribute('href') || '' };
+        else if (el.dataset.hrKind === 'link-card') links[k] = { href: el.getAttribute('href') || '' };
+      });
+      return { text, links, blocks, repeaters: collectRepeaters() };
     }
 
     window.saveAll = async () => {
