@@ -26,6 +26,36 @@
   const SKIP = new Set(['SCRIPT', 'STYLE', 'SVG', 'PATH', 'NOSCRIPT', 'IFRAME', 'IMG', 'INPUT', 'TEXTAREA', 'BUTTON']);
   const TEXT_TAGS = new Set(['H1','H2','H3','H4','H5','H6','P','LI','SPAN','TD','TH','DIV','STRONG','EM','B','SMALL','LABEL']);
 
+  // Many blocks mix plain prose with inline formatting, e.g.
+  //   <li><strong>Annual Leave Policy</strong> — Employees are entitled to…</li>
+  //   <p>Email <a href="mailto:...">hr@iram.co.za</a> for help.</p>
+  // A leaf-only walk finds "Annual Leave Policy" and the link, but the plain
+  // text around them has no element to attach a key to and is silently
+  // unreachable. Before tagging leaves, wrap each loose run of text inside a
+  // "simple" container (only inline children — bold/italic/links/line breaks,
+  // no nested divs/lists/cards) in its own <span> so it becomes independently
+  // editable, without disturbing the formatting or links around it.
+  const CONTAINER_TAGS = new Set(['P','LI','DIV','TD','TH','H1','H2','H3','H4','H5','H6']);
+  const INLINE_OK      = new Set(['STRONG','EM','B','SMALL','BR','SPAN','A']);
+
+  function wrapLooseText() {
+    root.querySelectorAll([...CONTAINER_TAGS].join(',')).forEach(el => {
+      if (el.closest('#hr-custom-blocks')) return;
+      if (el.closest('a')) return; // inside a link — edited as that link's label, not separately
+      const kids = [...el.children];
+      if (!kids.length) return;                                  // no element children -> already a plain leaf
+      if (!kids.every(k => INLINE_OK.has(k.tagName))) return;     // has real structure (nested div/list/card) -> leave alone
+
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === Node.TEXT_NODE && n.textContent.trim()) {
+          const span = document.createElement('span');
+          span.textContent = n.textContent;
+          el.replaceChild(span, n);
+        }
+      });
+    });
+  }
+
   // An element is editable text if it's a leaf (no element children), has visible
   // text, isn't inside a link, and isn't part of the editor's own chrome.
   function isTextLeaf(el) {
@@ -91,7 +121,9 @@
       </div>`).join('');
   }
 
-  // Assign keys from the baked page FIRST, then apply overrides on top.
+  // Split mixed-content containers into independently editable text runs FIRST,
+  // then assign keys from the baked page, then apply overrides on top.
+  wrapLooseText();
   tagEditable();
   window.__hrApplyOverrides = applyOverrides; // used by the editor for live preview
   fetch('/api/hr-content', { cache: 'no-store' })
