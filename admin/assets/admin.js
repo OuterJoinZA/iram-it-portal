@@ -919,11 +919,13 @@ let portalConfigLoaded = false;
 const escAttr     = s => esc(s).replace(/"/g, '&quot;');
 const splitTerms  = s => String(s || '').split(/[,\n]/).map(t => t.trim().toLowerCase()).filter(Boolean);
 
-function staffRowHtml(s = { name: '', role: '', email: '' }) {
+function staffRowHtml(s = { name: '', role: '', email: '', isIT: false, isPerigee: false }) {
   return `<div class="cfg-row cfg-row-staff">
     <input class="cfg-input" data-f="name"  value="${escAttr(s.name)}"  placeholder="Sean">
     <input class="cfg-input" data-f="role"  value="${escAttr(s.role)}"  placeholder="Support">
     <input class="cfg-input" data-f="email" value="${escAttr(s.email)}" placeholder="sean@iram.co.za" type="email">
+    <label class="cfg-check" title="Gets IT notification emails and rotates into ticket assignment"><input type="checkbox" data-f="isIT" ${s.isIT ? 'checked' : ''}></label>
+    <label class="cfg-check" title="Gets Perigee notification emails and rotates into Perigee ticket assignment"><input type="checkbox" data-f="isPerigee" ${s.isPerigee ? 'checked' : ''}></label>
     <button type="button" class="cfg-x" title="Remove" onclick="this.parentNode.remove()">✕</button>
   </div>`;
 }
@@ -1009,9 +1011,10 @@ window.loadPortalConfig = async function (force) {
 };
 
 function collectPortalConfig() {
-  const rows = sel => Array.from(document.querySelectorAll(sel + ' .cfg-row'));
-  const val  = (r, f) => r.querySelector(`[data-f="${f}"]`).value;
-  const num  = (r, f) => Number(val(r, f));
+  const rows  = sel => Array.from(document.querySelectorAll(sel + ' .cfg-row'));
+  const val   = (r, f) => r.querySelector(`[data-f="${f}"]`).value;
+  const num   = (r, f) => Number(val(r, f));
+  const check = (r, f) => r.querySelector(`[data-f="${f}"]`).checked;
 
   const ruleRows = sel => rows(sel)
     .map(r => ({ minutes: num(r, 'min'), terms: splitTerms(val(r, 'terms')) }))
@@ -1024,7 +1027,13 @@ function collectPortalConfig() {
 
   return {
     itStaff: rows('#cfg-staff-rows')
-      .map(r => ({ name: val(r, 'name').trim(), role: val(r, 'role').trim(), email: val(r, 'email').trim() }))
+      .map(r => ({
+        name:  val(r, 'name').trim(),
+        role:  val(r, 'role').trim(),
+        email: val(r, 'email').trim(),
+        isIT:      check(r, 'isIT'),
+        isPerigee: check(r, 'isPerigee')
+      }))
       .filter(s => s.name),
     categories: rows('#cfg-cat-rows')
       .map(r => ({ name: val(r, 'name').trim(), baseMinutes: num(r, 'min'), priorityScore: num(r, 'score') }))

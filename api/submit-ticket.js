@@ -1,5 +1,6 @@
 const { estimateMinutes, formatDuration } = require('../assets/duration.js');
 const { load: loadConfig }                = require('../lib/portal-config.js');
+const { nextInPool }                      = require('../lib/rotation.js');
 const blob                                = require('../lib/blob.js');
 
 module.exports = async function handler(req, res) {
@@ -25,14 +26,13 @@ module.exports = async function handler(req, res) {
   const estimatedMinutes = estimateMinutes(body.category, body.description, config);
   const estimatedLabel   = formatDuration(estimatedMinutes);
 
-  // Default assignee: whoever in Settings -> IT Staff has "IT Tech" anywhere in
-  // their role (a substring match, not exact — real roles are compound, e.g.
-  // "JR Dev & IT Tech"). Admin-editable with no redeploy — change who's on
-  // triage duty by editing that person's role in the admin panel. Falls back
-  // to blank (unassigned) if nobody currently holds that role, rather than
-  // guessing — an empty AssignedTo is a safe, visible state to fix manually.
-  const itTech = (config.itStaff || []).find(s => (s.role || '').toLowerCase().includes('it tech'));
-  const assignedTo = itTech ? itTech.name : '';
+  // Default assignee: round-robins across everyone checked "IT Staff" in
+  // Settings, so tickets spread across the team instead of always landing on
+  // one person. Admin-editable with no redeploy — check/uncheck who's in the
+  // rotation from the admin panel. Falls back to blank (unassigned) if nobody
+  // is currently checked, rather than guessing.
+  const itPool     = (config.itStaff || []).filter(s => s.isIT);
+  const assignedTo = await nextInPool('it', itPool);
 
   // Store the error screenshot in Blob and forward only a URL. Non-fatal: if the
   // upload fails the ticket is still logged, just without the image.
@@ -87,11 +87,16 @@ module.exports = async function handler(req, res) {
       html:    managerHtml({ ...body, ticketID, noManager: !managerTo })
     });
 
-    // IT person notification
-    const itEmail = process.env.IT_EMAIL;
-    if (itEmail) {
+    // IT notification — everyone currently checked "IT Staff", so the whole
+    // team sees new tickets, not just whoever this one got assigned to. Legacy
+    // IT_EMAIL (a shared inbox, if set) still gets included too; deduped.
+    const itEmails = [...new Set([
+      process.env.IT_EMAIL,
+      ...itPool.map(s => s.email)
+    ].filter(Boolean))];
+    if (itEmails.length) {
       await sendEmail({
-        to:      itEmail,
+        to:      itEmails,
         subject: `[${body.suggestedPriority || 'New'}] Ticket ${ticketID} — ${body.category}`,
         html:    itHtml({ ...body, ticketID })
       });
@@ -104,9 +109,13 @@ module.exports = async function handler(req, res) {
 };
 
 async function sendEmail({ to, bcc, subject, html }) {
+  // `to` may be a single address or an array (e.g. every checked IT Staff
+  // member) — normalise either way, and drop anything blank.
+  const toList = (Array.isArray(to) ? to : [to]).filter(Boolean);
+  if (!toList.length) return; // nobody to send to — not an error, just skip
   const payload = {
     from:    'iRam IT Support <noreply@outerjoin.co.za>',
-    to:      [to],
+    to:      toList,
     subject,
     html
   };
