@@ -79,7 +79,9 @@
     /* Welcome info modal */
     .welcome-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9100; align-items:center; justify-content:center; padding:20px; }
     .welcome-modal-bg.open { display:flex; }
-    .welcome-modal { background:#fff; border-radius:14px; padding:32px 28px; width:100%; max-width:420px; box-shadow:0 12px 48px rgba(0,0,0,.25); }
+    /* Three static panels share one backdrop; JS shows exactly one via .open-panel. */
+    .welcome-modal { display:none; background:#fff; border-radius:14px; padding:32px 28px; width:100%; max-width:420px; box-shadow:0 12px 48px rgba(0,0,0,.25); }
+    .welcome-modal.open-panel { display:block; }
     .welcome-modal h3 { font-size:18px; font-weight:700; color:#2D2D2D; margin:0 0 10px; display:flex; align-items:center; gap:10px; }
     .welcome-modal .wm-body { font-size:13.5px; color:#555; line-height:1.7; margin-bottom:20px; }
     .welcome-modal .wm-email { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; background:#6BBF4E; color:#fff; border:none; border-radius:8px; padding:13px 18px; font-size:14px; font-weight:700; cursor:pointer; text-decoration:none; transition:background .15s; }
@@ -479,14 +481,65 @@
       </div>
     </div>
 
-    <!-- Welcome modal -->
+    <!-- Welcome modal — three separate static panels (not JS-injected), so every
+         word here is real page content the generic editor can find and edit,
+         exactly like everything else on the page. openWelcomeModal() just shows
+         the matching panel and hides the others. -->
     <div class="welcome-modal-bg" id="welcome-modal-bg" onclick="closeWelcomeModal()">
-      <div class="welcome-modal" onclick="event.stopPropagation()">
-        <h3 id="wm-title"></h3>
-        <div class="wm-body" id="wm-body"></div>
-        <a id="wm-email-btn" href="#" class="wm-email">📧 Email HR to Request This Document</a>
+
+      <div class="welcome-modal" id="welcome-modal-handbook" onclick="event.stopPropagation()">
+        <h3><span>📘</span> Employee Handbook</h3>
+        <div class="wm-body">
+          <p>The Employee Handbook is your complete guide to life at iRam — our culture, values, and day-to-day expectations.</p>
+          <p style="margin-top:10px"><strong>What it covers:</strong></p>
+          <ul style="padding-left:18px;margin-top:6px;line-height:1.8">
+            <li>Company history, mission, and values</li>
+            <li>Organisational structure and key contacts</li>
+            <li>Working hours, dress code, and communication standards</li>
+            <li>Summary of core policies and where to find the full versions</li>
+            <li>What to expect in your first 90 days</li>
+          </ul>
+        </div>
+        <a href="mailto:hr@iram.co.za?subject=Document%20Request%20%E2%80%94%20Employee%20Handbook" class="wm-email">📧 Email HR to Request This Document</a>
         <span class="wm-cancel" onclick="closeWelcomeModal()">Close</span>
       </div>
+
+      <div class="welcome-modal" id="welcome-modal-fundamental" onclick="event.stopPropagation()">
+        <h3><span>⭐</span> 5 Fundamental Rules</h3>
+        <div class="wm-body">
+          <p>The 5 Fundamental Rules are iRam's non-negotiable standards of behaviour. Every employee is expected to know these rules from day one — they form the foundation of how we work and treat each other.</p>
+          <p style="margin-top:10px"><strong>What they cover:</strong></p>
+          <ul style="padding-left:18px;margin-top:6px;line-height:1.8">
+            <li>Professional conduct in the workplace</li>
+            <li>Respect for colleagues, clients, and management</li>
+            <li>Accountability and ownership of your work</li>
+            <li>Adherence to iRam's core processes and standards</li>
+            <li>Behaviour that reflects on the iRam brand</li>
+          </ul>
+          <p style="margin-top:10px;font-size:12.5px;color:#888">These rules are reviewed during onboarding and form the basis of disciplinary processes if violated.</p>
+        </div>
+        <a href="mailto:hr@iram.co.za?subject=Document%20Request%20%E2%80%94%205%20Fundamental%20Rules" class="wm-email">📧 Email HR to Request This Document</a>
+        <span class="wm-cancel" onclick="closeWelcomeModal()">Close</span>
+      </div>
+
+      <div class="welcome-modal" id="welcome-modal-confidential" onclick="event.stopPropagation()">
+        <h3><span>🔒</span> 5 Confidential Rules</h3>
+        <div class="wm-body">
+          <p>The 5 Confidential Rules define the boundaries of what information must stay strictly within iRam. These are binding obligations for all staff.</p>
+          <p style="margin-top:10px"><strong>What they cover:</strong></p>
+          <ul style="padding-left:18px;margin-top:6px;line-height:1.8">
+            <li>Client data and account information</li>
+            <li>Internal financial and operational data</li>
+            <li>Proprietary systems, processes, and intellectual property</li>
+            <li>Staff personal information and HR matters</li>
+            <li>Strategic plans and business decisions</li>
+          </ul>
+          <p style="margin-top:10px;font-size:12.5px;color:#888">Distribution of these rules outside iRam — or disclosure of the information they protect — is a disciplinary offence and may result in legal action.</p>
+        </div>
+        <a href="mailto:hr@iram.co.za?subject=Document%20Request%20%E2%80%94%205%20Confidential%20Rules" class="wm-email">📧 Email HR to Request This Document</a>
+        <span class="wm-cancel" onclick="closeWelcomeModal()">Close</span>
+      </div>
+
     </div>
 
     <!-- ══ 8. COMPANY POLICIES ══ -->
@@ -733,59 +786,13 @@
     document.addEventListener('keydown', e => { if (e.key==='Escape') { closeLightbox(); closeMgrModal(); closeWelcomeModal(); } });
 
     // ── Welcome package modal ──
-    const welcomeContent = {
-      handbook: {
-        icon: '📘',
-        title: 'Employee Handbook',
-        body: `<p>The Employee Handbook is your complete guide to life at iRam — our culture, values, and day-to-day expectations.</p>
-               <p style="margin-top:10px"><strong>What it covers:</strong></p>
-               <ul style="padding-left:18px;margin-top:6px;line-height:1.8">
-                 <li>Company history, mission, and values</li>
-                 <li>Organisational structure and key contacts</li>
-                 <li>Working hours, dress code, and communication standards</li>
-                 <li>Summary of core policies and where to find the full versions</li>
-                 <li>What to expect in your first 90 days</li>
-               </ul>`,
-        subject: 'Document Request — Employee Handbook'
-      },
-      fundamental: {
-        icon: '⭐',
-        title: '5 Fundamental Rules',
-        body: `<p>The 5 Fundamental Rules are iRam's non-negotiable standards of behaviour. Every employee is expected to know these rules from day one — they form the foundation of how we work and treat each other.</p>
-               <p style="margin-top:10px"><strong>What they cover:</strong></p>
-               <ul style="padding-left:18px;margin-top:6px;line-height:1.8">
-                 <li>Professional conduct in the workplace</li>
-                 <li>Respect for colleagues, clients, and management</li>
-                 <li>Accountability and ownership of your work</li>
-                 <li>Adherence to iRam's core processes and standards</li>
-                 <li>Behaviour that reflects on the iRam brand</li>
-               </ul>
-               <p style="margin-top:10px;font-size:12.5px;color:#888">These rules are reviewed during onboarding and form the basis of disciplinary processes if violated.</p>`,
-        subject: 'Document Request — 5 Fundamental Rules'
-      },
-      confidential: {
-        icon: '🔒',
-        title: '5 Confidential Rules',
-        body: `<p>The 5 Confidential Rules define the boundaries of what information must stay strictly within iRam. These are binding obligations for all staff.</p>
-               <p style="margin-top:10px"><strong>What they cover:</strong></p>
-               <ul style="padding-left:18px;margin-top:6px;line-height:1.8">
-                 <li>Client data and account information</li>
-                 <li>Internal financial and operational data</li>
-                 <li>Proprietary systems, processes, and intellectual property</li>
-                 <li>Staff personal information and HR matters</li>
-                 <li>Strategic plans and business decisions</li>
-               </ul>
-               <p style="margin-top:10px;font-size:12.5px;color:#888">Distribution of these rules outside iRam — or disclosure of the information they protect — is a disciplinary offence and may result in legal action.</p>`,
-        subject: 'Document Request — 5 Confidential Rules'
-      }
-    };
-
+    // Each item's content is real static HTML above (not injected here), so it's
+    // reachable by the same generic page editor as everything else. This just
+    // shows the matching panel and hides the other two.
     function openWelcomeModal(key) {
-      const c = welcomeContent[key];
-      if (!c) return;
-      document.getElementById('wm-title').innerHTML = c.icon + ' ' + c.title;
-      document.getElementById('wm-body').innerHTML = c.body;
-      document.getElementById('wm-email-btn').href = 'mailto:hr@iram.co.za?subject=' + encodeURIComponent(c.subject);
+      const panel = document.getElementById('welcome-modal-' + key);
+      if (!panel) return;
+      document.querySelectorAll('.welcome-modal').forEach(m => m.classList.toggle('open-panel', m === panel));
       document.getElementById('welcome-modal-bg').classList.add('open');
     }
     function closeWelcomeModal() { document.getElementById('welcome-modal-bg').classList.remove('open'); }
