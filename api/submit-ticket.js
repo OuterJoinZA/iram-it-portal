@@ -25,12 +25,13 @@ module.exports = async function handler(req, res) {
   const estimatedMinutes = estimateMinutes(body.category, body.description, config);
   const estimatedLabel   = formatDuration(estimatedMinutes);
 
-  // Default assignee: whoever in Settings -> IT Staff currently has their role
-  // set to "IT Tech". Admin-editable with no redeploy — change who's on triage
-  // duty by editing that one person's role in the admin panel. Falls back to
-  // blank (unassigned) if nobody currently holds that role, rather than
+  // Default assignee: whoever in Settings -> IT Staff has "IT Tech" anywhere in
+  // their role (a substring match, not exact — real roles are compound, e.g.
+  // "JR Dev & IT Tech"). Admin-editable with no redeploy — change who's on
+  // triage duty by editing that person's role in the admin panel. Falls back
+  // to blank (unassigned) if nobody currently holds that role, rather than
   // guessing — an empty AssignedTo is a safe, visible state to fix manually.
-  const itTech = (config.itStaff || []).find(s => (s.role || '').trim().toLowerCase() === 'it tech');
+  const itTech = (config.itStaff || []).find(s => (s.role || '').toLowerCase().includes('it tech'));
   const assignedTo = itTech ? itTech.name : '';
 
   // Store the error screenshot in Blob and forward only a URL. Non-fatal: if the
