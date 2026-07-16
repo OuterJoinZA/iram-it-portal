@@ -1,5 +1,6 @@
-// Public HR-page content overrides (text + document cards). The HR page fetches
-// this on load and applies any overrides over its built-in content. No secrets.
+// Public HR-page content overrides (text, links, admin-added blocks). The HR
+// page fetches this on load and applies any overrides over its built-in
+// content. No secrets — staff-facing.
 const { load } = require('../lib/hr-content.js');
 
 module.exports = async function handler(req, res) {

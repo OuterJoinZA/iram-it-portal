@@ -7,235 +7,242 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f8; color: #2D2D2D; }
-    .topbar {
-      position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px;
-      background: #2D2D2D; color: #fff; padding: 14px 24px;
-    }
-    .topbar h1 { font-size: 17px; font-weight: 800; margin-right: auto; }
-    .topbar a, .topbar button {
-      font-size: 13px; font-weight: 700; text-decoration: none; border: none; cursor: pointer;
-      padding: 9px 16px; border-radius: 8px;
-    }
-    .t-back { background: #4a4a4a; color: #fff; }
-    .t-view { background: #4a4a4a; color: #fff; }
+    html, body { height: 100%; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D2D2D; display: flex; flex-direction: column; }
+
+    .topbar { display: flex; align-items: center; gap: 14px; background: #2D2D2D; color: #fff; padding: 12px 20px; flex-shrink: 0; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .topbar .hint { font-size: 12px; color: #bbb; margin-right: auto; }
+    .topbar a, .topbar button { font-size: 13px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; padding: 9px 15px; border-radius: 8px; }
+    .t-grey { background: #4a4a4a; color: #fff; }
     .t-save { background: #4e9938; color: #fff; }
     .t-save:hover { background: #3d7828; }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 26px 20px 80px; }
-    .warn { background: #fff4e5; border: 1px solid #f0c48a; color: #8a5a00; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin-bottom: 20px; line-height: 1.6; }
-    .card { background: #fff; border: 1px solid #eef0f2; border-radius: 12px; padding: 22px 24px; margin-bottom: 20px; }
-    .card > h2 { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
-    .card > p.sub { font-size: 13px; color: #777; margin-bottom: 18px; line-height: 1.6; }
-    .lbl { display: block; font-size: 11.5px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin: 14px 0 6px; }
-    textarea, input[type=text] {
-      width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 7px;
-      font-size: 13.5px; font-family: inherit; color: #2D2D2D; line-height: 1.6;
-    }
+
+    .stage { flex: 1; display: flex; min-height: 0; }
+    .frame-wrap { flex: 1; min-width: 0; background: #eceff1; position: relative; }
+    iframe { width: 100%; height: 100%; border: none; background: #fff; display: block; }
+    .frame-load { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #888; font-size: 14px; }
+
+    .panel { width: 340px; flex-shrink: 0; background: #fff; border-left: 1px solid #e5e8eb; overflow-y: auto; padding: 20px; }
+    .panel h2 { font-size: 14px; font-weight: 800; margin-bottom: 4px; }
+    .panel .p-sub { font-size: 12.5px; color: #888; line-height: 1.6; margin-bottom: 16px; }
+    .lbl { display: block; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin: 14px 0 6px; }
+    textarea, input[type=text] { width: 100%; padding: 9px 11px; border: 1.5px solid #ddd; border-radius: 7px; font-size: 13.5px; font-family: inherit; color: #2D2D2D; line-height: 1.5; }
     textarea:focus, input[type=text]:focus { outline: none; border-color: #4e9938; }
-    textarea { resize: vertical; min-height: 62px; }
-    .slot { padding: 14px 0; border-top: 1px solid #f0f0f0; }
-    .slot:first-of-type { border-top: none; }
-    .doc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .doc-file { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-    .file-btn {
-      display: inline-flex; align-items: center; gap: 6px; background: #edf7e8; color: #3d7828;
-      border: 1.5px solid #b3dea8; border-radius: 7px; padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer;
-    }
+    textarea { resize: vertical; min-height: 90px; }
+    .file-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; background: #edf7e8; color: #3d7828; border: 1.5px solid #b3dea8; border-radius: 7px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
     .file-btn:hover { background: #e0f2d6; }
-    .file-note { font-size: 12px; color: #888; }
-    .file-note a { color: #4e9938; }
-    .block { border: 1px solid #eee; border-radius: 9px; padding: 16px; margin-bottom: 12px; position: relative; }
-    .block .rm { position: absolute; top: 10px; right: 10px; background: #fbeaea; color: #a4262c; border: none; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
-    .add-btn { padding: 9px 18px; background: #fff; border: 1.5px dashed #bbb; border-radius: 8px; font-size: 13px; font-weight: 700; color: #555; cursor: pointer; }
-    .add-btn:hover { border-color: #4e9938; color: #4e9938; }
-    .msg { display: none; border-radius: 8px; padding: 11px 15px; font-size: 13px; margin: 8px 0 18px; }
-    .msg.ok  { background: #edf7e8; color: #2f6b1a; border: 1px solid #b3dea8; }
+    .file-note { font-size: 12px; color: #888; margin-top: 8px; }
+    .empty { color: #aaa; font-size: 13px; text-align: center; padding: 30px 10px; line-height: 1.7; }
+
+    .blocks-hd { display: flex; align-items: center; gap: 8px; margin: 22px 0 10px; }
+    .blocks-hd h2 { margin: 0; }
+    .add-btn { margin-left: auto; padding: 6px 12px; background: #edf7e8; color: #3d7828; border: 1.5px solid #b3dea8; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .blk { border: 1px solid #eee; border-radius: 9px; padding: 12px; margin-bottom: 10px; }
+    .blk-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    .blk-row .mini { flex: 1; padding: 5px 8px; background: #f4f6f8; border: 1px solid #e4e7ea; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .blk-row .mini:hover { background: #e9edf0; }
+
+    .msg { display: none; font-size: 13px; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; }
+    .msg.ok { background: #edf7e8; color: #2f6b1a; border: 1px solid #b3dea8; }
     .msg.err { background: #fdf0f0; color: #a4262c; border: 1px solid #f0c0c0; }
-    .loading { text-align: center; color: #888; padding: 60px 0; font-size: 14px; }
-    @media (max-width: 560px) { .doc-row { grid-template-columns: 1fr; } }
+    .warn { background: #fff4e5; border: 1px solid #f0c48a; color: #8a5a00; border-radius: 8px; padding: 10px 13px; font-size: 12px; margin-bottom: 14px; line-height: 1.6; }
+
+    @media (max-width: 780px) { .stage { flex-direction: column; } .panel { width: 100%; border-left: none; border-top: 1px solid #e5e8eb; max-height: 45%; } }
   </style>
 </head>
 <body>
   <div class="topbar">
     <h1>✏️ HR Page Editor</h1>
-    <a class="t-back" href="index.html">← Admin</a>
-    <a class="t-view" href="/hr" target="_blank" rel="noopener">View page ↗</a>
-    <button class="t-save" id="save-top" onclick="saveAll()">💾 Save changes</button>
+    <span class="hint">Click any text, link, or document on the page to edit it →</span>
+    <a class="t-grey" href="index.html">← Admin</a>
+    <button class="t-grey" onclick="location.reload()">↺ Discard</button>
+    <button class="t-save" onclick="saveAll()">💾 Save changes</button>
   </div>
 
-  <div class="wrap">
-    <div id="warn" class="warn" style="display:none"></div>
-    <div id="msg" class="msg"></div>
-    <div id="editor"><div class="loading">Loading the HR page…</div></div>
-    <div style="text-align:right;margin-top:6px">
-      <button class="t-save" onclick="saveAll()" style="padding:12px 30px;font-size:14px">💾 Save changes</button>
+  <div class="stage">
+    <div class="frame-wrap">
+      <div class="frame-load" id="frame-load">Loading the HR page…</div>
+      <iframe id="hr-frame" src="/hr.html"></iframe>
+    </div>
+    <div class="panel" id="panel">
+      <div id="warn" class="warn" style="display:none"></div>
+      <div id="msg" class="msg"></div>
+      <div id="prop"><div class="empty">Nothing selected.<br>Click something on the page to edit it.</div></div>
+
+      <div class="blocks-hd"><h2>➕ Custom blocks</h2><button class="add-btn" onclick="addBlock()">+ Add</button></div>
+      <div class="p-sub">Extra info blocks shown at the bottom of the HR page.</div>
+      <div id="blocks"></div>
     </div>
   </div>
 
   <script>
-    // ── Admin gate (same client-side model as the rest of /admin) ──────────────
-    if (sessionStorage.getItem('iram_it_auth') !== 'true') {
-      location.replace('../login.html');
-    }
+    if (sessionStorage.getItem('iram_it_auth') !== 'true') location.replace('../login.html');
     const KEY = () => sessionStorage.getItem('iram_it_key') || '';
-    const adminFetch = (url, opts = {}) =>
-      fetch(url, Object.assign({ cache: 'no-store' }, opts,
-        { headers: Object.assign({}, opts.headers, { 'x-admin-key': KEY() }) }));
+    const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts, { headers: Object.assign({}, opts.headers, { 'x-admin-key': KEY() }) }));
+    const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-    const esc     = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const escAttr = s => esc(s).replace(/"/g,'&quot;');
-    const human   = k => k.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const frame = document.getElementById('hr-frame');
+    let idoc = null, iwin = null;
+    let selected = null;
+    let blocks = [];
+    // Set right before a post-save reload. onFrameLoad fires again on that reload —
+    // without this it re-fetches /api/admin/hr-content and overwrites `blocks` with
+    // whatever that second GET returns, clobbering the just-saved state the moment
+    // save finishes (a real race, not hypothetical: reproduced by a slow/failed GET).
+    let skipBlocksFetchOnLoad = false;
 
-    let overrides = { text:{}, docs:{}, blocks:[] };
-    let defaults  = { text:{}, docs:{} };   // baked-in values parsed from the live HR page
-    let uploaded  = {};                     // docKey -> newly uploaded fileUrl
+    frame.addEventListener('load', onFrameLoad);
 
-    // ── Load the HR page (for defaults) + saved overrides ──────────────────────
-    async function init() {
-      let ready = true;
+    async function onFrameLoad() {
+      iwin = frame.contentWindow; idoc = frame.contentDocument;
+      // wait until hr-render.js has assigned keys + applied overrides
+      const t0 = Date.now();
+      while (!iwin.__hrReady && Date.now() - t0 < 6000) await new Promise(r => setTimeout(r, 60));
+
+      // editor chrome inside the frame: hide chat/banners, show hover/selected states
+      const st = idoc.createElement('style');
+      st.textContent = `
+        #chat-bot,.chat-bot,[class*="chatbot"],[id*="chatbot"]{display:none!important}
+        [data-hr-key]{cursor:pointer;transition:outline .1s,background .1s}
+        [data-hr-key]:hover{outline:2px dashed #9cc98a;outline-offset:2px}
+        .hr-sel{outline:2px solid #4e9938!important;outline-offset:2px;background:#f4fbf0!important}`;
+      idoc.head.appendChild(st);
+
+      idoc.addEventListener('click', e => {
+        const el = e.target.closest('[data-hr-key]');
+        if (el) { e.preventDefault(); e.stopPropagation(); select(el); }
+      }, true);
+
+      // load overrides for the storage-ready flag + blocks (frame already applied them).
+      // Skipped on a reload we triggered ourselves right after a save — saveAll()
+      // already holds the freshest blocks from the save response; re-fetching here
+      // would race it and can overwrite correct state with stale or empty data.
+      const skipBlocks = skipBlocksFetchOnLoad;
+      skipBlocksFetchOnLoad = false;
       try {
-        const [pageRes, ovRes] = await Promise.all([
-          fetch('/hr.html', { cache: 'no-store' }),
-          adminFetch('/api/admin/hr-content')
-        ]);
-        if (ovRes.status === 401) { sessionStorage.clear(); location.replace('../login.html'); return; }
+        const res = await adminFetch('/api/admin/hr-content');
+        if (res.status === 401) { sessionStorage.clear(); location.replace('../login.html'); return; }
+        const data = await res.json().catch(() => ({}));
+        if (!skipBlocks) {
+          blocks = Array.isArray(data.content && data.content.blocks) ? data.content.blocks : [];
+          renderBlocks();
+        }
+        if (data.storageReady === false) {
+          const w = document.getElementById('warn');
+          w.style.display = 'block';
+          w.innerHTML = '⚠️ <strong>Storage not connected.</strong> You can edit, but saving will fail until a Vercel Blob store is connected and the project redeployed.';
+        }
+      } catch (_) {}
 
-        const html = await pageRes.text();
-        const doc  = new DOMParser().parseFromString(html, 'text/html');
-        doc.querySelectorAll('[data-hr-text]').forEach(el => { defaults.text[el.dataset.hrText] = el.textContent.trim(); });
-        doc.querySelectorAll('[data-hr-doc]').forEach(card => {
-          defaults.docs[card.dataset.hrDoc] = {
-            title: card.querySelector('.dc-title')?.textContent.trim() || '',
-            sub:   card.querySelector('.dc-sub')?.textContent.trim()   || '',
-            href:  card.getAttribute('href') || ''
-          };
-        });
+      document.getElementById('frame-load').style.display = 'none';
+    }
 
-        const ov = await ovRes.json().catch(() => ({}));
-        overrides = Object.assign({ text:{}, docs:{}, blocks:[] }, ov.content || {});
-        overrides.blocks = Array.isArray(overrides.blocks) ? overrides.blocks : [];
-        ready = ov.storageReady !== false;
-      } catch (e) {
-        document.getElementById('editor').innerHTML = '<div class="loading">Could not load the HR page: ' + esc(e.message) + '</div>';
-        return;
+    function select(el) {
+      if (selected) selected.classList.remove('hr-sel');
+      selected = el; el.classList.add('hr-sel');
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      const kind = el.dataset.hrKind;
+      const prop = document.getElementById('prop');
+
+      if (kind === 'text') {
+        prop.innerHTML = `<h2>📝 Text</h2><p class="p-sub">Edit the wording. Updates the page live.</p>
+          <span class="lbl">Text</span><textarea id="f-text"></textarea>`;
+        const ta = document.getElementById('f-text');
+        ta.value = el.textContent;
+        ta.oninput = () => { el.textContent = ta.value; };
+        ta.focus();
+      } else {
+        const isFile = /\.(pdf|png|jpe?g|gif|webp)$/i.test(el.getAttribute('href') || '') || /\/api\/hr-file\?/.test(el.getAttribute('href') || '');
+        prop.innerHTML = `<h2>🔗 Link${isFile ? ' / Document' : ''}</h2>
+          <p class="p-sub">Change the label, where it points, or replace the file behind it.</p>
+          <span class="lbl">Label</span><input type="text" id="f-ltext">
+          <span class="lbl">Link URL</span><input type="text" id="f-lhref" placeholder="https://…  or  mailto:…">
+          <label class="file-btn">📎 Replace file<input type="file" accept="application/pdf,image/*" hidden id="f-lfile"></label>
+          <div class="file-note" id="f-lnote"></div>`;
+        const tx = document.getElementById('f-ltext'), hr = document.getElementById('f-lhref');
+        tx.value = el.textContent; hr.value = el.getAttribute('href') || '';
+        tx.oninput = () => { el.textContent = tx.value; };
+        hr.oninput = () => { el.setAttribute('href', hr.value); };
+        document.getElementById('f-lfile').onchange = e => uploadFile(el, e.target.files[0]);
       }
-
-      if (!ready) {
-        const w = document.getElementById('warn');
-        w.style.display = 'block';
-        w.innerHTML = '⚠️ <strong>Storage not connected.</strong> You can edit here, but saving will fail until a Vercel Blob store is connected and the project is redeployed.';
-      }
-      render();
     }
 
-    function render() {
-      const textSlots = Object.keys(defaults.text).map(k => {
-        const val = overrides.text[k] ?? defaults.text[k];
-        return `<div class="slot"><span class="lbl">${esc(human(k))}</span>
-          <textarea data-text="${escAttr(k)}">${esc(val)}</textarea></div>`;
-      }).join('') || '<p class="sub">No editable text blocks tagged on the page yet.</p>';
-
-      const docSlots = Object.keys(defaults.docs).map(k => {
-        const d = overrides.docs[k] || {};
-        const curFile = uploaded[k] || d.fileUrl || defaults.docs[k].href;
-        const isNew   = !!(uploaded[k] || d.fileUrl);
-        return `<div class="slot" data-doc="${escAttr(k)}">
-          <span class="lbl">${esc(human(k))}</span>
-          <div class="doc-row">
-            <input type="text" data-f="title" value="${escAttr(d.title || defaults.docs[k].title)}" placeholder="Title">
-            <input type="text" data-f="sub"   value="${escAttr(d.sub   || defaults.docs[k].sub)}"   placeholder="Subtitle">
-          </div>
-          <div class="doc-file">
-            <label class="file-btn">📎 Replace PDF/image<input type="file" accept="application/pdf,image/*" hidden onchange="uploadDoc('${escAttr(k)}', this)"></label>
-            <span class="file-note" data-note>${isNew ? '✓ Custom file attached' : 'Current: <a href="'+escAttr(curFile)+'" target="_blank" rel="noopener">'+esc((curFile||'').split('/').pop())+'</a>'}</span>
-          </div>
-        </div>`;
-      }).join('');
-
-      document.getElementById('editor').innerHTML = `
-        <div class="card"><h2>📝 Text</h2><p class="sub">Edit any section's wording. Changes go live for all staff when you save.</p>${textSlots}</div>
-        <div class="card"><h2>📄 Documents</h2><p class="sub">Rename a document card or replace the file behind it (max ~4 MB).</p>${docSlots}</div>
-        <div class="card"><h2>➕ Custom blocks</h2><p class="sub">Add your own info blocks (heading, text, optional link) to the bottom of the HR page.</p>
-          <div id="blocks"></div>
-          <button class="add-btn" onclick="addBlock()">+ Add block</button>
-        </div>`;
-      renderBlocks();
-    }
-
-    function renderBlocks() {
-      document.getElementById('blocks').innerHTML = overrides.blocks.map((b, i) => `
-        <div class="block" data-i="${i}">
-          <button class="rm" onclick="removeBlock(${i})">✕ Remove</button>
-          <span class="lbl">Heading</span><input type="text" data-b="heading" value="${escAttr(b.heading)}">
-          <span class="lbl">Body</span><textarea data-b="body">${esc(b.body)}</textarea>
-          <div class="doc-row">
-            <div><span class="lbl">Link text (optional)</span><input type="text" data-b="linkText" value="${escAttr(b.linkText)}"></div>
-            <div><span class="lbl">Link URL (optional)</span><input type="text" data-b="linkUrl" value="${escAttr(b.linkUrl)}" placeholder="https://…"></div>
-          </div>
-        </div>`).join('');
-    }
-
-    // Keep the blocks array in sync with the inputs before add/remove/save
-    function syncBlocks() {
-      overrides.blocks = [...document.querySelectorAll('#blocks .block')].map(el => ({
-        heading:  el.querySelector('[data-b=heading]').value,
-        body:     el.querySelector('[data-b=body]').value,
-        linkText: el.querySelector('[data-b=linkText]').value,
-        linkUrl:  el.querySelector('[data-b=linkUrl]').value
-      }));
-    }
-    window.addBlock    = () => { syncBlocks(); overrides.blocks.push({ heading:'', body:'', linkText:'', linkUrl:'' }); renderBlocks(); };
-    window.removeBlock = i => { syncBlocks(); overrides.blocks.splice(i, 1); renderBlocks(); };
-
-    window.uploadDoc = async (key, input) => {
-      const file = input.files && input.files[0];
+    async function uploadFile(el, file) {
       if (!file) return;
-      const note = input.closest('[data-doc]').querySelector('[data-note]');
+      const note = document.getElementById('f-lnote');
       if (file.size > 4.3 * 1024 * 1024) { note.textContent = 'File is over ~4 MB — compress it first.'; note.style.color = '#a4262c'; return; }
       note.textContent = 'Uploading…'; note.style.color = '#777';
       try {
         const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-        const resp = await adminFetch('/api/admin/hr-upload', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key, dataUrl }) });
+        const resp = await adminFetch('/api/admin/hr-upload', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: el.dataset.hrKey, dataUrl }) });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) { note.textContent = data.error || 'Upload failed.'; note.style.color = '#a4262c'; return; }
-        uploaded[key] = data.url;
-        note.innerHTML = '✓ New file attached — remember to Save.'; note.style.color = '#2f6b1a';
+        el.setAttribute('href', data.url);
+        document.getElementById('f-lhref').value = data.url;
+        note.textContent = '✓ New file attached — remember to Save.'; note.style.color = '#2f6b1a';
       } catch (_) { note.textContent = 'Upload failed — network error.'; note.style.color = '#a4262c'; }
-    };
+    }
 
+    // ── Custom blocks (right panel) — handlers via delegation, not inline ──────
+    function renderBlocks() {
+      document.getElementById('blocks').innerHTML = blocks.map((b, i) => `
+        <div class="blk" data-i="${i}">
+          <div class="blk-row">
+            <button class="mini" data-act="up">↑</button>
+            <button class="mini" data-act="down">↓</button>
+            <button class="mini" data-act="rm" style="color:#a4262c">✕ Remove</button>
+          </div>
+          <span class="lbl">Heading</span><input type="text" data-f="heading" value="${esc(b.heading)}">
+          <span class="lbl">Body</span><textarea data-f="body">${esc(b.body)}</textarea>
+          <span class="lbl">Link text</span><input type="text" data-f="linkText" value="${esc(b.linkText)}">
+          <span class="lbl">Link URL</span><input type="text" data-f="linkUrl" value="${esc(b.linkUrl)}" placeholder="https://…">
+        </div>`).join('');
+    }
+    const blocksHost = document.getElementById('blocks');
+    blocksHost.addEventListener('input', e => {
+      const f = e.target.dataset.f; if (!f) return;
+      blocks[+e.target.closest('.blk').dataset.i][f] = e.target.value;
+    });
+    blocksHost.addEventListener('click', e => {
+      const btn = e.target.closest('.mini'); if (!btn) return;
+      const i = +btn.closest('.blk').dataset.i;
+      if (btn.dataset.act === 'rm') { blocks.splice(i, 1); }
+      else { const j = i + (btn.dataset.act === 'up' ? -1 : 1); if (j < 0 || j >= blocks.length) return; [blocks[i], blocks[j]] = [blocks[j], blocks[i]]; }
+      renderBlocks();
+    });
+    window.addBlock = () => { blocks.push({ heading:'', body:'', linkText:'', linkUrl:'' }); renderBlocks(); };
+
+    // ── Collect + save ─────────────────────────────────────────────────────────
     function collect() {
-      const text = {};
-      document.querySelectorAll('[data-text]').forEach(el => { text[el.dataset.text] = el.value.trim(); });
-      const docs = {};
-      document.querySelectorAll('[data-doc]').forEach(el => {
-        const k = el.dataset.doc;
-        const fileUrl = uploaded[k] || (overrides.docs[k] && overrides.docs[k].fileUrl) || '';
-        docs[k] = {
-          title: el.querySelector('[data-f=title]').value.trim(),
-          sub:   el.querySelector('[data-f=sub]').value.trim(),
-          fileUrl: /^\/api\/hr-file\?/.test(fileUrl) ? fileUrl : ''
-        };
+      const text = {}, links = {};
+      idoc.querySelectorAll('[data-hr-key]').forEach(el => {
+        const k = el.dataset.hrKey;
+        if (el.dataset.hrKind === 'text') text[k] = el.textContent;
+        else links[k] = { text: el.textContent, href: el.getAttribute('href') || '' };
       });
-      syncBlocks();
-      return { text, docs, blocks: overrides.blocks };
+      return { text, links, blocks };
     }
 
     window.saveAll = async () => {
-      const msg = document.getElementById('msg');
-      msg.style.display = 'none';
+      const msg = document.getElementById('msg'); msg.style.display = 'none';
       try {
         const resp = await adminFetch('/api/admin/hr-content', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collect()) });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) { show(msg, 'err', data.error || ('Save failed (' + resp.status + ').')); return; }
-        overrides = Object.assign({ text:{}, docs:{}, blocks:[] }, data.content);
-        uploaded = {};
-        render();
+        blocks = (data.content && data.content.blocks) || [];
+        renderBlocks();
+        // Reload the frame so every edit (including newly-uploaded files) reflects
+        // the saved state, and clear the current selection. `blocks` above is
+        // already the freshest copy, so skip onFrameLoad's redundant re-fetch.
+        selected = null;
+        skipBlocksFetchOnLoad = true;
+        document.getElementById('prop').innerHTML = '<div class="empty">Saved ✓<br>Click something on the page to keep editing.</div>';
+        try { frame.contentWindow.location.reload(); } catch (_) {}
         show(msg, 'ok', '✓ Saved — live on the HR page for everyone now.');
       } catch (_) { show(msg, 'err', 'Network error — could not reach the server.'); }
     };
-    function show(el, cls, text) { el.className = 'msg ' + cls; el.textContent = text; el.style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-
-    init();
+    function show(el, cls, t) { el.className = 'msg ' + cls; el.textContent = t; el.style.display = 'block'; }
   </script>
 </body>
 </html>
