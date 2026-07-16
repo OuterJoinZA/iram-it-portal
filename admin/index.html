@@ -103,6 +103,13 @@
           <option value="Medium">🟡 Medium</option>
           <option value="Low">🟢 Low</option>
         </select>
+        <select id="assigned-filter" class="filter-select">
+          <option value="all">All Assignees</option>
+        </select>
+        <select id="category-filter" class="filter-select">
+          <option value="all">All Categories</option>
+        </select>
+        <button type="button" id="sort-clear-btn" class="filter-select" style="display:none;cursor:pointer;background:#fff5e6;border-color:#e0a030;color:#8a5a00;font-weight:600" title="Sorting by more than one column">↺ Reset sort</button>
       </div>
 
       <!-- Ticket table -->
@@ -111,13 +118,13 @@
           <table>
             <thead>
               <tr>
-                <th>Ticket ID</th>
-                <th>Submitted By</th>
+                <th class="sortable" data-field="TicketID">Ticket ID<span class="sort-ind"></span></th>
+                <th class="sortable" data-field="SubmitterName">Submitted By<span class="sort-ind"></span></th>
                 <th>Description</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Assigned To</th>
-                <th>Date</th>
+                <th class="sortable" data-field="Priority">Priority<span class="sort-ind"></span></th>
+                <th class="sortable" data-field="Status">Status<span class="sort-ind"></span></th>
+                <th class="sortable" data-field="AssignedTo">Assigned To<span class="sort-ind"></span></th>
+                <th class="sortable" data-field="Created">Date<span class="sort-ind"></span></th>
               </tr>
             </thead>
             <tbody id="ticket-tbody">

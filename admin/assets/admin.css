@@ -122,6 +122,11 @@ table { width: 100%; border-collapse: collapse; min-width: 700px; }
 thead { background: #f7f8fa; }
 th { padding: 11px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase;
      letter-spacing: 0.5px; color: var(--muted); text-align: left; white-space: nowrap; }
+th.sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
+th.sortable:hover { color: var(--dark); }
+th.sortable.sorted { color: var(--green); }
+.sort-ind { display: inline-block; margin-left: 4px; font-size: 10px; min-width: 12px; }
+.sort-ind .sort-n { font-size: 9px; vertical-align: super; margin-left: 1px; color: var(--muted); }
 td { padding: 13px 14px; border-bottom: 1px solid #f0f0f5; vertical-align: middle; }
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: #fafbff; cursor: pointer; }

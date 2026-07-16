@@ -37,10 +37,17 @@ function populateAssignDropdown() {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let allTickets   = [];
-let activeTab    = 'All';
-let searchQuery  = '';
-let filterPrio   = 'all';
+let allTickets      = [];
+let activeTab       = 'All';
+let searchQuery     = '';
+let filterPrio      = 'all';
+let filterAssigned  = 'all';
+let filterCategory  = 'all';
+// Multi-column sort: ordered list of {field, dir}. The first entry is primary;
+// ties fall through to the next. A plain header click replaces this with a
+// single key (toggling direction on repeat clicks of the same field);
+// shift-click appends/toggles an additional key without disturbing the rest.
+let sortKeys = [{ field: 'Priority', dir: 'asc' }];
 let openTicket   = null;
 
 // ── Sample / demo tickets (replaced by real data once Power Automate is set up) ──
@@ -217,6 +224,7 @@ function normalizeTicket(t) {
 
 function renderAll() {
   allTickets = (Array.isArray(allTickets) ? allTickets : []).map(normalizeTicket);
+  populateFilterOptions();
   renderStats();
   renderTable();
 }
@@ -240,6 +248,9 @@ function filteredTickets() {
                       (activeTab === 'In Progress' && t.Status === 'In Progress') ||
                       (activeTab === 'Resolved' && (t.Status === 'Resolved' || t.Status === 'Closed'));
     const matchPrio = filterPrio === 'all' || t.Priority === filterPrio;
+    const matchAssigned = filterAssigned === 'all' ||
+      (filterAssigned === '__unassigned__' ? !t.AssignedTo : t.AssignedTo === filterAssigned);
+    const matchCategory = filterCategory === 'all' || t.Category === filterCategory;
     const q         = searchQuery.toLowerCase();
     const matchQ    = !q ||
       (t.TicketID||'').toLowerCase().includes(q) ||
@@ -247,21 +258,40 @@ function filteredTickets() {
       (t.Department||'').toLowerCase().includes(q) ||
       (t.Category||'').toLowerCase().includes(q) ||
       (t.Description||'').toLowerCase().includes(q);
-    return matchTab && matchPrio && matchQ;
+    return matchTab && matchPrio && matchAssigned && matchCategory && matchQ;
   });
 }
 
-const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+const PRIO_ORDER   = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+const STATUS_ORDER = { Open: 0, 'In Progress': 1, Resolved: 2, Closed: 3 };
+
+// Per-field comparators — priority/status use a logical order (not alphabetical),
+// dates compare as timestamps, everything else falls back to string comparison.
+function compareField(a, b, field) {
+  if (field === 'Priority') return (PRIO_ORDER[a.Priority] ?? 9) - (PRIO_ORDER[b.Priority] ?? 9);
+  if (field === 'Status')   return (STATUS_ORDER[a.Status]  ?? 9) - (STATUS_ORDER[b.Status]  ?? 9);
+  if (field === 'Created')  return new Date(a.Created || 0) - new Date(b.Created || 0);
+  return String(a[field] || '').localeCompare(String(b[field] || ''), undefined, { sensitivity: 'base' });
+}
+
+function sortTickets(tickets) {
+  return [...tickets].sort((a, b) => {
+    for (const { field, dir } of sortKeys) {
+      const c = compareField(a, b, field);
+      if (c !== 0) return dir === 'desc' ? -c : c;
+    }
+    return 0;
+  });
+}
 
 function renderTable() {
-  const tickets = filteredTickets().sort((a, b) =>
-    (PRIO_ORDER[a.Priority] ?? 9) - (PRIO_ORDER[b.Priority] ?? 9)
-  );
+  const tickets = sortTickets(filteredTickets());
   const tbody = document.getElementById('ticket-tbody');
   if (!tickets.length) {
     tbody.innerHTML = `<tr><td colspan="7">
       <div class="empty-state"><div class="e-icon">📭</div><p>No tickets match the current filters.</p></div>
     </td></tr>`;
+    updateSortIndicators();
     return;
   }
   tbody.innerHTML = tickets.map(t => `
@@ -278,7 +308,69 @@ function renderTable() {
       <td style="font-size:12px;color:#888;white-space:nowrap">${fmtDate(t.Created)}</td>
     </tr>
   `).join('');
+  updateSortIndicators();
 }
+
+// ── Sortable headers (click = single sort, shift-click = add/toggle a
+//    secondary key) ─────────────────────────────────────────────────────────
+function updateSortIndicators() {
+  document.querySelectorAll('th.sortable').forEach(th => {
+    const field = th.dataset.field;
+    const idx   = sortKeys.findIndex(k => k.field === field);
+    const ind   = th.querySelector('.sort-ind');
+    th.classList.toggle('sorted', idx !== -1);
+    if (idx === -1) { ind.textContent = ''; return; }
+    const arrow = sortKeys[idx].dir === 'desc' ? '▼' : '▲';
+    ind.innerHTML = arrow + (sortKeys.length > 1 ? `<span class="sort-n">${idx + 1}</span>` : '');
+  });
+  document.getElementById('sort-clear-btn').style.display = sortKeys.length > 1 ? 'inline-block' : 'none';
+}
+
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', e => {
+    const field = th.dataset.field;
+    if (e.shiftKey) {
+      const idx = sortKeys.findIndex(k => k.field === field);
+      if (idx === -1) sortKeys.push({ field, dir: 'asc' });
+      else if (sortKeys[idx].dir === 'asc') sortKeys[idx].dir = 'desc';
+      else sortKeys.splice(idx, 1); // third shift-click on the same key removes it
+    } else if (sortKeys.length === 1 && sortKeys[0].field === field) {
+      sortKeys[0].dir = sortKeys[0].dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortKeys = [{ field, dir: 'asc' }]; // plain click always collapses to a single key
+    }
+    renderTable();
+  });
+});
+
+document.getElementById('sort-clear-btn').addEventListener('click', () => {
+  sortKeys = [{ field: 'Priority', dir: 'asc' }];
+  renderTable();
+});
+
+// ── Assigned To / Category filter options — rebuilt from whatever's actually
+//    in the current ticket list, so they never drift from real data ──────────
+function populateFilterOptions() {
+  const assignedSel = document.getElementById('assigned-filter');
+  const categorySel = document.getElementById('category-filter');
+  const curAssigned = assignedSel.value, curCategory = categorySel.value;
+
+  const assignees = [...new Set(allTickets.map(t => t.AssignedTo).filter(Boolean))].sort();
+  assignedSel.innerHTML = '<option value="all">All Assignees</option>' +
+    '<option value="__unassigned__">Unassigned</option>' +
+    assignees.map(a => `<option value="${escAttrJs(a)}">${esc(a)}</option>`).join('');
+
+  const categories = [...new Set(allTickets.map(t => t.Category).filter(Boolean))].sort();
+  categorySel.innerHTML = '<option value="all">All Categories</option>' +
+    categories.map(c => `<option value="${escAttrJs(c)}">${esc(c)}</option>`).join('');
+
+  // Keep the current selection if it's still a valid option after the rebuild.
+  if ([...assignedSel.options].some(o => o.value === curAssigned)) assignedSel.value = curAssigned;
+  if ([...categorySel.options].some(o => o.value === curCategory)) categorySel.value = curCategory;
+  filterAssigned = assignedSel.value;
+  filterCategory = categorySel.value;
+}
+function escAttrJs(s) { return esc(s).replace(/"/g, '&quot;'); }
 
 function badgePrio(p)   { return `<span class="badge badge-${p}">${p||'—'}</span>`; }
 function badgeStatus(s) { return `<span class="badge badge-${(s||'').replace(' ','-')}">${s||'—'}</span>`; }
@@ -302,6 +394,16 @@ document.getElementById('search-input').addEventListener('input', e => {
 
 document.getElementById('prio-filter').addEventListener('change', e => {
   filterPrio = e.target.value;
+  renderTable();
+});
+
+document.getElementById('assigned-filter').addEventListener('change', e => {
+  filterAssigned = e.target.value;
+  renderTable();
+});
+
+document.getElementById('category-filter').addEventListener('change', e => {
+  filterCategory = e.target.value;
   renderTable();
 });
 
