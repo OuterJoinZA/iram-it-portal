@@ -25,6 +25,14 @@ module.exports = async function handler(req, res) {
   const estimatedMinutes = estimateMinutes(body.category, body.description, config);
   const estimatedLabel   = formatDuration(estimatedMinutes);
 
+  // Default assignee: whoever in Settings -> IT Staff currently has their role
+  // set to "IT Tech". Admin-editable with no redeploy — change who's on triage
+  // duty by editing that one person's role in the admin panel. Falls back to
+  // blank (unassigned) if nobody currently holds that role, rather than
+  // guessing — an empty AssignedTo is a safe, visible state to fix manually.
+  const itTech = (config.itStaff || []).find(s => (s.role || '').trim().toLowerCase() === 'it tech');
+  const assignedTo = itTech ? itTech.name : '';
+
   // Store the error screenshot in Blob and forward only a URL. Non-fatal: if the
   // upload fails the ticket is still logged, just without the image.
   let attachmentUrl = '';
@@ -50,7 +58,7 @@ module.exports = async function handler(req, res) {
       await fetch(paUrl, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ...body, ticketID, estimatedMinutes, estimatedLabel, attachmentUrl })
+        body:    JSON.stringify({ ...body, ticketID, estimatedMinutes, estimatedLabel, attachmentUrl, assignedTo })
       });
     } catch (err) {
       console.error('PA call error:', err.message);
