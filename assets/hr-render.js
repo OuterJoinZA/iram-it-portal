@@ -189,12 +189,20 @@
   // within a single cloned item); falls back to a numbered generic label.
   const FIELD_PLACEHOLDER = {
     'cc-avatar': '👤', 'cc-name': 'New Name', 'cc-role': 'New Role / Title',
-    'dc-title': 'New Document Title', 'dc-sub': 'New document subtitle',
+    'dc-icon': '📄', 'dc-title': 'New Document Title', 'dc-sub': 'New document subtitle', 'dc-arrow': '↓',
     'wb-title': 'New Item Title', 'wb-sub': 'New item subtitle'
   };
   function placeholderText(el, idx) {
     const cls = (el.className || '').split(' ')[0];
-    return FIELD_PLACEHOLDER[cls] || (el.dataset.hrKind === 'text' ? `New text ${idx + 1}` : `New link ${idx + 1}`);
+    if (FIELD_PLACEHOLDER[cls]) return FIELD_PLACEHOLDER[cls];
+    // Icon-ish leaf with no matching class (e.g. a welcome-box's bare emoji
+    // span) — its ORIGINAL content is still in el.textContent at this point
+    // (blanking hasn't happened yet), so a short original value is a reliable
+    // sign this is an icon, not prose. Icons are usually styled at a large
+    // font-size, so falling through to "New text N" here would show large,
+    // wrong-looking placeholder text instead of an icon-shaped one.
+    if (el.textContent.trim().length <= 2) return '📄';
+    return el.dataset.hrKind === 'text' ? `New text ${idx + 1}` : `New link ${idx + 1}`;
   }
   function placeholderHref(el) {
     const cur = (el.getAttribute('href') || '').toLowerCase();
