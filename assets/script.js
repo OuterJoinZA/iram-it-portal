@@ -127,7 +127,10 @@ function validateField(id, value) {
   return !err;
 }
 function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
-function isPhone(v) { return /^\+?[\d\s\-()]{7,20}$/.test(v) && (v.match(/\d/g) || []).length >= 7; }
+function isPhone(v) {
+  const digits = (v.match(/\d/g) || []).length;
+  return /^\+?[\d\s\-()]+$/.test(v) && digits >= 4 && digits <= 15;
+}
 
 // Filter non-phone characters as the user types
 document.getElementById('phone')?.addEventListener('input', (e) => {
