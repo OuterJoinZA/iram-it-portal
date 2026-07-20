@@ -1,9 +1,12 @@
-// Called from the "iRam IT — Ticket Submit" Power Automate flow (Switch branch),
-// once per candidate day, until a slot is found. PA already holds the Office 365
-// Outlook connection and does the actual calendar reads/writes — this endpoint
-// only makes the scheduling DECISION, using the tested logic in lib/scheduler.js,
-// rather than that logic being hand-authored as Power Automate expressions.
-const { scheduleForDay } = require('../lib/scheduler.js');
+// Called once from the "iRam IT — Ticket Submit" Power Automate flow, right
+// after it fetches a wide window of calendar events (e.g. today through +14
+// calendar days). PA already holds the Office 365 Outlook connection and does
+// all the actual calendar reads/writes — this endpoint just makes the
+// scheduling DECISION (which day, which slot, whether something needs
+// bumping, and where the bumped ticket goes instead), using the tested
+// day-rolling + bump-cascade logic in lib/scheduler.js, rather than that
+// logic being hand-authored as Power Automate expressions/loops.
+const { scheduleTicket } = require('../lib/scheduler.js');
 
 function isAuthed(req) {
   const required = process.env.SCHEDULER_API_KEY;
@@ -17,10 +20,10 @@ module.exports = async function handler(req, res) {
   if (!isAuthed(req)) return res.status(401).json({ error: 'Unauthorized' });
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { priority, minutes, events, windowStart, windowEnd } = req.body || {};
+  const { priority, minutes, events, fromDate, maxDays } = req.body || {};
 
-  if (!priority || !minutes || !windowStart || !windowEnd) {
-    return res.status(400).json({ error: 'priority, minutes, windowStart and windowEnd are required' });
+  if (!priority || !minutes || !fromDate) {
+    return res.status(400).json({ error: 'priority, minutes and fromDate are required' });
   }
   if (!Array.isArray(events)) {
     return res.status(400).json({ error: 'events must be an array' });
@@ -28,9 +31,9 @@ module.exports = async function handler(req, res) {
 
   let result;
   try {
-    result = scheduleForDay(priority, Number(minutes), events, windowStart, windowEnd);
+    result = scheduleTicket(priority, Number(minutes), events, fromDate, maxDays ? Number(maxDays) : undefined);
   } catch (err) {
-    console.error('scheduleForDay failed:', err.message);
+    console.error('scheduleTicket failed:', err.message);
     return res.status(500).json({ error: 'Scheduling failed', detail: String(err.message || err) });
   }
 
