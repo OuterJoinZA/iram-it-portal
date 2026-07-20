@@ -127,6 +127,12 @@ function validateField(id, value) {
   return !err;
 }
 function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+function isPhone(v) { return /^\+?[\d\s\-()]{7,20}$/.test(v) && (v.match(/\d/g) || []).length >= 7; }
+
+// Filter non-phone characters as the user types
+document.getElementById('phone')?.addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/[^\d+\-\s()]/g, '');
+});
 
 function generateOptimisticID() {
   return `IT-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`;
@@ -239,6 +245,10 @@ document.getElementById('ticket-form').addEventListener('submit', async (e) => {
   if (!email || !isEmail(email)) { emailGroup.classList.add('has-error'); valid = false; }
   else emailGroup.classList.remove('has-error');
 
+  const phoneGroup = document.getElementById('phone').closest('.form-group');
+  if (phone && !isPhone(phone)) { phoneGroup.classList.add('has-error'); valid = false; }
+  else phoneGroup.classList.remove('has-error');
+
   if (!valid) {
     document.querySelector('.has-error input, .has-error select, .has-error textarea')?.focus();
     return;
@@ -300,7 +310,7 @@ document.getElementById('btn-new').addEventListener('click', resetForm);
 document.getElementById('btn-new-header')?.addEventListener('click', resetForm);
 
 // Clear errors on input
-['name','email','department','category','location','description'].forEach(id => {
+['name','email','phone','department','category','location','description'].forEach(id => {
   document.getElementById(id)?.addEventListener('input', () =>
     document.getElementById(id).closest('.form-group').classList.remove('has-error')
   );
