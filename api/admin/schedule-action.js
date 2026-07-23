@@ -7,10 +7,13 @@
 // existing event (if any) needs to change.
 const { scheduleTicket, buildEventSubject, parseEventSubject } = require('../../lib/scheduler.js');
 
+// Called by Power Automate, not the admin browser session — so this uses the
+// same separate, currently-unset SCHEDULER_API_KEY pattern as /api/schedule-slot
+// (open until explicitly configured), not ADMIN_PASSWORD (which PA never sends).
 function isAuthed(req) {
-  const required = process.env.ADMIN_PASSWORD;
+  const required = process.env.SCHEDULER_API_KEY;
   if (!required) return true;
-  return (req.headers['x-admin-key'] || '') === required;
+  return (req.headers['x-scheduler-key'] || '') === required;
 }
 
 module.exports = async function handler(req, res) {
