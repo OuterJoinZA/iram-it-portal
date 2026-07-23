@@ -494,6 +494,7 @@ function closeModal() {
 // ── Save ticket changes ───────────────────────────────────────────────────────
 document.getElementById('btn-save').addEventListener('click', async () => {
   if (!openTicket) return;
+  const oldStatus = openTicket.Status || 'Open';
   const updates = {
     id:           openTicket.id,
     Status:       document.getElementById('m-status').value,
@@ -501,6 +502,12 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     AssignedTo:   document.getElementById('m-assigned').value,
     PublicUpdate: document.getElementById('m-public-update').value,
     Notes:        document.getElementById('m-notes').value,
+    // Only used server-side to decide whether to email the submitter about a
+    // status change — never written to SharePoint itself.
+    oldStatus:       oldStatus,
+    ticketID:        openTicket.TicketID,
+    submitterEmail:  openTicket.SubmitterEmail,
+    submitterName:   openTicket.SubmitterName
   };
 
   // Update local state immediately for a snappy UI; invalidate cache so next load is fresh
