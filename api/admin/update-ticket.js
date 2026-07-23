@@ -35,7 +35,10 @@ module.exports = async function handler(req, res) {
   const calendarAction = body.calendarAction || '';
   const finalStatus = calendarAction === 'cancel' ? 'Closed' : (body.Status ?? '');
 
-  let estimatedMinutes = '';
+  // The flow's trigger schema declares this as an integer — must never send ''
+  // even when it's unused (e.g. for cancel), or Power Automate's strict Request
+  // trigger validation rejects the whole call before the flow even runs.
+  let estimatedMinutes = 0;
   if (calendarAction === 'reschedule') {
     const { config } = await loadConfig();
     estimatedMinutes = estimateMinutes(body.category, body.description, config);
