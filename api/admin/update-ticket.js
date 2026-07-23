@@ -1,7 +1,14 @@
 // ──────────────────────────────────────────────────────────────────────────────
 // Admin: update a ticket's Status / Priority / AssignedTo / PublicUpdate / Notes.
+// Also handles rescheduling/canceling a ticket's calendar booking (the flow
+// does the actual calendar read/write; estimatedMinutes is recomputed here so
+// a reschedule always matches the same duration rules a fresh submission
+// would get, without needing to store duration on the ticket at all).
 // Proxies the Power Automate "update ticket" flow (URL stays server-side).
 // ──────────────────────────────────────────────────────────────────────────────
+const { estimateMinutes }  = require('../../assets/duration.js');
+const { load: loadConfig } = require('../../lib/portal-config.js');
+
 function isAuthed(req) {
   const required = process.env.ADMIN_PASSWORD;
   if (!required) return true;
@@ -22,13 +29,29 @@ module.exports = async function handler(req, res) {
   const flowUrl = process.env.PA_UPDATE_TICKET_URL;
   if (!flowUrl) return res.status(503).json({ error: 'not_configured' });
 
+  // calendarAction is 'reschedule' | 'cancel' | absent (routine field-only save).
+  // Canceling a booking always closes the ticket too — that's what makes the
+  // status-change email below fire automatically, no separate email path needed.
+  const calendarAction = body.calendarAction || '';
+  const finalStatus = calendarAction === 'cancel' ? 'Closed' : (body.Status ?? '');
+
+  let estimatedMinutes = '';
+  if (calendarAction === 'reschedule') {
+    const { config } = await loadConfig();
+    estimatedMinutes = estimateMinutes(body.category, body.description, config);
+  }
+
   const payload = {
-    id:           body.id,
-    Status:       body.Status ?? '',
-    Priority:     body.Priority ?? '',
-    AssignedTo:   body.AssignedTo ?? '',
-    PublicUpdate: body.PublicUpdate ?? '',
-    Notes:        body.Notes ?? ''
+    id:               body.id,
+    Status:           finalStatus,
+    Priority:         body.Priority ?? '',
+    AssignedTo:       body.AssignedTo ?? '',
+    PublicUpdate:     body.PublicUpdate ?? '',
+    Notes:            body.Notes ?? '',
+    action:           calendarAction,
+    ticketID:         body.ticketID ?? '',
+    category:         body.category ?? '',
+    estimatedMinutes: estimatedMinutes
   };
 
   try {

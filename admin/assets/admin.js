@@ -536,6 +536,58 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   closeModal();
 });
 
+// ── Reschedule / cancel the calendar booking ───────────────────────────────────
+async function runCalendarAction(calendarAction, confirmMsg) {
+  if (!openTicket) return;
+  if (confirmMsg && !window.confirm(confirmMsg)) return;
+
+  const oldStatus = openTicket.Status || 'Open';
+  const updates = {
+    id:           openTicket.id,
+    Status:       document.getElementById('m-status').value,
+    Priority:     document.getElementById('m-priority').value,
+    AssignedTo:   document.getElementById('m-assigned').value,
+    PublicUpdate: document.getElementById('m-public-update').value,
+    Notes:        document.getElementById('m-notes').value,
+    calendarAction,
+    oldStatus:       oldStatus,
+    ticketID:        openTicket.TicketID,
+    category:        openTicket.Category,
+    description:     openTicket.Description,
+    submitterEmail:  openTicket.SubmitterEmail,
+    submitterName:   openTicket.SubmitterName
+  };
+
+  try {
+    const res = await adminFetch('/api/admin/update-ticket', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(updates)
+    });
+    if (res.ok) {
+      showToast(calendarAction === 'cancel' ? 'Booking canceled, ticket closed ✓' : 'Reschedule requested ✓', 'success');
+      sessionStorage.removeItem(CACHE_KEY);
+      closeModal();
+      fetchTickets();
+    } else if (res.status === 401) {
+      showToast('Session expired — please log in again.', 'error');
+    } else {
+      const d = await res.json().catch(() => ({}));
+      showToast(d.error || 'Could not update the booking.', 'error');
+    }
+  } catch (e) {
+    showToast('Could not reach the server.', 'error');
+  }
+}
+
+document.getElementById('btn-reschedule').addEventListener('click', () => {
+  runCalendarAction('reschedule');
+});
+
+document.getElementById('btn-cancel-booking').addEventListener('click', () => {
+  runCalendarAction('cancel', 'Cancel this booking and close the ticket? The submitter will be emailed.');
+});
+
 // ── Send reply to submitter ───────────────────────────────────────────────────
 document.getElementById('btn-reply').addEventListener('click', async () => {
   if (!openTicket) return;
