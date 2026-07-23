@@ -32,8 +32,16 @@ function populateAssignDropdown() {
   const sel = document.getElementById('m-assigned');
   if (!sel) return;
   const staff = staffOverride || (Array.isArray(CFG.itStaff) ? CFG.itStaff : []);
+  // Value is the bare name — matches what round-robin auto-assignment stores
+  // on the ticket (lib/rotation.js only ever saves p.name). The composite
+  // "Name · Role" only exists as the visible label; valuing the option with
+  // it made every auto-assigned ticket fail to match an existing option and
+  // get a duplicate bare-name entry appended (see openTicketModal).
   sel.innerHTML = '<option value="">Unassigned</option>' +
-    staff.map(s => { const l = staffLabel(s); return `<option value="${esc(l)}">${esc(l)}</option>`; }).join('');
+    staff.map(s => {
+      const name = typeof s === 'string' ? s : s.name;
+      return `<option value="${esc(name)}">${esc(staffLabel(s))}</option>`;
+    }).join('');
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -442,6 +450,7 @@ function openTicketModal(id) {
   document.getElementById('m-public-update').value = t.PublicUpdate || '';
   document.getElementById('m-notes').value         = t.Notes || '';
   document.getElementById('m-reply').value         = '';
+  document.getElementById('m-reschedule-time').value = '';
 
   loadAttachment(t.AttachmentUrl);
 
@@ -542,6 +551,17 @@ async function runCalendarAction(calendarAction, confirmMsg) {
   if (confirmMsg && !window.confirm(confirmMsg)) return;
 
   const oldStatus = openTicket.Status || 'Open';
+
+  // Reschedule-to-exact-time is optional — blank means auto-schedule as before.
+  // datetime-local gives bare "YYYY-MM-DDTHH:mm" with no timezone, so it's
+  // explicitly treated as SAST (UTC+2) rather than trusting the browser's OS
+  // timezone setting, which staff laptops could plausibly have wrong.
+  let manualStart = '';
+  if (calendarAction === 'reschedule') {
+    const raw = document.getElementById('m-reschedule-time').value;
+    if (raw) manualStart = new Date(raw + ':00+02:00').toISOString();
+  }
+
   const updates = {
     id:           openTicket.id,
     Status:       document.getElementById('m-status').value,
@@ -550,6 +570,7 @@ async function runCalendarAction(calendarAction, confirmMsg) {
     PublicUpdate: document.getElementById('m-public-update').value,
     Notes:        document.getElementById('m-notes').value,
     calendarAction,
+    manualStart,
     oldStatus:       oldStatus,
     ticketID:        openTicket.TicketID,
     category:        openTicket.Category,
@@ -565,7 +586,8 @@ async function runCalendarAction(calendarAction, confirmMsg) {
       body:    JSON.stringify(updates)
     });
     if (res.ok) {
-      showToast(calendarAction === 'cancel' ? 'Booking canceled, ticket closed ✓' : 'Reschedule requested ✓', 'success');
+      const rescheduleMsg = manualStart ? 'Moved to the exact time you set ✓' : 'Auto-rescheduled ✓';
+      showToast(calendarAction === 'cancel' ? 'Booking canceled, ticket closed ✓' : rescheduleMsg, 'success');
       sessionStorage.removeItem(CACHE_KEY);
       closeModal();
       fetchTickets();

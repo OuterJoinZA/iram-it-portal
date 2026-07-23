@@ -223,7 +223,11 @@
         <!-- Calendar booking -->
         <div class="modal-section">
           <div class="modal-section-label">Calendar Booking</div>
-          <p style="margin:0 0 12px;font-size:12px;color:#888">Reschedule uses the Priority selected above and re-runs the same conflict-aware scheduler tickets get on submission — it may bump another Low/Medium ticket if needed. Cancel removes the calendar event and closes the ticket (emails the submitter).</p>
+          <p style="margin:0 0 10px;font-size:12px;color:#888">Leave the time blank to auto-schedule — re-runs the same conflict-aware scheduler tickets get on submission (uses the Priority selected above, may bump another Low/Medium ticket). Set an exact time to move it there directly instead, no conflict-checking. Cancel removes the calendar event and closes the ticket (emails the submitter).</p>
+          <div class="ctrl-group" style="margin-bottom:10px">
+            <label>Reschedule to exact time <span style="font-weight:400;color:#888">(optional — blank = auto)</span></label>
+            <input type="datetime-local" class="ctrl-select" id="m-reschedule-time">
+          </div>
           <div class="modal-actions" style="justify-content:flex-start;gap:10px">
             <button class="btn-cancel" id="btn-reschedule" type="button">🔁 Reschedule Booking</button>
             <button class="btn-cancel" id="btn-cancel-booking" type="button">🗑️ Cancel Booking</button>

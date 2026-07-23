@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
   if (!isAuthed(req)) return res.status(401).json({ error: 'Unauthorized' });
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { action, ticketID, category, priority, minutes, events, fromDate, maxDays } = req.body || {};
+  const { action, ticketID, category, priority, minutes, events, fromDate, maxDays, manualStart } = req.body || {};
 
   if (!action || !ticketID || !fromDate) {
     return res.status(400).json({ error: 'action, ticketID and fromDate are required' });
@@ -46,6 +46,31 @@ module.exports = async function handler(req, res) {
     // Exclude the ticket's own current booking from the busy list — it's the
     // one being moved, so it shouldn't block or need to bump itself.
     const otherEvents = events.filter(e => e !== existing);
+
+    // Admin picked an exact time — place it there directly, no scheduler, no
+    // bumping. Still reports whether it collides with something else so the
+    // admin UI can warn, but the admin's explicit choice always wins.
+    if (manualStart) {
+      const startMs = new Date(manualStart).getTime();
+      const endMs   = startMs + Number(minutes) * 60000;
+      const conflict = otherEvents.find(e => {
+        const s = new Date(e.startWithTimeZone || e.start).getTime();
+        const en = new Date(e.endWithTimeZone || e.end).getTime();
+        return startMs < en && s < endMs;
+      });
+
+      return res.status(200).json({
+        action: 'reschedule',
+        found: true,
+        existingEventId: existing ? existing.id : null,
+        slot: { start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString() },
+        bumped: null,
+        subject: buildEventSubject(ticketID, category, priority),
+        body: existing ? existing.body : null,
+        conflict: !!conflict,
+        conflictSubject: conflict ? conflict.subject : null
+      });
+    }
 
     let result;
     try {

@@ -62,7 +62,8 @@ module.exports = async function handler(req, res) {
     action:           flowAction,
     ticketID:         body.ticketID ?? '',
     category:         body.category ?? '',
-    estimatedMinutes: estimatedMinutes
+    estimatedMinutes: estimatedMinutes,
+    manualStart:      body.manualStart ?? ''
   };
 
   try {
