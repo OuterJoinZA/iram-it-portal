@@ -35,11 +35,19 @@ module.exports = async function handler(req, res) {
   const calendarAction = body.calendarAction || '';
   const finalStatus = calendarAction === 'cancel' ? 'Closed' : (body.Status ?? '');
 
+  // A ticket getting marked Resolved/Closed via the normal Status dropdown (not
+  // the dedicated Cancel Booking button) should ALSO drop its now-pointless
+  // calendar booking — otherwise the appointment just sits there orphaned.
+  // Status keeps whatever the admin actually picked either way; only the
+  // explicit Cancel button forces it to Closed.
+  const statusJustResolvedOrClosed = ['Resolved', 'Closed'].includes(finalStatus) && finalStatus !== body.oldStatus;
+  const flowAction = calendarAction || (statusJustResolvedOrClosed ? 'cancel' : '');
+
   // The flow's trigger schema declares this as an integer — must never send ''
   // even when it's unused (e.g. for cancel), or Power Automate's strict Request
   // trigger validation rejects the whole call before the flow even runs.
   let estimatedMinutes = 0;
-  if (calendarAction === 'reschedule') {
+  if (flowAction === 'reschedule') {
     const { config } = await loadConfig();
     estimatedMinutes = estimateMinutes(body.category, body.description, config);
   }
@@ -51,7 +59,7 @@ module.exports = async function handler(req, res) {
     AssignedTo:       body.AssignedTo ?? '',
     PublicUpdate:     body.PublicUpdate ?? '',
     Notes:            body.Notes ?? '',
-    action:           calendarAction,
+    action:           flowAction,
     ticketID:         body.ticketID ?? '',
     category:         body.category ?? '',
     estimatedMinutes: estimatedMinutes

@@ -290,8 +290,28 @@ document.getElementById('ticket-form').addEventListener('submit', async (e) => {
     });
     if (res.ok) {
       try { const d = await res.json(); if (d?.ticketID) ticketID = d.ticketID; } catch(_){}
+    } else {
+      // Server rejected the submission (e.g. an invalid phone number) — go back
+      // to the form rather than showing success for a ticket that was never
+      // created. Previously this branch didn't exist, so any server-side
+      // rejection was silently ignored and the user saw a fake success screen.
+      const d = await res.json().catch(() => ({}));
+      showState('form');
+      if (d?.error === 'invalid_phone') {
+        phoneGroup.classList.add('has-error');
+        phoneGroup.querySelector('.error-msg').textContent = d.message || 'Please enter a valid phone number.';
+        document.getElementById('phone').focus();
+      } else {
+        alert(d?.message || 'Something went wrong submitting your ticket. Please try again.');
+      }
+      return;
     }
-  } catch(err) { console.warn('Webhook error:', err.message); }
+  } catch(err) {
+    console.warn('Webhook error:', err.message);
+    showState('form');
+    alert('Could not reach the server. Please check your connection and try again.');
+    return;
+  }
 
   // Populate success screen
   document.getElementById('s-ticket-id').textContent = ticketID;

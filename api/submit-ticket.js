@@ -2,6 +2,7 @@ const { estimateMinutes, formatDuration } = require('../assets/duration.js');
 const { load: loadConfig }                = require('../lib/portal-config.js');
 const { nextInPool }                      = require('../lib/rotation.js');
 const blob                                = require('../lib/blob.js');
+const { isValidPhoneNumber }              = require('libphonenumber-js');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,6 +14,15 @@ module.exports = async function handler(req, res) {
   // Pull the (optional) inline error image off the payload — never forward the
   // multi-MB data URL to Power Automate or the emails.
   const { attachmentDataUrl, ...body } = req.body || {};
+
+  // Phone is optional, but if one's given it must be a real, plausible number —
+  // checked locally (no third-party lookup, nothing leaves this function) since
+  // staff were entering obvious junk. Defaults to South Africa for bare national
+  // numbers (e.g. "082..."); full international numbers (+1, +44, etc.) still work.
+  const phone = (body.submitterPhone || '').trim();
+  if (phone && !isValidPhoneNumber(phone, 'ZA')) {
+    return res.status(400).json({ error: 'invalid_phone', message: 'Please enter a valid phone number.' });
+  }
 
   // Generate unique ticket ID
   const year     = new Date().getFullYear();
