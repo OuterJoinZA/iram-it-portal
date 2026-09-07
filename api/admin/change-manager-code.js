@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin: change the HR manager access code (MANAGER_PASSWORD env var).
-// - Gated by admin key (x-admin-key header).
+// - Gated by manageUsers permission (session cookie).
 // - If VERCEL_TOKEN + VERCEL_PROJECT_ID are set, updates the env var in Vercel.
 // - If VERCEL_DEPLOY_HOOK_URL is set, triggers a redeployment.
 // - Sends the new code via Resend to the supplied hrEmail.

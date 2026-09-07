@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam Admin — My Account</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔑</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D2D2D; background: #f4f6f8; min-height: 100vh; }
+
+    .topbar { display: flex; align-items: center; gap: 14px; background: #2D2D2D; color: #fff; padding: 12px 20px; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .topbar a { font-size: 13px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; padding: 9px 15px; border-radius: 8px; background: #4a4a4a; color: #fff; }
+
+    .wrap { max-width: 640px; margin: 0 auto; padding: 28px 20px; }
+    .card { background: #fff; border-radius: 10px; padding: 22px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h2 { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    .card .sub { font-size: 12.5px; color: #888; margin-bottom: 16px; line-height: 1.6; }
+
+    label { display: block; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin: 12px 0 6px; }
+    input[type=text], input[type=password] { width: 100%; padding: 9px 11px; border: 1.5px solid #ddd; border-radius: 7px; font-size: 13.5px; font-family: inherit; }
+    input:focus { outline: none; border-color: #4e9938; }
+
+    button { border: none; cursor: pointer; border-radius: 7px; padding: 9px 16px; font-size: 13px; font-weight: 700; margin-top: 14px; }
+    .btn-green { background: #4e9938; color: #fff; }
+    .btn-green:hover { background: #3d7828; }
+    .btn-grey { background: #eee; color: #444; }
+    .btn-grey:hover { background: #e2e2e2; }
+    .btn-danger { background: #fdf0f0; color: #a4262c; }
+    .btn-danger:hover { background: #f9dede; }
+
+    .mfa-options { display: flex; gap: 10px; margin-top: 6px; }
+    .mfa-option { flex: 1; border: 1.5px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 700; }
+    .mfa-option.active { border-color: #4e9938; background: #edf7e8; color: #2f6b1a; }
+
+    .secret-box { background: #f9f9f9; border: 1.5px solid #ddd; border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 14px; word-break: break-all; margin: 10px 0; }
+
+    .msg { display: none; font-size: 13px; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; }
+    .msg.ok { background: #edf7e8; color: #2f6b1a; border: 1px solid #b3dea8; display: block; }
+    .msg.err { background: #fdf0f0; color: #a4262c; border: 1px solid #f0c0c0; display: block; }
+    .pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+    .pill.active { background: #edf7e8; color: #2f6b1a; }
+    .pill.inactive { background: #f0f0f0; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🔑 My Account</h1>
+    <a href="/admin/index.html">← Admin</a>
+  </div>
+
+  <div class="wrap">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2>Change password</h2>
+      <p class="sub">Signed in as <strong id="whoami">…</strong></p>
+      <label for="cp-current">Current password</label>
+      <input type="password" id="cp-current" autocomplete="current-password">
+      <label for="cp-new">New password</label>
+      <input type="password" id="cp-new" placeholder="At least 8 characters" autocomplete="new-password">
+      <button class="btn-green" onclick="changePassword()">Change password</button>
+    </div>
+
+    <div class="card">
+      <h2>Two-factor authentication <span id="mfa-status" class="pill inactive">Off</span></h2>
+      <p class="sub">Add a second step at login — a code from an authenticator app, or a code emailed to you.</p>
+
+      <div id="mfa-off">
+        <div class="mfa-options">
+          <div class="mfa-option" id="opt-totp" onclick="startMfaSetup('totp')">📱 Authenticator app</div>
+          <div class="mfa-option" id="opt-email" onclick="startMfaSetup('email')">✉️ Email code</div>
+        </div>
+
+        <div id="mfa-setup-panel" style="display:none">
+          <div id="totp-instructions" style="display:none">
+            <p class="sub" style="margin-top:14px">Scan or manually enter this key in Google Authenticator (or any TOTP app):</p>
+            <div class="secret-box" id="totp-secret"></div>
+          </div>
+          <div id="email-instructions" style="display:none">
+            <p class="sub" style="margin-top:14px">We emailed you a code — enter it below to confirm.</p>
+          </div>
+          <label for="mfa-confirm-code">Confirmation code</label>
+          <input type="text" id="mfa-confirm-code" placeholder="123456" inputmode="numeric" maxlength="6">
+          <button class="btn-green" onclick="confirmMfa()">Confirm & enable</button>
+        </div>
+      </div>
+
+      <div id="mfa-on" style="display:none">
+        <p class="sub" style="margin-top:14px">Two-factor is on via <strong id="mfa-on-type"></strong>.</p>
+        <label for="mfa-disable-password">Current password (to turn it off)</label>
+        <input type="password" id="mfa-disable-password" autocomplete="current-password">
+        <button class="btn-danger" onclick="disableMfa()">Disable two-factor</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if (sessionStorage.getItem('iram_it_auth') !== 'true') location.replace('../login.html');
+
+    const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts, {
+      headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers)
+    }));
+
+    function showMsg(text, ok) {
+      const el = document.getElementById('msg');
+      el.textContent = text;
+      el.className = 'msg ' + (ok ? 'ok' : 'err');
+    }
+
+    let pendingMfaType = null;
+
+    async function loadMe() {
+      const res = await adminFetch('/api/admin/me');
+      if (!res.ok) { sessionStorage.clear(); location.replace('../login.html'); return; }
+      const me = await res.json();
+      document.getElementById('whoami').textContent = me.username;
+      renderMfaState(me.mfaEnabled, me.mfaType);
+    }
+
+    async function changePassword() {
+      const currentPassword = document.getElementById('cp-current').value;
+      const newPassword     = document.getElementById('cp-new').value;
+      if (!currentPassword || !newPassword) { showMsg('Both fields are required.', false); return; }
+      if (newPassword.length < 8) { showMsg('New password must be at least 8 characters.', false); return; }
+
+      const res  = await adminFetch('/api/admin/change-own-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not change the password.', false); return; }
+      document.getElementById('cp-current').value = '';
+      document.getElementById('cp-new').value = '';
+      showMsg('Password changed.', true);
+    }
+
+    async function startMfaSetup(type) {
+      pendingMfaType = type;
+      document.getElementById('opt-totp').classList.toggle('active', type === 'totp');
+      document.getElementById('opt-email').classList.toggle('active', type === 'email');
+      document.getElementById('totp-instructions').style.display = type === 'totp' ? 'block' : 'none';
+      document.getElementById('email-instructions').style.display = type === 'email' ? 'block' : 'none';
+      document.getElementById('mfa-setup-panel').style.display = 'block';
+
+      const res  = await adminFetch('/api/admin/mfa-setup', { method: 'POST', body: JSON.stringify({ type }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not start setup.', false); return; }
+      if (type === 'totp') document.getElementById('totp-secret').textContent = data.secret;
+    }
+
+    async function confirmMfa() {
+      const code = document.getElementById('mfa-confirm-code').value.trim();
+      if (!code) return;
+      const res  = await adminFetch('/api/admin/mfa-confirm', { method: 'POST', body: JSON.stringify({ code }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Incorrect code.', false); return; }
+      showMsg('Two-factor authentication enabled.', true);
+      renderMfaState(true, data.user.mfaType);
+    }
+
+    async function disableMfa() {
+      const currentPassword = document.getElementById('mfa-disable-password').value;
+      if (!currentPassword) { showMsg('Enter your current password.', false); return; }
+      const res  = await adminFetch('/api/admin/mfa-disable', { method: 'POST', body: JSON.stringify({ currentPassword }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not disable two-factor.', false); return; }
+      showMsg('Two-factor authentication disabled.', true);
+      renderMfaState(false);
+    }
+
+    function renderMfaState(enabled, type) {
+      document.getElementById('mfa-status').className = 'pill ' + (enabled ? 'active' : 'inactive');
+      document.getElementById('mfa-status').textContent = enabled ? 'On' : 'Off';
+      document.getElementById('mfa-off').style.display = enabled ? 'none' : 'block';
+      document.getElementById('mfa-on').style.display = enabled ? 'block' : 'none';
+      if (enabled) document.getElementById('mfa-on-type').textContent = type === 'totp' ? 'an authenticator app' : 'email';
+      document.getElementById('mfa-setup-panel').style.display = 'none';
+      document.getElementById('mfa-confirm-code').value = '';
+    }
+
+    loadMe();
+  </script>
+</body>
+</html>

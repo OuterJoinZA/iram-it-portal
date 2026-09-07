@@ -56,6 +56,7 @@
     <h1>✏️ HR Page Editor</h1>
     <span class="hint">Click any text, link, or document on the page to edit it →</span>
     <a class="t-grey" href="index.html">← Admin</a>
+    <a class="t-grey" href="account.html">🔑 My Account</a>
     <button class="t-grey" onclick="location.reload()">↺ Discard</button>
     <button class="t-save" onclick="saveAll()">💾 Save changes</button>
   </div>
@@ -90,8 +91,13 @@
     if (sessionStorage.getItem('iram_it_auth') !== 'true' || !MY_PERMS.includes('editHR')) {
       location.replace('../login.html');
     }
-    const KEY = () => sessionStorage.getItem('iram_it_key') || '';
-    const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts, { headers: Object.assign({}, opts.headers, { 'x-admin-key': KEY() }) }));
+    // sessionStorage above is just for an instant redirect — the httpOnly
+    // session cookie (sent automatically on every request below) is the real
+    // access control. Confirm it's actually still valid.
+    fetch('/api/admin/me', { cache: 'no-store' }).then(r => {
+      if (!r.ok) { sessionStorage.clear(); location.replace('../login.html'); }
+    });
+    const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts));
     const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
     const frame = document.getElementById('hr-frame');

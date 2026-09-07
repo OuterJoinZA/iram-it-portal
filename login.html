@@ -81,15 +81,15 @@
       </div>
     </div>
 
-    <h2>Staff Login</h2>
-    <p class="sub-heading">Enter your username and password to access the admin portal</p>
+    <h2 id="step-title">Staff Login</h2>
+    <p class="sub-heading" id="step-sub">Enter your username or email and password to access the admin portal</p>
 
     <div class="error-banner" id="error-banner">Incorrect username or password. Please try again.</div>
 
     <form id="login-form" novalidate>
       <div class="field">
-        <label for="username">Username</label>
-        <input type="text" id="username" placeholder="Enter your username" autofocus autocomplete="username">
+        <label for="username">Username or email</label>
+        <input type="text" id="username" placeholder="Enter your username or email" autofocus autocomplete="username">
       </div>
       <div class="field">
         <label for="password">
@@ -99,6 +99,26 @@
         <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
       </div>
       <button type="submit" class="btn-login">Login to Admin Panel →</button>
+    </form>
+
+    <form id="mfa-form" novalidate style="display:none">
+      <div class="field">
+        <label for="mfa-code">6-digit code</label>
+        <input type="text" id="mfa-code" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+      </div>
+      <button type="submit" class="btn-login">Verify →</button>
+    </form>
+
+    <form id="reset-form" novalidate style="display:none">
+      <div class="field">
+        <label for="reset-password">New password</label>
+        <input type="password" id="reset-password" placeholder="At least 8 characters" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label for="reset-password-confirm">Confirm new password</label>
+        <input type="password" id="reset-password-confirm" placeholder="Re-enter the new password" autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn-login">Set password & log in →</button>
     </form>
 
     <a href="index.html" class="back-link">← Back to Ticket Submission Form</a>
@@ -130,37 +150,53 @@
       return null; // identity-only role: nowhere to land yet
     }
 
-    // Already logged in?
-    if (sessionStorage.getItem('iram_it_auth') === 'true') {
-      const dest = landingPage(sessionStorage.getItem('iram_role'));
-      if (dest) window.location.href = dest;
+    // Already logged in? The session lives in an httpOnly cookie the JS here
+    // can't read directly, so ask the server rather than trusting sessionStorage.
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/me', { cache: 'no-store' });
+        if (res.ok) {
+          const me = await res.json();
+          const dest = landingPage(me.role);
+          if (dest) window.location.href = dest;
+        }
+      } catch (_) {}
+    })();
+
+    const forms = {
+      login: document.getElementById('login-form'),
+      mfa:   document.getElementById('mfa-form'),
+      reset: document.getElementById('reset-form')
+    };
+    function showStep(step, title, sub) {
+      Object.values(forms).forEach(f => f.style.display = 'none');
+      forms[step].style.display = 'block';
+      document.getElementById('step-title').textContent = title;
+      document.getElementById('step-sub').textContent = sub;
+      document.getElementById('error-banner').style.display = 'none';
     }
 
-    function loginOk({ token, username, role }) {
+    let pendingToken = null;
+
+    function loginOk({ username, role }) {
       sessionStorage.setItem('iram_it_auth', 'true');
       sessionStorage.setItem('iram_username', username);
       sessionStorage.setItem('iram_role', role);
-      // Stored so admin API calls can send it as the x-admin-key header.
-      sessionStorage.setItem('iram_it_key', token);
 
       const dest = landingPage(role);
       if (dest) { window.location.href = dest; return; }
-      document.getElementById('error-banner').textContent =
-        "You're logged in, but your account (" + role + ") doesn't have access to an admin page yet. Ask a Super Admin to grant you a permission.";
-      document.getElementById('error-banner').style.display = 'block';
+      showError("You're logged in, but your account (" + role + ") doesn't have access to an admin page yet. Ask a Super Admin to grant you a permission.");
     }
-    function loginFail(message) {
+    function showError(message) {
       document.getElementById('error-banner').textContent = message || 'Incorrect username or password. Please try again.';
       document.getElementById('error-banner').style.display = 'block';
-      document.getElementById('password').value = '';
-      document.getElementById('password').focus();
     }
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
-      if (!username || !password) { loginFail('Enter both a username and a password.'); return; }
+      if (!username || !password) { showError('Enter both a username/email and a password.'); return; }
 
       try {
         const res  = await fetch('/api/admin/login', {
@@ -169,10 +205,61 @@
           body:    JSON.stringify({ username, password })
         });
         const data = await res.json().catch(() => ({}));
-        if (res.ok && data.ok) { loginOk(data); return; }
-        loginFail(data.error);
+        if (!res.ok || !data.ok) { showError(data.error); document.getElementById('password').value = ''; return; }
+
+        if (data.mustChangePassword) {
+          pendingToken = data.pendingToken;
+          showStep('reset', 'Choose a New Password', 'Your password needs to be changed before you can continue.');
+          return;
+        }
+        if (data.mfaRequired) {
+          pendingToken = data.pendingToken;
+          showStep('mfa', 'Enter Your Code', data.mfaRequired === 'email'
+            ? 'We emailed a 6-digit code to your account\'s email address.'
+            : 'Enter the 6-digit code from your authenticator app.');
+          return;
+        }
+        loginOk(data);
       } catch (_) {
-        loginFail('Could not reach the server. Please try again.');
+        showError('Could not reach the server. Please try again.');
+      }
+    });
+
+    document.getElementById('mfa-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('mfa-code').value.trim();
+      if (!code) return;
+      try {
+        const res  = await fetch('/api/admin/mfa-verify', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ pendingToken, code })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) { showError(data.error); document.getElementById('mfa-code').value = ''; return; }
+        loginOk(data);
+      } catch (_) {
+        showError('Could not reach the server. Please try again.');
+      }
+    });
+
+    document.getElementById('reset-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const p1 = document.getElementById('reset-password').value;
+      const p2 = document.getElementById('reset-password-confirm').value;
+      if (p1.length < 8) { showError('Password must be at least 8 characters.'); return; }
+      if (p1 !== p2) { showError('Passwords do not match.'); return; }
+      try {
+        const res  = await fetch('/api/admin/force-change-password', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ pendingToken, newPassword: p1 })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) { showError(data.error); return; }
+        loginOk(data);
+      } catch (_) {
+        showError('Could not reach the server. Please try again.');
       }
     });
   </script>

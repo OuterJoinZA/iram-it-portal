@@ -1,9 +1,12 @@
 // ──────────────────────────────────────────────────────────────────────────────
 // Manage named accounts. Super Admin only (manageUsers permission).
 //   GET             → list accounts (no password hashes)
-//   POST            → create { username, email, password, role } — emails the
-//                      credentials to `email` via Resend
-//   PATCH ?username → update { role?, active?, password?, email? } — a
+//   POST            → create { username, email, role, password?, forceResetOnFirstLogin?,
+//                      passwordRotationDays? } — password is optional: omit it
+//                      to auto-generate one. Either way it's emailed to
+//                      `email` via Resend, never shown in the API response.
+//   PATCH ?username → update { role?, active?, password?, email?,
+//                      forceResetOnFirstLogin?, passwordRotationDays? } — a
 //                      password change also emails the new one to the user
 //   DELETE ?username→ remove the account
 // ──────────────────────────────────────────────────────────────────────────────
@@ -60,17 +63,19 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { username, password, role, email } = req.body || {};
-      const created = await createUser({ username, password, role, email });
-      const emailSent = await sendEmail(email, 'iRam IT Portal — Your account was created', credentialEmailHtml({ username, password, role, isReset: false }));
+      const { username, password, role, email, forceResetOnFirstLogin, passwordRotationDays } = req.body || {};
+      const created = await createUser({ username, password, role, email, forceResetOnFirstLogin, passwordRotationDays });
+      const actualPassword = created.generatedPassword || password;
+      const emailSent = await sendEmail(email, 'iRam IT Portal — Your account was created', credentialEmailHtml({ username, password: actualPassword, role, isReset: false }));
+      delete created.generatedPassword; // never persisted — this response is the only place it's visible besides the email
       return res.status(201).json({ ok: true, user: created, emailSent });
     }
 
     if (req.method === 'PATCH') {
       const username = req.query.username || (req.body || {}).username;
       if (!username) return res.status(400).json({ error: 'username is required' });
-      const { role, active, password, email } = req.body || {};
-      const updated = await updateUser(username, { role, active, password, email });
+      const { role, active, password, email, forceResetOnFirstLogin, passwordRotationDays } = req.body || {};
+      const updated = await updateUser(username, { role, active, password, email, forceResetOnFirstLogin, passwordRotationDays });
 
       let emailSent = false;
       if (password !== undefined && updated.email) {

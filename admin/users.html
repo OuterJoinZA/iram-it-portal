@@ -47,6 +47,7 @@
 <body>
   <div class="topbar">
     <h1>👤 Manage Users</h1>
+    <a href="/admin/account.html">🔑 My Account</a>
     <a href="/admin/index.html">← Admin</a>
   </div>
 
@@ -65,8 +66,11 @@
           <input type="text" id="f-email" placeholder="name@outerjoin.co.za" autocomplete="off">
         </div>
         <div>
-          <label for="f-password">Password</label>
-          <input type="password" id="f-password" placeholder="At least 8 characters" autocomplete="new-password">
+          <label for="f-password-mode">Password</label>
+          <select id="f-password-mode" onchange="document.getElementById('f-password').style.display = this.value === 'manual' ? 'block' : 'none'">
+            <option value="auto">Auto-generate</option>
+            <option value="manual">Set manually</option>
+          </select>
         </div>
         <div>
           <label for="f-role">Role</label>
@@ -76,13 +80,28 @@
           <button class="btn-green" onclick="createUser()">+ Add user</button>
         </div>
       </div>
+      <div class="form-grid" style="margin-top:10px">
+        <div>
+          <label for="f-password">Password (if set manually)</label>
+          <input type="password" id="f-password" placeholder="At least 8 characters" autocomplete="new-password" style="display:none">
+        </div>
+        <div>
+          <label for="f-reset-policy">Password policy</label>
+          <select id="f-reset-policy">
+            <option value="none">None</option>
+            <option value="first">Force reset on next login</option>
+            <option value="30">Reset every 30 days</option>
+          </select>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#888;margin-top:10px">Either way, login details are emailed to the address above — you won't see the password on screen.</p>
     </div>
 
     <div class="card">
       <h2>Accounts</h2>
       <table id="users-table">
         <thead>
-          <tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr>
+          <tr><th>Username</th><th>Email</th><th>Role</th><th>2FA</th><th>Policy</th><th>Status</th><th>Created</th><th></th></tr>
         </thead>
         <tbody id="users-body"></tbody>
       </table>
@@ -104,10 +123,12 @@
     if (sessionStorage.getItem('iram_it_auth') !== 'true' || !MY_PERMS.includes('manageUsers')) {
       location.replace('../login.html');
     }
+    fetch('/api/admin/me', { cache: 'no-store' }).then(r => {
+      if (!r.ok) { sessionStorage.clear(); location.replace('../login.html'); }
+    });
 
-    const KEY = () => sessionStorage.getItem('iram_it_key') || '';
     const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts, {
-      headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers, { 'x-admin-key': KEY() })
+      headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers)
     }));
 
     let ROLES = [];
@@ -145,6 +166,14 @@
               ${ROLES.map(r => `<option value="${r.key}" ${r.key === u.role ? 'selected' : ''}>${r.label}</option>`).join('')}
             </select>
           </td>
+          <td>${u.mfaEnabled ? `<span class="pill active">${u.mfaType === 'totp' ? 'Authenticator' : 'Email'}</span>` : '<span class="pill inactive">Off</span>'}</td>
+          <td>
+            <select onchange="changePolicy('${esc(u.username)}', this.value)">
+              <option value="none" ${!u.forceResetOnFirstLogin && !u.passwordRotationDays ? 'selected' : ''}>None</option>
+              <option value="first" ${u.forceResetOnFirstLogin ? 'selected' : ''}>Force reset next login</option>
+              <option value="30" ${u.passwordRotationDays === 30 ? 'selected' : ''}>Every 30 days</option>
+            </select>
+          </td>
           <td><span class="pill ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
           <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
           <td class="row-actions">
@@ -161,21 +190,37 @@
     }
 
     async function createUser() {
-      const username = document.getElementById('f-username').value.trim();
-      const email    = document.getElementById('f-email').value.trim();
-      const password = document.getElementById('f-password').value;
-      const role     = document.getElementById('f-role').value;
-      if (!username || !email || !password) { showMsg('Username, email and password are required.', false); return; }
+      const username     = document.getElementById('f-username').value.trim();
+      const email        = document.getElementById('f-email').value.trim();
+      const passwordMode = document.getElementById('f-password-mode').value;
+      const password     = passwordMode === 'manual' ? document.getElementById('f-password').value : undefined;
+      const role         = document.getElementById('f-role').value;
+      const policy       = document.getElementById('f-reset-policy').value;
+      if (!username || !email) { showMsg('Username and email are required.', false); return; }
+      if (passwordMode === 'manual' && !password) { showMsg('Enter a password, or switch to auto-generate.', false); return; }
 
-      const res  = await adminFetch('/api/admin/users', { method: 'POST', body: JSON.stringify({ username, email, password, role }) });
+      const body = {
+        username, email, role, password,
+        forceResetOnFirstLogin: policy === 'first',
+        passwordRotationDays: policy === '30' ? 30 : null
+      };
+      const res  = await adminFetch('/api/admin/users', { method: 'POST', body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { showMsg(data.error || 'Could not create the user.', false); return; }
 
       document.getElementById('f-username').value = '';
       document.getElementById('f-email').value = '';
       document.getElementById('f-password').value = '';
-      showMsg(`Created ${username} as ${roleLabel(role)}.` + (data.emailSent ? ` Login details emailed to ${email}.` : ` Could not send the email — share the password with them directly.`), true);
+      showMsg(`Created ${username} as ${roleLabel(role)}.` + (data.emailSent ? ` Login details emailed to ${email}.` : ` Could not send the email — the password was auto-generated/not shown, so you'll need to reset it.`), true);
       loadUsers();
+    }
+
+    async function changePolicy(username, value) {
+      const body = { forceResetOnFirstLogin: value === 'first', passwordRotationDays: value === '30' ? 30 : null };
+      const res  = await adminFetch(`/api/admin/users?username=${encodeURIComponent(username)}`, { method: 'PATCH', body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not update the policy.', false); loadUsers(); return; }
+      showMsg(`Updated ${username}'s password policy.`, true);
     }
 
     async function resetPassword(username) {

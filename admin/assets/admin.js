@@ -17,6 +17,13 @@ const MY_PERMS = ROLE_PERMS[MY_ROLE] || [];
 if (sessionStorage.getItem('iram_it_auth') !== 'true' || !MY_PERMS.includes('manageTickets')) {
   window.location.href = '../login.html';
 }
+// sessionStorage above is just for an instant redirect on the happy path — the
+// httpOnly session cookie is the real access control (every /api/admin/* call
+// checks it independently). This confirms the cookie is actually still valid,
+// catching a stale/cleared/forged sessionStorage value.
+fetch('/api/admin/me', { cache: 'no-store' }).then(r => {
+  if (!r.ok) { sessionStorage.clear(); window.location.href = '../login.html'; }
+});
 if (MY_ROLE === 'super_admin') {
   document.addEventListener('DOMContentLoaded', () => {
     const link = document.getElementById('nav-links-section');
@@ -29,16 +36,24 @@ if (MY_ROLE === 'super_admin') {
     }
   });
 }
+document.addEventListener('DOMContentLoaded', () => {
+  const link = document.getElementById('nav-links-section');
+  if (link) {
+    const a = document.createElement('a');
+    a.className = 'nav-item';
+    a.href = '/admin/account';
+    a.innerHTML = '<span class="icon">🔑</span> My Account';
+    link.after(a);
+  }
+});
 
 const CFG = (typeof IRAM_CONFIG !== 'undefined') ? IRAM_CONFIG : {};
 
 // All admin API calls go through our own Vercel routes (flow URLs stay server-side).
-// The admin key (entered at login) is sent as a header to authorize the request.
+// Authorization is the httpOnly session cookie, sent automatically by the
+// browser on every same-origin request — nothing to attach here.
 function adminFetch(url, opts = {}) {
-  const headers = Object.assign({}, opts.headers, {
-    'x-admin-key': sessionStorage.getItem('iram_it_key') || ''
-  });
-  return fetch(url, Object.assign({ cache: 'no-store' }, opts, { headers }));
+  return fetch(url, Object.assign({ cache: 'no-store' }, opts));
 }
 
 // ── "Assigned To" options from config (Name · Role) ───────────────────────────
@@ -676,7 +691,8 @@ function showToast(msg, type = 'success') {
 }
 
 // ── Logout ────────────────────────────────────────────────────────────────────
-document.getElementById('logout-btn').addEventListener('click', () => {
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  try { await fetch('/api/admin/logout', { method: 'POST' }); } catch (_) {}
   sessionStorage.clear();
   window.location.href = '../login.html';
 });
