@@ -100,6 +100,16 @@
       </div>
       <button type="submit" class="btn-login">Login to Admin Panel →</button>
     </form>
+    <a href="#" class="back-link" id="forgot-link" style="margin-top:14px">Forgot your username or password?</a>
+
+    <form id="forgot-form" novalidate style="display:none">
+      <div class="field" id="forgot-field">
+        <label for="forgot-identifier">Username or email</label>
+        <input type="text" id="forgot-identifier" placeholder="Enter your username or email" autocomplete="username">
+      </div>
+      <button type="submit" class="btn-login" id="forgot-submit-btn">Send reset instructions →</button>
+    </form>
+    <a href="#" class="back-link" id="forgot-cancel" style="display:none">← Back to login</a>
 
     <form id="mfa-form" novalidate style="display:none">
       <div class="field">
@@ -150,26 +160,16 @@
       return null; // identity-only role: nowhere to land yet
     }
 
-    // Already logged in? The session lives in an httpOnly cookie the JS here
-    // can't read directly, so ask the server rather than trusting sessionStorage.
-    (async () => {
-      try {
-        const res = await fetch('/api/admin/me', { cache: 'no-store' });
-        if (res.ok) {
-          const me = await res.json();
-          const dest = landingPage(me.role);
-          if (dest) window.location.href = dest;
-        }
-      } catch (_) {}
-    })();
-
     const forms = {
-      login: document.getElementById('login-form'),
-      mfa:   document.getElementById('mfa-form'),
-      reset: document.getElementById('reset-form')
+      login:  document.getElementById('login-form'),
+      forgot: document.getElementById('forgot-form'),
+      mfa:    document.getElementById('mfa-form'),
+      reset:  document.getElementById('reset-form')
     };
     function showStep(step, title, sub) {
       Object.values(forms).forEach(f => f.style.display = 'none');
+      document.getElementById('forgot-link').style.display = step === 'login' ? 'block' : 'none';
+      document.getElementById('forgot-cancel').style.display = step === 'forgot' ? 'block' : 'none';
       forms[step].style.display = 'block';
       document.getElementById('step-title').textContent = title;
       document.getElementById('step-sub').textContent = sub;
@@ -177,6 +177,30 @@
     }
 
     let pendingToken = null;
+    let resetEndpoint = '/api/admin/force-change-password'; // switched below if arriving via an emailed reset link
+
+    // Arriving from the "forgot password" email? ?reset=<token> jumps straight
+    // to the set-new-password step, skipping the "already logged in" check
+    // below (a reset link should always be honored, even from an existing session).
+    const urlResetToken = new URLSearchParams(location.search).get('reset');
+    if (urlResetToken) {
+      pendingToken = urlResetToken;
+      resetEndpoint = '/api/admin/reset-password';
+      showStep('reset', 'Reset Your Password', 'Choose a new password to finish resetting your account.');
+    } else {
+      // Already logged in? The session lives in an httpOnly cookie the JS here
+      // can't read directly, so ask the server rather than trusting sessionStorage.
+      (async () => {
+        try {
+          const res = await fetch('/api/admin/me', { cache: 'no-store' });
+          if (res.ok) {
+            const me = await res.json();
+            const dest = landingPage(me.role);
+            if (dest) window.location.href = dest;
+          }
+        } catch (_) {}
+      })();
+    }
 
     function loginOk({ username, role }) {
       sessionStorage.setItem('iram_it_auth', 'true');
@@ -250,14 +274,49 @@
       if (p1.length < 8) { showError('Password must be at least 8 characters.'); return; }
       if (p1 !== p2) { showError('Passwords do not match.'); return; }
       try {
-        const res  = await fetch('/api/admin/force-change-password', {
+        const body = resetEndpoint.endsWith('reset-password')
+          ? { resetToken: pendingToken, newPassword: p1 }
+          : { pendingToken, newPassword: p1 };
+        const res  = await fetch(resetEndpoint, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ pendingToken, newPassword: p1 })
+          body:    JSON.stringify(body)
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) { showError(data.error); return; }
         loginOk(data);
+      } catch (_) {
+        showError('Could not reach the server. Please try again.');
+      }
+    });
+
+    document.getElementById('forgot-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('forgot-field').style.display = 'block';
+      document.getElementById('forgot-submit-btn').style.display = 'block';
+      document.getElementById('forgot-identifier').value = '';
+      showStep('forgot', 'Reset Your Password', "Enter your username or email — if it matches an account, we'll send reset instructions.");
+    });
+    document.getElementById('forgot-cancel').addEventListener('click', (e) => {
+      e.preventDefault();
+      showStep('login', 'Staff Login', 'Enter your username or email and password to access the admin portal');
+    });
+    document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const identifier = document.getElementById('forgot-identifier').value.trim();
+      if (!identifier) return;
+      try {
+        const res  = await fetch('/api/admin/forgot-password', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ identifier })
+        });
+        const data = await res.json().catch(() => ({}));
+        // Deliberately shown whether or not an account matched — the endpoint
+        // never reveals that, so neither does this.
+        document.getElementById('forgot-field').style.display = 'none';
+        document.getElementById('forgot-submit-btn').style.display = 'none';
+        document.getElementById('step-sub').textContent = data.message || "If that account exists, we've emailed instructions to reset the password.";
       } catch (_) {
         showError('Could not reach the server. Please try again.');
       }
