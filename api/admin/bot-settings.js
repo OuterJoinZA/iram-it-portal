@@ -4,11 +4,7 @@
 
 const VERCEL_API = 'https://api.vercel.com';
 
-function isAuthed(req) {
-  const required = process.env.ADMIN_PASSWORD;
-  if (!required) return true;
-  return (req.headers['x-admin-key'] || '') === required;
-}
+const { requireRole } = require('../../lib/require-role');
 
 async function updateVercelEnv(key, value) {
   const token     = process.env.VERCEL_TOKEN;
@@ -54,7 +50,7 @@ async function triggerDeploy() {
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (!isAuthed(req)) return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireRole(req, 'manageTickets')) return res.status(401).json({ error: 'Unauthorized' });
 
   // GET — return current settings
   if (req.method === 'GET') {

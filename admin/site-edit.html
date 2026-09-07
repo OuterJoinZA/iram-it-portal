@@ -77,7 +77,19 @@
   </div>
 
   <script>
-    if (sessionStorage.getItem('iram_it_auth') !== 'true') location.replace('../login.html');
+    // Mirrors lib/roles.js — duplicated here since this is a static site with
+    // no build step. This page is the HR content editor, so it needs editHR.
+    const ROLE_PERMS = {
+      super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets'],
+      admin:       ['editHR', 'editIT', 'manageTickets'],
+      hr_admin:    ['editHR'],
+      it:          ['manageTickets'],
+      hr_manager: [], hr: [], assistant_hr: [], field_goosehelp: [], staff: []
+    };
+    const MY_PERMS = ROLE_PERMS[sessionStorage.getItem('iram_role')] || [];
+    if (sessionStorage.getItem('iram_it_auth') !== 'true' || !MY_PERMS.includes('editHR')) {
+      location.replace('../login.html');
+    }
     const KEY = () => sessionStorage.getItem('iram_it_key') || '';
     const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts, { headers: Object.assign({}, opts.headers, { 'x-admin-key': KEY() }) }));
     const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

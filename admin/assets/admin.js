@@ -3,8 +3,31 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
-if (sessionStorage.getItem('iram_it_auth') !== 'true') {
+// Mirrors lib/roles.js — duplicated here since this is a static site with no
+// build step. This page is the ticket dashboard, so it needs manageTickets.
+const ROLE_PERMS = {
+  super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets'],
+  admin:       ['editHR', 'editIT', 'manageTickets'],
+  hr_admin:    ['editHR'],
+  it:          ['manageTickets'],
+  hr_manager: [], hr: [], assistant_hr: [], field_goosehelp: [], staff: []
+};
+const MY_ROLE  = sessionStorage.getItem('iram_role');
+const MY_PERMS = ROLE_PERMS[MY_ROLE] || [];
+if (sessionStorage.getItem('iram_it_auth') !== 'true' || !MY_PERMS.includes('manageTickets')) {
   window.location.href = '../login.html';
+}
+if (MY_ROLE === 'super_admin') {
+  document.addEventListener('DOMContentLoaded', () => {
+    const link = document.getElementById('nav-links-section');
+    if (link) {
+      const a = document.createElement('a');
+      a.className = 'nav-item';
+      a.href = '/admin/users';
+      a.innerHTML = '<span class="icon">👤</span> Manage Users';
+      link.after(a);
+    }
+  });
 }
 
 const CFG = (typeof IRAM_CONFIG !== 'undefined') ? IRAM_CONFIG : {};
@@ -654,7 +677,7 @@ function showToast(msg, type = 'success') {
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 document.getElementById('logout-btn').addEventListener('click', () => {
-  sessionStorage.removeItem('iram_it_auth');
+  sessionStorage.clear();
   window.location.href = '../login.html';
 });
 

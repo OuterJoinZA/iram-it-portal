@@ -9,17 +9,13 @@
 const { estimateMinutes }  = require('../../assets/duration.js');
 const { load: loadConfig } = require('../../lib/portal-config.js');
 
-function isAuthed(req) {
-  const required = process.env.ADMIN_PASSWORD;
-  if (!required) return true;
-  return (req.headers['x-admin-key'] || '') === required;
-}
+const { requireRole } = require('../../lib/require-role');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  if (!isAuthed(req)) return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireRole(req, 'manageTickets')) return res.status(401).json({ error: 'Unauthorized' });
 
   const body = req.body || {};
   if (body.id === undefined || body.id === null || body.id === '') {

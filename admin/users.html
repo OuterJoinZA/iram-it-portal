@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam Admin — Manage Users</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👤</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D2D2D; background: #f4f6f8; min-height: 100vh; }
+
+    .topbar { display: flex; align-items: center; gap: 14px; background: #2D2D2D; color: #fff; padding: 12px 20px; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .topbar a { font-size: 13px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; padding: 9px 15px; border-radius: 8px; background: #4a4a4a; color: #fff; }
+
+    .wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px; }
+    .card { background: #fff; border-radius: 10px; padding: 22px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h2 { font-size: 15px; font-weight: 800; margin-bottom: 14px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #eee; }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: #888; }
+    .pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+    .pill.active { background: #edf7e8; color: #2f6b1a; }
+    .pill.inactive { background: #f0f0f0; color: #999; }
+    select, input[type=text], input[type=password] { padding: 8px 10px; border: 1.5px solid #ddd; border-radius: 7px; font-size: 13.5px; font-family: inherit; }
+    .row-actions { display: flex; gap: 6px; }
+    button { border: none; cursor: pointer; border-radius: 7px; padding: 7px 12px; font-size: 12.5px; font-weight: 700; }
+    .btn-green { background: #4e9938; color: #fff; }
+    .btn-green:hover { background: #3d7828; }
+    .btn-grey { background: #eee; color: #444; }
+    .btn-grey:hover { background: #e2e2e2; }
+    .btn-danger { background: #fdf0f0; color: #a4262c; }
+    .btn-danger:hover { background: #f9dede; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
+    .form-grid label { display: block; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+    .form-grid > div { display: flex; flex-direction: column; }
+    @media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
+
+    .msg { display: none; font-size: 13px; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; }
+    .msg.ok { background: #edf7e8; color: #2f6b1a; border: 1px solid #b3dea8; display: block; }
+    .msg.err { background: #fdf0f0; color: #a4262c; border: 1px solid #f0c0c0; display: block; }
+    .empty { color: #aaa; font-size: 13px; padding: 16px 0; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>👤 Manage Users</h1>
+    <a href="/admin/index.html">← Admin</a>
+  </div>
+
+  <div class="wrap">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2>Add a user</h2>
+      <div class="form-grid">
+        <div>
+          <label for="f-username">Username</label>
+          <input type="text" id="f-username" placeholder="e.g. sean.k" autocomplete="off">
+        </div>
+        <div>
+          <label for="f-password">Password</label>
+          <input type="password" id="f-password" placeholder="At least 8 characters" autocomplete="new-password">
+        </div>
+        <div>
+          <label for="f-role">Role</label>
+          <select id="f-role"></select>
+        </div>
+        <div>
+          <button class="btn-green" onclick="createUser()">+ Add user</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Accounts</h2>
+      <table id="users-table">
+        <thead>
+          <tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr>
+        </thead>
+        <tbody id="users-body"></tbody>
+      </table>
+      <div class="empty" id="users-empty" style="display:none">No accounts yet — the account you're logged in with is a break-glass Super Admin login, not stored here. Add real accounts above.</div>
+    </div>
+  </div>
+
+  <script>
+    // Mirrors lib/roles.js — duplicated here since this is a static site with
+    // no build step. This page needs manageUsers (Super Admin only).
+    const ROLE_PERMS = {
+      super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets'],
+      admin:       ['editHR', 'editIT', 'manageTickets'],
+      hr_admin:    ['editHR'],
+      it:          ['manageTickets'],
+      hr_manager: [], hr: [], assistant_hr: [], field_goosehelp: [], staff: []
+    };
+    const MY_PERMS = ROLE_PERMS[sessionStorage.getItem('iram_role')] || [];
+    if (sessionStorage.getItem('iram_it_auth') !== 'true' || !MY_PERMS.includes('manageUsers')) {
+      location.replace('../login.html');
+    }
+
+    const KEY = () => sessionStorage.getItem('iram_it_key') || '';
+    const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts, {
+      headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers, { 'x-admin-key': KEY() })
+    }));
+
+    let ROLES = [];
+
+    function showMsg(text, ok) {
+      const el = document.getElementById('msg');
+      el.textContent = text;
+      el.className = 'msg ' + (ok ? 'ok' : 'err');
+    }
+
+    function roleLabel(key) {
+      const r = ROLES.find(r => r.key === key);
+      return r ? r.label : key;
+    }
+
+    async function loadUsers() {
+      const res = await adminFetch('/api/admin/users');
+      if (res.status === 401) { sessionStorage.clear(); location.replace('../login.html'); return; }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not load users.', false); return; }
+
+      ROLES = data.roles || [];
+      const roleSelect = document.getElementById('f-role');
+      roleSelect.innerHTML = ROLES.map(r => `<option value="${r.key}">${r.label}</option>`).join('');
+
+      const body = document.getElementById('users-body');
+      const users = data.users || [];
+      document.getElementById('users-empty').style.display = users.length ? 'none' : 'block';
+      body.innerHTML = users.map(u => `
+        <tr>
+          <td>${esc(u.username)}</td>
+          <td>
+            <select onchange="changeRole('${esc(u.username)}', this.value)">
+              ${ROLES.map(r => `<option value="${r.key}" ${r.key === u.role ? 'selected' : ''}>${r.label}</option>`).join('')}
+            </select>
+          </td>
+          <td><span class="pill ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
+          <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
+          <td class="row-actions">
+            <button class="btn-grey" onclick="toggleActive('${esc(u.username)}', ${!u.active})">${u.active ? 'Deactivate' : 'Reactivate'}</button>
+            <button class="btn-danger" onclick="removeUser('${esc(u.username)}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    async function createUser() {
+      const username = document.getElementById('f-username').value.trim();
+      const password = document.getElementById('f-password').value;
+      const role     = document.getElementById('f-role').value;
+      if (!username || !password) { showMsg('Username and password are required.', false); return; }
+
+      const res  = await adminFetch('/api/admin/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not create the user.', false); return; }
+
+      document.getElementById('f-username').value = '';
+      document.getElementById('f-password').value = '';
+      showMsg(`Created ${username} as ${roleLabel(role)}.`, true);
+      loadUsers();
+    }
+
+    async function changeRole(username, role) {
+      const res  = await adminFetch(`/api/admin/users?username=${encodeURIComponent(username)}`, { method: 'PATCH', body: JSON.stringify({ role }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not update the role.', false); loadUsers(); return; }
+      showMsg(`Updated ${username}'s role to ${roleLabel(role)}.`, true);
+    }
+
+    async function toggleActive(username, active) {
+      const res  = await adminFetch(`/api/admin/users?username=${encodeURIComponent(username)}`, { method: 'PATCH', body: JSON.stringify({ active }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not update the account.', false); return; }
+      showMsg(`${active ? 'Reactivated' : 'Deactivated'} ${username}.`, true);
+      loadUsers();
+    }
+
+    async function removeUser(username) {
+      if (!confirm(`Delete the account "${username}"? This cannot be undone.`)) return;
+      const res  = await adminFetch(`/api/admin/users?username=${encodeURIComponent(username)}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not delete the account.', false); return; }
+      showMsg(`Deleted ${username}.`, true);
+      loadUsers();
+    }
+
+    loadUsers();
+  </script>
+</body>
+</html>

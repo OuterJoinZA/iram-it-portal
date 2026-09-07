@@ -81,18 +81,22 @@
       </div>
     </div>
 
-    <h2>IT Staff Login</h2>
-    <p class="sub-heading">Enter your IT admin password to access the ticket dashboard</p>
+    <h2>Staff Login</h2>
+    <p class="sub-heading">Enter your username and password to access the admin portal</p>
 
-    <div class="error-banner" id="error-banner">Incorrect password. Please try again.</div>
+    <div class="error-banner" id="error-banner">Incorrect username or password. Please try again.</div>
 
     <form id="login-form" novalidate>
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter your username" autofocus autocomplete="username">
+      </div>
       <div class="field">
         <label for="password">
           Password
           <span class="show-pw" id="show-pw-btn">Show</span>
         </label>
-        <input type="password" id="password" placeholder="Enter IT admin password" autofocus autocomplete="current-password">
+        <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
       </div>
       <button type="submit" class="btn-login">Login to Admin Panel →</button>
     </form>
@@ -110,57 +114,65 @@
       else { pw.type = 'password'; btn.textContent = 'Show'; }
     });
 
-    // Already logged in?
-    if (sessionStorage.getItem('iram_it_auth') === 'true') {
-      window.location.href = 'admin/index.html';
+    // Role → permissions, mirrors lib/roles.js. Duplicated here (no build step
+    // on this static site) purely to decide which admin page to land on.
+    const ROLE_PERMS = {
+      super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets'],
+      admin:       ['editHR', 'editIT', 'manageTickets'],
+      hr_admin:    ['editHR'],
+      it:          ['manageTickets'],
+      hr_manager: [], hr: [], assistant_hr: [], field_goosehelp: [], staff: []
+    };
+    function landingPage(role) {
+      const perms = ROLE_PERMS[role] || [];
+      if (perms.includes('manageTickets') || perms.includes('editIT')) return 'admin/index.html';
+      if (perms.includes('editHR')) return 'admin/site-edit.html';
+      return null; // identity-only role: nowhere to land yet
     }
 
-    function loginOk(password) {
-      sessionStorage.setItem('iram_it_auth', 'true');
-      // Stored so admin API calls can send it as the x-admin-key header.
-      sessionStorage.setItem('iram_it_key', password);
-      window.location.href = 'admin/index.html';
+    // Already logged in?
+    if (sessionStorage.getItem('iram_it_auth') === 'true') {
+      const dest = landingPage(sessionStorage.getItem('iram_role'));
+      if (dest) window.location.href = dest;
     }
-    function loginFail() {
+
+    function loginOk({ token, username, role }) {
+      sessionStorage.setItem('iram_it_auth', 'true');
+      sessionStorage.setItem('iram_username', username);
+      sessionStorage.setItem('iram_role', role);
+      // Stored so admin API calls can send it as the x-admin-key header.
+      sessionStorage.setItem('iram_it_key', token);
+
+      const dest = landingPage(role);
+      if (dest) { window.location.href = dest; return; }
+      document.getElementById('error-banner').textContent =
+        "You're logged in, but your account (" + role + ") doesn't have access to an admin page yet. Ask a Super Admin to grant you a permission.";
+      document.getElementById('error-banner').style.display = 'block';
+    }
+    function loginFail(message) {
+      document.getElementById('error-banner').textContent = message || 'Incorrect username or password. Please try again.';
       document.getElementById('error-banner').style.display = 'block';
       document.getElementById('password').value = '';
       document.getElementById('password').focus();
     }
 
-    // Opt-in escape hatch, empty by default. NEVER hard-code a password here or in
-    // config.js — this page is served to every visitor, so anything written here is
-    // readable via View Source. The real check lives server-side in /api/admin/login,
-    // which compares against the ADMIN_PASSWORD environment variable.
-    function localFallback() {
-      return (typeof IRAM_CONFIG !== 'undefined' && IRAM_CONFIG.adminPassword) || '';
-    }
-
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const entered = document.getElementById('password').value;
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      if (!username || !password) { loginFail('Enter both a username and a password.'); return; }
 
       try {
         const res  = await fetch('/api/admin/login', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ password: entered })
+          body:    JSON.stringify({ username, password })
         });
         const data = await res.json().catch(() => ({}));
-
-        if (res.ok && data.ok) { loginOk(entered); return; }
-
-        // Server reports no ADMIN_PASSWORD configured. Only a deliberately-set
-        // local fallback can authenticate; an empty one always fails.
-        if (data.mode === 'legacy') {
-          const fallback = localFallback();
-          if (fallback && entered === fallback) { loginOk(entered); return; }
-        }
-        loginFail();
+        if (res.ok && data.ok) { loginOk(data); return; }
+        loginFail(data.error);
       } catch (_) {
-        // Network/server issue — same rule: no fallback configured, no way in.
-        const fallback = localFallback();
-        if (fallback && entered === fallback) { loginOk(entered); return; }
-        loginFail();
+        loginFail('Could not reach the server. Please try again.');
       }
     });
   </script>

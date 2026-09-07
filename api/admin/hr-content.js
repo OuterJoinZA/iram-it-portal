@@ -4,16 +4,12 @@
 const { load, save } = require('../../lib/hr-content.js');
 const blob           = require('../../lib/blob.js');
 
-function isAuthed(req) {
-  const required = process.env.ADMIN_PASSWORD;
-  if (!required) return true; // setup mode
-  return (req.headers['x-admin-key'] || '') === required;
-}
+const { requireRole } = require('../../lib/require-role');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (!isAuthed(req)) return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireRole(req, 'editHR')) return res.status(401).json({ error: 'Unauthorized' });
 
   if (req.method === 'GET') {
     const { content, source } = await load();

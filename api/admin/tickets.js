@@ -2,11 +2,7 @@
 // Admin: list all tickets. Proxies the Power Automate "get all tickets" flow so
 // the flow URL stays server-side. Gated by the admin key (see isAuthed).
 // ──────────────────────────────────────────────────────────────────────────────
-function isAuthed(req) {
-  const required = process.env.ADMIN_PASSWORD;
-  if (!required) return true; // not configured yet → setup mode, don't block
-  return (req.headers['x-admin-key'] || '') === required;
-}
+const { requireRole } = require('../../lib/require-role');
 
 async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -14,7 +10,7 @@ async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  if (!isAuthed(req)) return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireRole(req, 'manageTickets')) return res.status(401).json({ error: 'Unauthorized' });
 
   const flowUrl = process.env.PA_GET_TICKETS_URL;
   if (!flowUrl) return res.status(503).json({ error: 'not_configured' });

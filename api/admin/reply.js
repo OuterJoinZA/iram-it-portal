@@ -2,17 +2,13 @@
 // Admin: email a reply to the submitter via Resend (from noreply@outerjoin.co.za).
 // Keeps ALL outbound email in Resend — no Power Automate flow needed for replies.
 // ──────────────────────────────────────────────────────────────────────────────
-function isAuthed(req) {
-  const required = process.env.ADMIN_PASSWORD;
-  if (!required) return true;
-  return (req.headers['x-admin-key'] || '') === required;
-}
+const { requireRole } = require('../../lib/require-role');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  if (!isAuthed(req)) return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireRole(req, 'manageTickets')) return res.status(401).json({ error: 'Unauthorized' });
 
   const { submitterEmail, submitterName, ticketID, replyMessage, agentName } = req.body || {};
   if (!submitterEmail || !replyMessage || !ticketID) {
