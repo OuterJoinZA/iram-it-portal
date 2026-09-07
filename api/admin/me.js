@@ -16,12 +16,14 @@ module.exports = async function handler(req, res) {
   const session = verifyToken(sessionTokenFromRequest(req));
   if (!session) return res.status(401).json({ error: 'Unauthorized' });
 
-  // The break-glass Super Admin login has no stored record — MFA state just
-  // doesn't apply to it.
+  // The break-glass Super Admin login (any username + ADMIN_PASSWORD) has no
+  // stored record — MFA/self-service password change don't apply to it, and
+  // account.html uses hasAccount to explain that rather than fail confusingly.
   const record = await getUser(session.username);
   return res.status(200).json({
     username: session.username,
     role: session.role,
+    hasAccount: !!record,
     mfaEnabled: record ? !!record.mfaEnabled : false,
     mfaType: record ? (record.mfaType || null) : null
   });
