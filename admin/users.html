@@ -33,7 +33,7 @@
     .btn-danger { background: #fdf0f0; color: #a4262c; }
     .btn-danger:hover { background: #f9dede; }
 
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
     .form-grid label { display: block; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
     .form-grid > div { display: flex; flex-direction: column; }
     @media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
@@ -61,6 +61,10 @@
           <input type="text" id="f-username" placeholder="e.g. sean.k" autocomplete="off">
         </div>
         <div>
+          <label for="f-email">Email</label>
+          <input type="text" id="f-email" placeholder="name@outerjoin.co.za" autocomplete="off">
+        </div>
+        <div>
           <label for="f-password">Password</label>
           <input type="password" id="f-password" placeholder="At least 8 characters" autocomplete="new-password">
         </div>
@@ -78,7 +82,7 @@
       <h2>Accounts</h2>
       <table id="users-table">
         <thead>
-          <tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr>
+          <tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr>
         </thead>
         <tbody id="users-body"></tbody>
       </table>
@@ -135,6 +139,7 @@
       body.innerHTML = users.map(u => `
         <tr>
           <td>${esc(u.username)}</td>
+          <td>${esc(u.email || '—')}</td>
           <td>
             <select onchange="changeRole('${esc(u.username)}', this.value)">
               ${ROLES.map(r => `<option value="${r.key}" ${r.key === u.role ? 'selected' : ''}>${r.label}</option>`).join('')}
@@ -143,6 +148,7 @@
           <td><span class="pill ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
           <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
           <td class="row-actions">
+            <button class="btn-grey" onclick="resetPassword('${esc(u.username)}')">Reset password</button>
             <button class="btn-grey" onclick="toggleActive('${esc(u.username)}', ${!u.active})">${u.active ? 'Deactivate' : 'Reactivate'}</button>
             <button class="btn-danger" onclick="removeUser('${esc(u.username)}')">Delete</button>
           </td>
@@ -156,18 +162,31 @@
 
     async function createUser() {
       const username = document.getElementById('f-username').value.trim();
+      const email    = document.getElementById('f-email').value.trim();
       const password = document.getElementById('f-password').value;
       const role     = document.getElementById('f-role').value;
-      if (!username || !password) { showMsg('Username and password are required.', false); return; }
+      if (!username || !email || !password) { showMsg('Username, email and password are required.', false); return; }
 
-      const res  = await adminFetch('/api/admin/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+      const res  = await adminFetch('/api/admin/users', { method: 'POST', body: JSON.stringify({ username, email, password, role }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { showMsg(data.error || 'Could not create the user.', false); return; }
 
       document.getElementById('f-username').value = '';
+      document.getElementById('f-email').value = '';
       document.getElementById('f-password').value = '';
-      showMsg(`Created ${username} as ${roleLabel(role)}.`, true);
+      showMsg(`Created ${username} as ${roleLabel(role)}.` + (data.emailSent ? ` Login details emailed to ${email}.` : ` Could not send the email — share the password with them directly.`), true);
       loadUsers();
+    }
+
+    async function resetPassword(username) {
+      const password = prompt(`New password for ${username} (at least 8 characters):`);
+      if (!password) return;
+      if (password.length < 8) { showMsg('Password must be at least 8 characters.', false); return; }
+
+      const res  = await adminFetch(`/api/admin/users?username=${encodeURIComponent(username)}`, { method: 'PATCH', body: JSON.stringify({ password }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not reset the password.', false); return; }
+      showMsg(`Password reset for ${username}.` + (data.emailSent ? ' They have been emailed the new password.' : ' Could not send the email — share the new password with them directly.'), true);
     }
 
     async function changeRole(username, role) {
