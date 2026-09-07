@@ -22,7 +22,11 @@ if (sessionStorage.getItem('iram_it_auth') !== 'true' || !MY_PERMS.includes('man
 // checks it independently). This confirms the cookie is actually still valid,
 // catching a stale/cleared/forged sessionStorage value.
 fetch('/api/admin/me', { cache: 'no-store' }).then(r => {
-  if (!r.ok) { sessionStorage.clear(); window.location.href = '../login.html'; }
+  if (!r.ok) {
+    console.warn('Session check failed (status ' + r.status + ') — bouncing to login. If you just logged in, this usually means the session cookie was not sent back; check DevTools → Application → Cookies for iram_session.');
+    sessionStorage.clear();
+    window.location.href = '../login.html';
+  }
 });
 if (MY_ROLE === 'super_admin') {
   document.addEventListener('DOMContentLoaded', () => {
