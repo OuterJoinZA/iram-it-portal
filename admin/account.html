@@ -130,6 +130,7 @@
         return;
       }
 
+      document.getElementById('self-service-cards').style.display = 'block';
       document.getElementById('whoami').textContent = me.username;
       renderMfaState(me.mfaEnabled, me.mfaType);
     }

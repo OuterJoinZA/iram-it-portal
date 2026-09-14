@@ -6,12 +6,14 @@
 //                      to auto-generate one. Either way it's emailed to
 //                      `email` via Resend, never shown in the API response.
 //   PATCH ?username → update { role?, active?, password?, email?,
-//                      forceResetOnFirstLogin?, passwordRotationDays? } — a
-//                      password change also emails the new one to the user
+//                      forceResetOnFirstLogin?, passwordRotationDays?, resetMfa? } —
+//                      a password change also emails the new one to the user;
+//                      resetMfa:true force-clears MFA with no password check
+//                      (for someone locked out of their authenticator)
 //   DELETE ?username→ remove the account
 // ──────────────────────────────────────────────────────────────────────────────
 const { requireRole } = require('../../lib/require-role');
-const { listUsers, createUser, updateUser, deleteUser } = require('../../lib/users');
+const { listUsers, createUser, updateUser, deleteUser, adminResetMfa } = require('../../lib/users');
 const { listRoles, ROLES } = require('../../lib/roles');
 const { sendEmail } = require('../../lib/mail');
 
@@ -74,7 +76,13 @@ module.exports = async function handler(req, res) {
     if (req.method === 'PATCH') {
       const username = req.query.username || (req.body || {}).username;
       if (!username) return res.status(400).json({ error: 'username is required' });
-      const { role, active, password, email, forceResetOnFirstLogin, passwordRotationDays } = req.body || {};
+      const { role, active, password, email, forceResetOnFirstLogin, passwordRotationDays, resetMfa } = req.body || {};
+
+      if (resetMfa) {
+        const updated = await adminResetMfa(username);
+        return res.status(200).json({ ok: true, user: updated });
+      }
+
       const updated = await updateUser(username, { role, active, password, email, forceResetOnFirstLogin, passwordRotationDays });
 
       let emailSent = false;
