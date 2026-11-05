@@ -37,6 +37,7 @@
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
     .b-Open { background: #e8f1fb; color: #1d5fa8; } .b-In-Progress { background: #fff4e0; color: #9a5b00; }
     .b-Resolved { background: #edf7e8; color: #2f6b1a; } .b-Closed { background: #f0f0f0; color: #777; }
+    .b-test { background: #f1ebfb; color: #5b2ea6; }
     .b-High { background: #fdeee6; color: #c03d00; } .b-Medium { background: #fff8e1; color: #8a6d00; }
     .svc { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin: 0 3px 3px 0; background: #eef0f2; }
     .svc.ms { background: #e8f1fb; color: #1d5fa8; } .svc.pg { background: #fdeee6; color: #c03d00; } .svc.dx { background: #f1ebfb; color: #5b2ea6; }
@@ -210,7 +211,7 @@
         const more = x.count > (x.names || []).length ? ` +${x.count - x.names.length}` : '';
         const pct = x.count ? Math.round(100 * (x.doneCount || 0) / x.count) : 0;
         return `<tr onclick="openRequest('${esc(x.ticketID)}')">
-          <td class="tid">${esc(x.ticketID)}</td>
+          <td class="tid">${esc(x.ticketID)}${x.test ? '<div><span class="badge b-test">🧪 TEST</span></div>' : ''}</td>
           <td><strong>${x.count}</strong> — ${esc((x.names || []).join(', '))}${esc(more)}<div class="bar"><i style="width:${pct}%"></i></div><div class="hint">${x.doneCount || 0}/${x.count} done</div></td>
           <td>${s.microsoft ? `<span class="svc ms">${s.microsoft} MS365</span>` : ''}${s.perigee ? `<span class="svc pg">${s.perigee} Perigee</span>` : ''}${s.dext ? `<span class="svc dx">${s.dext} Dext</span>` : ''}</td>
           <td>${esc((x.regions || []).join(', '))}</td>
@@ -289,7 +290,7 @@
       const r = open.record, st = r.status || 'Open';
       const sp = spTickets && spTickets[r.ticketID];
       $('m-title').textContent = `${r.ticketID} · ${r.people.length} ${r.people.length === 1 ? 'person' : 'people'}`;
-      $('m-status-badge').innerHTML = `<span class="badge b-${esc(st.replace(' ', '-'))}">${esc(st)}</span>`;
+      $('m-status-badge').innerHTML = (r.test ? '<span class="badge b-test" style="margin-right:6px">🧪 TEST</span>' : '') + `<span class="badge b-${esc(st.replace(' ', '-'))}">${esc(st)}</span>`;
 
       const verify = open.verified
         ? `<div class="box verify-ok"><h3>✔ Genuine HR request <span style="font-family:monospace;font-weight:700;color:#2f6b1a;margin-left:6px">${esc(r.verificationCode)}</span></h3>
@@ -342,12 +343,24 @@
         </div>`;
       }).join('');
 
-      $('m-body').innerHTML = verify + manage + people;
+      const testBox = r.test ? `<div class="box" style="border-left:4px solid #5b2ea6;background:#faf7ff"><h3>🧪 Test request</h3>
+          <p style="font-size:13px">Submitted by <strong>${esc(r.testBy)}</strong> while previewing as ${esc(r.requesterName || r.requestedBy)}. No SharePoint ticket or calendar booking exists for it, and only Developers, Super Admins and preview sessions can see it.</p>
+          <button class="b b-red" style="margin-top:10px" onclick="deleteTest()">🗑 Delete this test request</button></div>` : '';
+      $('m-body').innerHTML = testBox + verify + manage + people;
       $('m-body').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copy(b.dataset.copy)));
       $('m-body').querySelectorAll('[data-done]').forEach(cb => cb.addEventListener('change', () =>
         patch({ people: [{ index: +cb.dataset.i, done: { [cb.dataset.done]: cb.checked } }] }, cb.checked ? 'Ticked ✓' : 'Unticked')));
       $('m-body').querySelectorAll('[data-created]').forEach(inp => inp.addEventListener('change', () =>
         patch({ people: [{ index: +inp.dataset.i, createdEmail: inp.value.trim() }] }, 'Saved address ✓')));
+    }
+
+    async function deleteTest() {
+      if (!open || !open.record.test || !confirm('Delete this TEST request?')) return;
+      const r = await fetch('/api/admin/account-request?id=' + encodeURIComponent(open.record.ticketID), { method: 'DELETE', cache: 'no-store' });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) return toast(d.error || 'Delete failed', true);
+      toast('Test request deleted');
+      closeModal(); load();
     }
 
     async function copy(text) {

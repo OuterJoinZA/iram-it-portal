@@ -156,8 +156,14 @@
       ROLES = data.roles || [];
       const roleSelect = document.getElementById('f-role');
       roleSelect.innerHTML = ROLES.map(r => `<option value="${r.key}">${r.label}</option>`).join('');
-      document.getElementById('preview-role').innerHTML = '<option value="">👁 Preview as a role…</option>' +
-        ROLES.filter(r => r.key !== 'super_admin').map(r => `<option value="${r.key}">${r.label}</option>`).join('');
+      // Preview / test mode: Developers and Super Admins only, and never as
+      // another Developer/Super Admin (they already see everything).
+      const canPreview = window.IRAM_NAV.can(sessionStorage.getItem('iram_role'), 'previewUsers');
+      const previewable = role => !window.IRAM_NAV.can(role, 'previewUsers');
+      const pr = document.getElementById('preview-role');
+      pr.style.display = canPreview ? '' : 'none';
+      pr.innerHTML = '<option value="">🧪 Test as a role…</option>' +
+        ROLES.filter(r => previewable(r.key)).map(r => `<option value="${r.key}">${r.label}</option>`).join('');
 
       const body = document.getElementById('users-body');
       const users = data.users || [];
@@ -188,7 +194,7 @@
           <td><span class="pill ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
           <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
           <td><div class="row-actions">
-            ${u.role === 'super_admin' ? '' : `<button class="btn-grey" onclick="startPreview({ username: '${esc(u.username)}' })" title="See the portal exactly as this person does (read-only)">👁 Preview</button>`}
+            ${canPreview && previewable(u.role) ? `<button class="btn-grey" onclick="startPreview({ username: '${esc(u.username)}' })" title="Test the portal as this person (test mode: account requests are saved as TEST, everything else blocked)">🧪 Test as</button>` : ''}
             <button class="btn-grey" onclick="resetPassword('${esc(u.username)}')">Reset password</button>
             <button class="btn-grey" onclick="toggleActive('${esc(u.username)}', ${!u.active})">${u.active ? 'Deactivate' : 'Reactivate'}</button>
             <button class="btn-danger" onclick="removeUser('${esc(u.username)}')">Delete</button>

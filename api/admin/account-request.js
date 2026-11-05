@@ -20,6 +20,13 @@
 //   - a confirmation email goes to the requester's REGISTERED address, bcc the
 //     HR inbox, so HR sees every request made in their name
 //
+// TEST MODE: while a Developer/Super Admin is previewing as someone
+// (api/admin/preview.js), POST creates a TEST-YYYY-NNNNN record marked
+// test:true — no Power Automate call (so no SharePoint row or calendar
+// booking), emails only to the real person previewing, and it's hidden from
+// everyone except preview sessions and Developers/Super Admins. PATCH works
+// on test records only; DELETE removes a test record.
+//
 // POST  { people: [ {...person} ], notes }            requestAccounts → { ticketID, verificationCode, count }
 // GET                     list (HR: own; IT: all)    ?active=1 → only Open / In Progress
 // GET   ?id=<ticketID>    full record + verified flag (HR: own only; IT: any)
@@ -29,7 +36,7 @@
 const crypto              = require('crypto');
 const { parsePhoneNumberFromString } = require('libphonenumber-js/max');
 const { verifyToken, sessionTokenFromRequest } = require('../../lib/auth');
-const { isPreviewWrite, PREVIEW_MESSAGE } = require('../../lib/require-role');
+const { PREVIEW_MESSAGE } = require('../../lib/require-role');
 const { hasPermission, ROLES } = require('../../lib/roles');
 const { getUser }         = require('../../lib/users');
 const { load: loadConfig } = require('../../lib/portal-config.js');
@@ -39,7 +46,7 @@ const blob                = require('../../lib/blob.js');
 
 const INDEX_PATH = 'account-requests/index.json';
 const recordPath = id => `account-requests/${id}.json`;
-const ID_RE      = /^IT-\d{4}-\d{5}$/;
+const ID_RE      = /^(IT|TEST)-\d{4}-\d{5}$/;
 
 const MARKER   = '[NEW STARTER ACCOUNT REQUEST]';
 // Existing category (SharePoint may treat Category as a choice column).
@@ -102,14 +109,15 @@ module.exports = async function handler(req, res) {
 
   const session = verifyToken(sessionTokenFromRequest(req));
   if (!session) return res.status(401).json({ error: 'Unauthorized' });
-  if (isPreviewWrite(req, session)) return res.status(403).json({ error: PREVIEW_MESSAGE, message: PREVIEW_MESSAGE });
   const canRequest = hasPermission(session.role, 'requestAccounts');
   const isIT       = hasPermission(session.role, 'manageTickets');
+  // Test records are visible to preview sessions and to Developers/Super Admins.
+  const seesTests  = !!session.preview || hasPermission(session.role, 'previewUsers');
   if (!canRequest && !isIT) return res.status(403).json({ error: 'forbidden' });
   if (!blob.isConfigured()) return res.status(503).json({ error: 'storage_not_configured', message: 'Storage isn\'t configured — ask IT.' });
 
   try {
-    if (req.method === 'GET')   return await handleGet(req, res, session, isIT);
+    if (req.method === 'GET')   return await handleGet(req, res, session, isIT, seesTests);
     if (req.method === 'POST') {
       if (!canRequest) return res.status(403).json({ error: 'forbidden', message: 'Only HR accounts can log account requests.' });
       return await handlePost(req, res, session);
@@ -117,6 +125,10 @@ module.exports = async function handler(req, res) {
     if (req.method === 'PATCH') {
       if (!isIT) return res.status(403).json({ error: 'forbidden' });
       return await handlePatch(req, res, session);
+    }
+    if (req.method === 'DELETE') {
+      if (!seesTests) return res.status(403).json({ error: 'forbidden' });
+      return await handleDeleteTest(req, res);
     }
   } catch (err) {
     console.error('account-request error:', err.message);
@@ -126,7 +138,7 @@ module.exports = async function handler(req, res) {
 };
 
 // ── GET ─────────────────────────────────────────────────────────────────────
-async function handleGet(req, res, session, isIT) {
+async function handleGet(req, res, session, isIT, seesTests) {
   const q  = req.query || {};
   const id = clean(q.id || q.verify, 40).toUpperCase();
   const mine = session.username.toLowerCase();
@@ -134,13 +146,15 @@ async function handleGet(req, res, session, isIT) {
   if (id) {
     if (!ID_RE.test(id)) return res.status(200).json({ verified: false, reason: 'not_found' });
     const record = await blob.getJson(recordPath(id)).catch(() => null);
-    if (!record) return res.status(200).json({ verified: false, reason: 'not_found' });
+    if (!record || record.deleted) return res.status(200).json({ verified: false, reason: 'not_found' });
+    if (record.test && !seesTests) return res.status(200).json({ verified: false, reason: 'not_found' });
     if (!isIT && (record.requestedBy || '').toLowerCase() !== mine) return res.status(200).json({ verified: false, reason: 'not_found' });
     const ok = record.verificationCode === verificationCode(record);
     return res.status(200).json({ verified: ok, reason: ok ? null : 'code_mismatch', record });
   }
 
   let list = (await blob.getJson(INDEX_PATH).catch(() => null)) || [];
+  if (!seesTests) list = list.filter(r => !r.test);
   if (!isIT) list = list.filter(r => (r.requestedBy || '').toLowerCase() === mine);
   if (q.active === '1') list = list.filter(r => ACTIVE.has(r.status || 'Open'));
   return res.status(200).json({ requests: list.slice(0, 500), seesAll: isIT, regions: REGIONS });
@@ -201,6 +215,10 @@ async function handlePost(req, res, session) {
   }
   const batchNotes = clean(b.notes, 2000);
 
+  // Test mode = submitted from a Developer/Super Admin "preview as" session.
+  const test  = !!session.preview;
+  const actor = test ? await getUser(session.preview.actor).catch(() => null) : null;
+
   // Identity comes from the session + stored account, never the request body.
   const record         = await getUser(session.username).catch(() => null);
   const requesterEmail = (record && record.email) || '';
@@ -208,7 +226,7 @@ async function handlePost(req, res, session) {
   const requesterRole  = (ROLES[session.role] && ROLES[session.role].label) || session.role;
   const mfaOn          = !!(record && record.mfaEnabled);
 
-  const ticketID  = `IT-${new Date().getFullYear()}-${String(crypto.randomInt(10000, 100000))}`;
+  const ticketID  = `${test ? 'TEST' : 'IT'}-${new Date().getFullYear()}-${String(crypto.randomInt(10000, 100000))}`;
   const createdAt = new Date().toISOString();
   const code      = verificationCode({ ticketID, requestedBy: session.username, createdAt, people });
   const origin    = `https://${req.headers.host || 'iram-it-portal.vercel.app'}`;
@@ -242,6 +260,11 @@ async function handlePost(req, res, session) {
     priority, estimatedMinutes: minutes, assignedTo, earliestStart: earliest,
     notes: batchNotes, itNotes: '', people
   };
+  if (test) {
+    auditRecord.test = true;
+    auditRecord.testBy = session.preview.actor;
+    auditRecord.assignedTo = '';
+  }
 
   // Audit record first: if it can't be stored, IT couldn't verify the request,
   // so refuse rather than log an unverifiable ticket.
@@ -260,7 +283,8 @@ async function handlePost(req, res, session) {
     `Open in New Starter Queue: ${queueUrl}`
   ].filter(Boolean).join('\n');
 
-  const paUrl = process.env.POWER_AUTOMATE_URL;
+  // Test requests never reach Power Automate — no SharePoint row, no booking.
+  const paUrl = test ? '' : process.env.POWER_AUTOMATE_URL;
   if (paUrl) {
     try {
       await fetch(paUrl, {
@@ -294,6 +318,19 @@ async function handlePost(req, res, session) {
     ...(count('needsPerigee') ? perigeePool.map(s => s.email) : [])
   ].filter(Boolean))];
   const table = peopleTable(people);
+  if (test) {
+    // Only the real person previewing gets anything, clearly marked TEST.
+    const to = actor && actor.email;
+    try {
+      if (to) await sendEmail({
+        to, subject: `[TEST] New starter request ${ticketID} — ${people.length} ${people.length === 1 ? 'person' : 'people'} (previewing as ${session.username})`,
+        html: emailHtml({ heading: 'TEST — New Starter Account Request', ticketID, code, table, buttonUrl: queueUrl, buttonLabel: 'Open in New Starter Queue',
+          intro: `🧪 <strong>Test request</strong> submitted by <strong>${esc(session.preview.actor)}</strong> while previewing as <strong>${esc(session.username)}</strong> (${esc(requesterRole)}). Nothing was sent to IT or HR, and nothing was booked.`,
+          footer: 'Test records show a TEST badge and are only visible to Developers, Super Admins and preview sessions.' })
+      });
+    } catch (err) { console.error('account-request: test email error', err.message); }
+    return res.status(200).json({ ticketID, verificationCode: code, count: people.length, test: true });
+  }
   try {
     if (itEmails.length) {
       await sendEmail({
@@ -337,7 +374,8 @@ function indexEntry(r) {
       dext:      r.people.filter(p => p.needsDext).length
     },
     doneCount: r.people.filter(isPersonDone).length,
-    earliestStart: r.earliestStart || '', priority: r.priority, assignedTo: r.assignedTo || ''
+    earliestStart: r.earliestStart || '', priority: r.priority, assignedTo: r.assignedTo || '',
+    test: !!r.test
   };
 }
 
@@ -347,7 +385,8 @@ async function handlePatch(req, res, session) {
   const id = clean(b.ticketID, 40).toUpperCase();
   if (!ID_RE.test(id)) return res.status(400).json({ error: 'bad_id' });
   const record = await blob.getJson(recordPath(id)).catch(() => null);
-  if (!record) return res.status(404).json({ error: 'not_found' });
+  if (!record || record.deleted) return res.status(404).json({ error: 'not_found' });
+  if (session.preview && !record.test) return res.status(403).json({ error: PREVIEW_MESSAGE, message: 'In preview test mode you can only work on TEST requests.' });
 
   const now = new Date().toISOString();
   if (b.status !== undefined) {
@@ -380,6 +419,20 @@ async function handlePatch(req, res, session) {
   await blob.putJson(INDEX_PATH, index);
 
   return res.status(200).json({ ok: true, record });
+}
+
+// ── DELETE ?id=TEST-… (clear out test records) ───────────────────────────────
+async function handleDeleteTest(req, res) {
+  const id = clean((req.query || {}).id, 40).toUpperCase();
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'bad_id' });
+  const record = await blob.getJson(recordPath(id)).catch(() => null);
+  if (!record) return res.status(404).json({ error: 'not_found' });
+  if (!record.test) return res.status(400).json({ error: 'Only TEST requests can be deleted.' });
+  // Blob has no delete in lib/blob.js — blank the record and drop it from the index.
+  await blob.putJson(recordPath(id), { deleted: true, ticketID: id, test: true });
+  const index = (await blob.getJson(INDEX_PATH).catch(() => null)) || [];
+  await blob.putJson(INDEX_PATH, index.filter(r => r.ticketID !== id));
+  return res.status(200).json({ ok: true });
 }
 
 // ── Email helpers ───────────────────────────────────────────────────────────

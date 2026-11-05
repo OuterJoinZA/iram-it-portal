@@ -8,7 +8,8 @@
 // ──────────────────────────────────────────────────────────────────────────────
 (function () {
   const ROLE_PERMS = {
-    super_admin:     ['manageUsers', 'editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts'],
+    developer:       ['manageUsers', 'editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts', 'previewUsers'],
+    super_admin:     ['manageUsers', 'editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts', 'previewUsers'],
     admin:           ['editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts'],
     hr_admin:        ['editHR', 'viewTicketStats', 'requestAccounts'],
     it:              ['manageTickets', 'viewTicketStats'],
@@ -101,11 +102,11 @@
     const label = me.role.replace(/_/g, ' ');
     const bar = document.createElement('div');
     bar.id = 'pn-preview';
-    bar.innerHTML = `<span>👁 Previewing as <b></b> (${label}) — <b>read-only</b>. You're really signed in as <b></b>.</span>
+    bar.innerHTML = `<span>🧪 <b>Test mode</b> — previewing as <b></b> (${label}). Account requests you submit are saved as <b>TEST</b>: emailed only to you, nothing sent to IT/HR or booked. Other changes are blocked. Signed in as <b></b>.</span>
       <button type="button">Exit preview</button>`;
     const bs = bar.querySelectorAll('b');
-    bs[0].textContent = me.username;
-    bs[2].textContent = me.preview.actor;
+    bs[1].textContent = me.username;
+    bs[3].textContent = me.preview.actor;
     bar.querySelector('button').addEventListener('click', exitPreview);
     document.body.prepend(bar);
 
@@ -113,9 +114,11 @@
     window.fetch = (url, opts = {}) => {
       const method = String((opts && opts.method) || 'GET').toUpperCase();
       const u = String(url && url.url ? url.url : url);
-      if (method !== 'GET' && /\/api\/admin\//.test(u) && !/\/api\/admin\/(preview|logout)\b/.test(u)) {
-        toast('Preview is read-only — exit preview to make changes.');
-        const msg = { error: 'Preview mode is read-only — exit preview to make changes.', message: 'Preview mode is read-only — exit preview to make changes.' };
+      // account-request is the one feature that runs for real in test mode.
+      if (method !== 'GET' && /\/api\/admin\//.test(u) && !/\/api\/admin\/(preview|logout|account-request)\b/.test(u)) {
+        toast("Not available in test mode — only account requests can be tested.");
+        const text = "That change isn't available in preview test mode — only new-starter account requests can be tested. Exit preview to make real changes.";
+        const msg = { error: text, message: text };
         return Promise.resolve(new Response(JSON.stringify(msg), { status: 403, headers: { 'Content-Type': 'application/json' } }));
       }
       return realFetch(url, opts);

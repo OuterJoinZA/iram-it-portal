@@ -391,7 +391,9 @@
         const data = await r.json().catch(() => ({}));
         if (r.status === 401) { location.replace('/login.html'); return; }
         if (!r.ok) { if (data.index !== undefined) flag(data.index); throw new Error(data.message || 'Something went wrong. Please try again.'); }
-        $('done-title').textContent = data.count === 1 ? 'Request sent to IT' : `Request for ${data.count} people sent to IT`;
+        $('done-title').textContent = data.test
+          ? `🧪 TEST request saved (${data.count} ${data.count === 1 ? 'person' : 'people'}) — emailed only to you, not sent to IT`
+          : (data.count === 1 ? 'Request sent to IT' : `Request for ${data.count} people sent to IT`);
         $('done-ticket').textContent = data.ticketID;
         $('done-code').textContent = data.verificationCode;
         $('form-view').style.display = 'none';
@@ -430,7 +432,7 @@
             const pct = x.count ? Math.round(100 * (x.doneCount || 0) / x.count) : 0;
             const st = x.status || 'Open';
             return `<tr>
-              <td class="tid">${esc(x.ticketID)}</td>
+              <td class="tid">${esc(x.ticketID)}${x.test ? ' <span class="pill" style="background:#f1ebfb;color:#5b2ea6">TEST</span>' : ''}</td>
               <td>${esc((x.names || []).join(', '))}${esc(more)}<div class="hint">${esc((x.regions || []).join(', '))}${x.earliestStart ? ' · starts ' + esc(x.earliestStart) : ''}</div></td>
               <td style="font-size:12.5px">${accts}</td>
               <td class="hide-sm" style="white-space:nowrap">${esc(new Date(x.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }))}</td>

@@ -6,7 +6,8 @@
 // Mirrors lib/roles.js — duplicated here since this is a static site with no
 // build step. This page is the ticket dashboard, so it needs manageTickets.
 const ROLE_PERMS = {
-  super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts'],
+  developer:   ['manageUsers', 'editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts', 'previewUsers'],
+  super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts', 'previewUsers'],
   admin:       ['editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts'],
   hr_admin:    ['editHR', 'viewTicketStats', 'requestAccounts'],
   it:          ['manageTickets', 'viewTicketStats'],
@@ -41,7 +42,7 @@ fetch('/api/admin/me', { cache: 'no-store' }).then(r => {
     document.head.appendChild(sc);
   }).catch(() => {});
 });
-if (MY_ROLE === 'super_admin') {
+if (MY_PERMS.includes('manageUsers')) {
   document.addEventListener('DOMContentLoaded', () => {
     const link = document.getElementById('nav-links-section');
     if (link) {
