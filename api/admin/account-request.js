@@ -159,7 +159,9 @@ async function handleGet(req, res, session, isIT, seesTests) {
   let list = (await blob.getJson(INDEX_PATH).catch(() => null)) || [];
   if (!seesTests) list = list.filter(r => !r.test);
   if (!isIT) list = list.filter(r => (r.requestedBy || '').toLowerCase() === mine);
-  if (q.active === '1') list = list.filter(r => ACTIVE.has(r.status || 'Open'));
+  // Active only — except test requests (auto-completed) stay listed while
+  // testing, so the tester can see their test landed.
+  if (q.active === '1') list = list.filter(r => ACTIVE.has(r.status || 'Open') || (session.preview && r.test));
   return res.status(200).json({ requests: list.slice(0, 500), seesAll: isIT, regions: REGIONS });
 }
 
