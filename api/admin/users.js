@@ -13,7 +13,7 @@
 //                      (for someone locked out of their authenticator)
 //   DELETE ?username→ remove the account
 // ──────────────────────────────────────────────────────────────────────────────
-const { requireRole } = require('../../lib/require-role');
+const { requireRole, rejectIfPreview } = require('../../lib/require-role');
 const { listUsers, createUser, updateUser, deleteUser, adminResetMfa, setLoginMfaMode } = require('../../lib/users');
 const { listRoles, ROLES } = require('../../lib/roles');
 const { sendEmail } = require('../../lib/mail');
@@ -56,6 +56,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  if (rejectIfPreview(req, res)) return;
   const user = requireRole(req, 'manageUsers');
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 

@@ -39,9 +39,10 @@ module.exports = async function handler(req, res) {
     const target = await getUser(body.username);
     if (!target) return res.status(404).json({ error: 'User not found.' });
     if (target.active === false) return res.status(400).json({ error: 'That account is deactivated.' });
+    if (target.role === 'super_admin') return res.status(400).json({ error: 'Super Admins already see everything — pick a non-Super Admin user or role to preview.' });
     username = target.username;
     role = target.role;
-  } else if (body.role && isValidRole(body.role)) {
+  } else if (body.role && isValidRole(body.role) && body.role !== 'super_admin') {
     role = body.role;
     username = `preview-${role}`;
   } else {

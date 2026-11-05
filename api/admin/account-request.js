@@ -29,7 +29,7 @@
 const crypto              = require('crypto');
 const { isValidPhoneNumber } = require('libphonenumber-js');
 const { verifyToken, sessionTokenFromRequest } = require('../../lib/auth');
-const { isPreviewWrite } = require('../../lib/require-role');
+const { isPreviewWrite, PREVIEW_MESSAGE } = require('../../lib/require-role');
 const { hasPermission, ROLES } = require('../../lib/roles');
 const { getUser }         = require('../../lib/users');
 const { load: loadConfig } = require('../../lib/portal-config.js');
@@ -81,7 +81,7 @@ module.exports = async function handler(req, res) {
 
   const session = verifyToken(sessionTokenFromRequest(req));
   if (!session) return res.status(401).json({ error: 'Unauthorized' });
-  if (isPreviewWrite(req, session)) return res.status(403).json({ error: 'preview_read_only', message: 'Preview mode is read-only — exit preview to make changes.' });
+  if (isPreviewWrite(req, session)) return res.status(403).json({ error: PREVIEW_MESSAGE, message: PREVIEW_MESSAGE });
   const canRequest = hasPermission(session.role, 'requestAccounts');
   const isIT       = hasPermission(session.role, 'manageTickets');
   if (!canRequest && !isIT) return res.status(403).json({ error: 'forbidden' });

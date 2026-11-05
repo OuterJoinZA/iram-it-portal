@@ -126,8 +126,9 @@
       location.replace('../login.html');
     }
     fetch('/api/admin/me', { cache: 'no-store' }).then(r => {
-      if (!r.ok) { sessionStorage.clear(); location.replace('../login.html'); }
-    });
+      if (!r.ok) { sessionStorage.clear(); location.replace('../login.html'); return null; }
+      return r.json();
+    }).then(me => { if (me && me.preview) window.IRAM_NAV.showPreviewBanner(me); }).catch(() => {});
 
     const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts, {
       headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers)
@@ -187,7 +188,7 @@
           <td><span class="pill ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
           <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
           <td><div class="row-actions">
-            <button class="btn-grey" onclick="startPreview({ username: '${esc(u.username)}' })" title="See the portal exactly as this person does (read-only)">👁 Preview</button>
+            ${u.role === 'super_admin' ? '' : `<button class="btn-grey" onclick="startPreview({ username: '${esc(u.username)}' })" title="See the portal exactly as this person does (read-only)">👁 Preview</button>`}
             <button class="btn-grey" onclick="resetPassword('${esc(u.username)}')">Reset password</button>
             <button class="btn-grey" onclick="toggleActive('${esc(u.username)}', ${!u.active})">${u.active ? 'Deactivate' : 'Reactivate'}</button>
             <button class="btn-danger" onclick="removeUser('${esc(u.username)}')">Delete</button>
