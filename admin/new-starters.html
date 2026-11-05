@@ -85,6 +85,20 @@
     .copy { border: none; background: none; cursor: pointer; font-size: 12px; color: #4e9938; padding: 0 2px; }
     .tick { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin-top: 10px; cursor: pointer; }
     .tick input { width: 16px; height: 16px; accent-color: #4e9938; }
+    .handover { border-top: 1px solid #f0f1f3; padding: 12px 16px 16px; background: #fbfcfb; }
+    .handover h4 { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+    .ho-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 12px; }
+    .ho-grid label { margin-top: 8px; }
+    .ho-paste { font-family: Consolas, monospace; font-size: 12px; min-height: 54px; }
+    .ho-to { font-size: 12px; color: #666; margin-top: 10px; line-height: 1.6; }
+    .ho-to b { color: #333; }
+    .ho-sent { font-size: 12.5px; color: #2f6b1a; font-weight: 700; margin-top: 8px; }
+    .settings { display: none; background: #fff; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .settings.show { display: block; }
+    .settings .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+    .settings label { margin-top: 8px; }
+    .settings .chk { display: flex; gap: 8px; align-items: center; font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: 0; color: #333; }
+    @media (max-width: 900px) { .ho-grid, .settings .grid2 { grid-template-columns: 1fr; } }
     .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #2D2D2D; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; display: none; z-index: 40; }
     .toast.show { display: block; } .toast.err { background: #a4262c; }
     @media (max-width: 900px) { .stats { grid-template-columns: 1fr 1fr; } .p-cols { grid-template-columns: 1fr; } .p-col { border-right: none; border-bottom: 1px solid #f0f1f3; } }
@@ -116,6 +130,26 @@
       <select id="f-region"><option value="">All regions</option></select>
       <select id="f-svc"><option value="">All accounts</option><option value="microsoft">Microsoft 365</option><option value="perigee">Perigee</option><option value="dext">Dext</option></select>
       <button class="b b-grey" onclick="load()">↻ Refresh</button>
+      <button class="b b-grey" onclick="toggleSettings()">⚙ Email settings</button>
+    </div>
+
+    <div class="settings" id="settings">
+      <h3 style="font-size:14px;font-weight:800">⚙ Who gets the account details</h3>
+      <p class="hint" style="margin-bottom:6px">When IT clicks <strong>Send account details</strong> on a person, the Microsoft 365 and Perigee logins are emailed to everyone below. Separate several addresses with commas.</p>
+      <div class="grid2">
+        <div><label>HR inbox(es)</label><input type="text" id="st-hrEmails" placeholder="hr@iram.co.za"></div>
+        <div><label>Perigee support admin(s)</label><input type="text" id="st-perigeeAdminEmails" placeholder="perigee.admin@iram.co.za"></div>
+        <div><label>IT tech's line manager(s)</label><input type="text" id="st-itManagerEmails" placeholder="it.manager@iram.co.za"></div>
+        <div><label>Dext account creators <span class="hint">(blank = Perigee admin(s) + HR)</span></label><input type="text" id="st-dextEmails"></div>
+      </div>
+      <div style="display:flex;gap:18px;margin-top:10px;flex-wrap:wrap">
+        <label class="chk"><input type="checkbox" id="st-includeSubmitter"> Also send to the HR person who logged the request</label>
+        <label class="chk"><input type="checkbox" id="st-includeSupervisor"> Also send to the new starter's supervisor (from the request)</label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+        <button class="b b-green" id="st-save" onclick="saveSettings()">Save settings</button>
+        <span class="hint" id="st-note"></span>
+      </div>
     </div>
 
     <div class="table-card">
@@ -145,6 +179,7 @@
       IRAM_NAV.renderLinks('pn-links', me.role, 'newstarters');
       load();
       loadSharePoint();
+      loadSettings();
       const id = new URLSearchParams(location.search).get('id') || new URLSearchParams(location.search).get('verify');
       if (id) openRequest(id.toUpperCase());
     });
@@ -265,7 +300,7 @@
         ['User name (UPN)', upnFor(p)], ['First name', p.firstName], ['Last name', p.lastName],
         ['Display name', `${p.firstName} ${p.lastName}`], ['Job title', p.jobTitle], ['Department', p.department],
         ['Office', p.region], ['Mobile phone', p.cellphone], ['Alternate email', p.personalEmail],
-        ['Manager', p.managerName], ['Usage location', 'ZA — ' + COUNTRY]
+        ['Manager', [p.managerName, p.managerEmail].filter(Boolean).join(' · ')], ['Usage location', 'ZA — ' + COUNTRY]
       ];
     }
     function perigeeFields(p) {
@@ -334,12 +369,12 @@
             <span class="hint">${esc(p.jobTitle)} · ${esc(p.department)} · ${esc(p.region)}${p.startDate ? ' · starts ' + esc(p.startDate) : ''}</span>
             ${allDone ? '<span class="done-all">✔ All done</span>' : ''}</div>
           <div class="p-cols">
-            ${col('microsoft', '✉️ Microsoft 365', p.needsMicrosoft, msFields(p),
-              `<div style="margin-top:8px"><label>Address actually created</label><input type="email" data-i="${i}" data-created placeholder="${esc(upnFor(p))}" value="${esc(p.createdEmail || '')}"></div>`)}
+            ${col('microsoft', '✉️ Microsoft 365', p.needsMicrosoft, msFields(p))}
             ${col('perigee', '📱 Perigee', p.needsPerigee, perigeeFields(p))}
             ${col('dext', '🧾 Dext', p.needsDext, dextFields(p))}
           </div>
           ${p.notes ? `<div style="padding:0 16px 12px" class="hint">Note: ${esc(p.notes)}</div>` : ''}
+          ${handoverHtml(r, p, i)}
         </div>`;
       }).join('');
 
@@ -350,8 +385,120 @@
       $('m-body').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copy(b.dataset.copy)));
       $('m-body').querySelectorAll('[data-done]').forEach(cb => cb.addEventListener('change', () =>
         patch({ people: [{ index: +cb.dataset.i, done: { [cb.dataset.done]: cb.checked } }] }, cb.checked ? 'Ticked ✓' : 'Unticked')));
-      $('m-body').querySelectorAll('[data-created]').forEach(inp => inp.addEventListener('change', () =>
-        patch({ people: [{ index: +inp.dataset.i, createdEmail: inp.value.trim() }] }, 'Saved address ✓')));
+      $('m-body').querySelectorAll('[data-paste]').forEach(ta => ta.addEventListener('input', () => applyMsPaste(+ta.dataset.paste, ta.value)));
+    }
+
+    // ── Handover: send the finished logins ─────────────────────────────────
+    let settings = null, settingsCanEdit = false;
+    function handoverRecipients(r, p) {
+      if (!settings) return [];
+      if (r.test) return ['(TEST — only you)'];
+      return [...new Set([
+        ...(settings.includeSubmitter ? [r.requesterEmail] : []),
+        ...settings.hrEmails,
+        ...(p.needsPerigee ? settings.perigeeAdminEmails : []),
+        ...(settings.includeSupervisor ? [p.managerEmail] : []),
+        ...settings.itManagerEmails
+      ].filter(Boolean))];
+    }
+    function dextRecipients() {
+      if (!settings) return [];
+      return settings.dextEmails.length ? settings.dextEmails : [...new Set([...settings.perigeeAdminEmails, ...settings.hrEmails])];
+    }
+
+    function handoverHtml(r, p, i) {
+      if (!p.needsMicrosoft && !p.needsPerigee && !p.needsDext) return '';
+      const h = p.handover;
+      const to = handoverRecipients(r, p);
+      const msUser = p.createdEmail || upnFor(p);
+      return `<div class="handover">
+        <h4>📧 Hand over the logins ${h ? '<span class="badge b-Resolved" style="margin-left:6px">Sent</span>' : ''}</h4>
+        ${h ? `<div class="ho-sent">✔ Sent ${esc(fmt(h.sentAt))} by ${esc(h.by)} to ${esc((h.to || []).join(', '))}${p.dextRequestedAt ? ` · Dext request sent to ${esc((p.dextRequestedTo || []).join(', '))}` : ''}</div>
+          <p class="hint" style="margin:4px 0 6px">Need to resend (e.g. new password)? Fill in below and send again.</p>` : ''}
+        <div class="ho-grid">
+          ${p.needsMicrosoft ? `
+          <div style="grid-column:1/-1"><label>Paste the Microsoft 365 export <span class="hint">(fills the 3 boxes below)</span></label>
+            <textarea class="ho-paste" data-paste="${i}" placeholder="Display name: …&#10;Username: …&#10;Password: …"></textarea></div>
+          <div><label>Microsoft display name</label><input type="text" id="ho-ms-name-${i}" value="${esc(p.msDisplayName || `${p.firstName} ${p.lastName}`)}"></div>
+          <div><label>Microsoft username / email</label><input type="email" id="ho-ms-user-${i}" value="${esc(msUser)}"></div>
+          <div><label>Microsoft temporary password</label><input type="text" id="ho-ms-pass-${i}" autocomplete="off" spellcheck="false"></div>` : ''}
+          ${p.needsPerigee ? `
+          <div><label>Perigee username / email</label><input type="text" id="ho-pg-user-${i}" value="${esc(p.perigeeUsername || (p.needsMicrosoft ? msUser : (p.personalEmail || '')))}"></div>
+          <div><label>Perigee password</label><input type="text" id="ho-pg-pass-${i}" autocomplete="off" spellcheck="false"></div>
+          <div></div>` : ''}
+        </div>
+        <div class="ho-to">Emails the logins to: <b>${to.length ? esc(to.join(', ')) : '— nobody yet, set up ⚙ Email settings —'}</b>
+          ${p.needsDext ? `<br>Dext request (with the final usernames) goes to: <b>${r.test ? '(TEST — only you)' : esc(dextRecipients().join(', ') || '— set up ⚙ Email settings —')}</b>` : ''}
+          <br><span style="color:#999">🔒 Passwords are only put in the email — the portal never stores them.</span></div>
+        <button class="b b-green" style="margin-top:10px" onclick="sendHandover(${i})">📧 ${h ? 'Resend' : 'Send'} account details</button>
+      </div>`;
+    }
+
+    // Microsoft 365 "Add user" result, e.g. "Display name: …\nUsername: …\nPassword: …"
+    function applyMsPaste(i, text) {
+      const grab = re => { const m = re.exec(text); return m ? m[1].trim() : ''; };
+      const name = grab(/display\s*name\s*[:\t]\s*(.+)/i);
+      const user = grab(/(?:user\s*name|username|user principal name|email)\s*[:\t]\s*(\S+@\S+)/i);
+      const pass = grab(/password\s*[:\t]\s*(\S+)/i);
+      if (name) $('ho-ms-name-' + i).value = name;
+      if (user) { $('ho-ms-user-' + i).value = user; const pg = $('ho-pg-user-' + i); if (pg && !pg.dataset.touched) pg.value = user; }
+      if (pass) $('ho-ms-pass-' + i).value = pass;
+      if (name || user || pass) toast('Filled from the Microsoft export ✓');
+    }
+
+    async function sendHandover(i) {
+      const r = open.record, p = r.people[i];
+      const v = id => ($(id) ? $(id).value.trim() : '');
+      const body = { ticketID: r.ticketID, index: i };
+      if (p.needsMicrosoft) body.ms = { displayName: v('ho-ms-name-' + i), username: v('ho-ms-user-' + i), password: v('ho-ms-pass-' + i) };
+      if (p.needsPerigee) body.perigee = { username: v('ho-pg-user-' + i), password: v('ho-pg-pass-' + i) };
+      if (p.needsMicrosoft && !body.ms.password) return toast('Enter the Microsoft temporary password first', true);
+      if (p.needsPerigee && !body.perigee.password) return toast('Enter the Perigee password first', true);
+      const to = handoverRecipients(r, p);
+      if (!confirm(`Email ${nameFor(p)}'s login details${p.needsDext ? ' (and the Dext request)' : ''} to:\n\n${to.join('\n')}`)) return;
+      try {
+        const res = await fetch('/api/admin/account-request?action=handover', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.message || d.error || 'Sending failed');
+        open.record = d.record;
+        renderModal(); load();
+        toast(`Sent to ${d.sentTo.length} ${d.sentTo.length === 1 ? 'person' : 'people'}${d.dextTo && d.dextTo.length ? ' + Dext request' : ''} ✓`);
+        const st = $('m-status');
+        if (d.allDone && st && st.value !== 'Resolved' && st.value !== 'Closed' &&
+            confirm('Everyone in this request has their logins now. Mark the request as Resolved? (This also clears the calendar booking.)')) {
+          st.value = 'Resolved';
+          saveRequest();
+        }
+      } catch (e) { toast(e.message, true); }
+    }
+
+    // ── Email settings ───────────────────────────────────────────────────────
+    const ST_LISTS = ['hrEmails', 'perigeeAdminEmails', 'itManagerEmails', 'dextEmails'];
+    async function loadSettings() {
+      try {
+        const r = await fetch('/api/admin/account-request?settings=1', { cache: 'no-store' });
+        if (!r.ok) return;
+        const d = await r.json();
+        settings = d.settings; settingsCanEdit = d.canEdit;
+        ST_LISTS.forEach(k => { $('st-' + k).value = (settings[k] || []).join(', '); $('st-' + k).disabled = !settingsCanEdit; });
+        $('st-includeSubmitter').checked = settings.includeSubmitter !== false;
+        $('st-includeSupervisor').checked = settings.includeSupervisor !== false;
+        ['st-includeSubmitter', 'st-includeSupervisor', 'st-save'].forEach(id => $(id).disabled = !settingsCanEdit);
+        $('st-note').textContent = settingsCanEdit ? (settings.updatedBy ? `Last changed by ${settings.updatedBy}, ${fmt(settings.updatedAt)}` : '') : 'Only Admins / Super Admins can change these.';
+        if (open) renderModal();
+      } catch (_) {}
+    }
+    function toggleSettings() { $('settings').classList.toggle('show'); }
+    async function saveSettings() {
+      const body = {};
+      ST_LISTS.forEach(k => body[k] = $('st-' + k).value);
+      body.includeSubmitter = $('st-includeSubmitter').checked;
+      body.includeSupervisor = $('st-includeSupervisor').checked;
+      const r = await fetch('/api/admin/account-request?action=settings', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) return toast(d.error || 'Could not save', true);
+      toast('Email settings saved ✓');
+      loadSettings();
     }
 
     async function deleteTest() {

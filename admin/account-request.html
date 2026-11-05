@@ -104,7 +104,7 @@
         <div class="paste" id="paste-box">
           <p class="sub" style="margin-bottom:8px">Copy rows from Excel (or a CSV) and paste them below. Columns in this order —
             <a href="#" onclick="downloadTemplate();return false" style="color:#4e9938;font-weight:700">download the template</a>:</p>
-          <p class="sub" style="margin-bottom:10px"><code>First name</code> <code>Middle names</code> <code>Surname</code> <code>Personal email</code> <code>Cell</code> <code>Region</code> <code>Job title</code> <code>Department</code> <code>Start date</code> <code>Line manager</code> <code>Microsoft (Y/N)</code> <code>Perigee (Y/N)</code> <code>Dext (Y/N)</code></p>
+          <p class="sub" style="margin-bottom:10px"><code>First name</code> <code>Middle names</code> <code>Surname</code> <code>Personal email</code> <code>Cell</code> <code>Region</code> <code>Job title</code> <code>Department</code> <code>Start date</code> <code>Line manager</code> <code>Microsoft (Y/N)</code> <code>Perigee (Y/N)</code> <code>Dext (Y/N)</code> <code>Supervisor email</code></p>
           <textarea id="paste-input" rows="5" placeholder="Paste rows here…"></textarea>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button class="btn-green" onclick="importPaste()">Add these people</button>
@@ -158,7 +158,8 @@
         <div><label>Job title <span class="req">*</span></label><input type="text" data-f="jobTitle" list="job-list" autocomplete="off"></div>
         <div><label>Department <span class="req">*</span></label><input type="text" data-f="department" list="dept-list" autocomplete="off"></div>
         <div><label>Start date <span class="opt">(optional)</span></label><input type="date" data-f="startDate"></div>
-        <div><label>Line manager / team leader <span class="opt">(optional)</span></label><input type="text" data-f="managerName" autocomplete="off"></div>
+        <div><label>Supervisor / line manager <span class="opt">(optional)</span></label><input type="text" data-f="managerName" autocomplete="off"></div>
+        <div><label>Supervisor email <span class="opt">(gets the login details)</span></label><input type="email" data-f="managerEmail" autocomplete="off"><div class="ferr" data-err="managerEmail"></div></div>
       </div>
       <div class="accts">
         <span class="lbl">Accounts needed <span style="color:#a4262c">*</span></span>
@@ -182,9 +183,9 @@
     const $ = id => document.getElementById(id);
     const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const REGIONS = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Head Office', 'National'];
-    const FIELDS = ['firstName', 'middleNames', 'lastName', 'cellphone', 'personalEmail', 'region', 'jobTitle', 'department', 'startDate', 'managerName', 'perigeeRole', 'teamName'];
+    const FIELDS = ['firstName', 'middleNames', 'lastName', 'cellphone', 'personalEmail', 'region', 'jobTitle', 'department', 'startDate', 'managerName', 'managerEmail', 'perigeeRole', 'teamName'];
     const CHECKS = ['needsMicrosoft', 'needsPerigee', 'needsDext'];
-    const COPY_ON_REPEAT = ['region', 'jobTitle', 'department', 'startDate', 'managerName', 'perigeeRole', 'teamName', ...CHECKS];
+    const COPY_ON_REPEAT = ['region', 'jobTitle', 'department', 'startDate', 'managerName', 'managerEmail', 'perigeeRole', 'teamName', ...CHECKS];
 
     IRAM_NAV.requireSession('requestAccounts').then(me => {
       $('whoami').textContent = me.fullName || me.username;
@@ -233,6 +234,11 @@
       if (em.value && !isEmail(em.value)) { setErr(node, 'personalEmail', 'Not a valid email — fix it or leave it blank'); err = err || 'personalEmail'; }
       else setErr(node, 'personalEmail', '');
 
+      const me = get('managerEmail');
+      me.value = me.value.trim().toLowerCase();
+      if (me.value && !isEmail(me.value)) { setErr(node, 'managerEmail', 'Not a valid email — fix it or leave it blank'); err = err || 'managerEmail'; }
+      else setErr(node, 'managerEmail', '');
+
       const cell = get('cellphone');
       if (cell.value.trim()) {
         const n = normaliseSaMobile(cell.value);
@@ -260,7 +266,7 @@
       node.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => { node.classList.remove('err'); syncPerson(node); }));
       node.querySelectorAll('input[type=checkbox]').forEach(el => el.addEventListener('change', () => syncPerson(node)));
       // Tidy names / cell / email as soon as someone leaves the field.
-      ['firstName', 'middleNames', 'lastName', 'cellphone', 'personalEmail'].forEach(k =>
+      ['firstName', 'middleNames', 'lastName', 'cellphone', 'personalEmail', 'managerEmail'].forEach(k =>
         node.querySelector(`[data-f=${k}]`).addEventListener('blur', () => tidy(node)));
       renumber();
       if (!values) node.querySelector('[data-f=firstName]').focus();
@@ -305,7 +311,7 @@
     // ── Paste from Excel ────────────────────────────────────────────────────
     function togglePaste() { $('paste-box').classList.toggle('show'); if ($('paste-box').classList.contains('show')) $('paste-input').focus(); }
 
-    const PASTE_COLS = ['firstName', 'middleNames', 'lastName', 'personalEmail', 'cellphone', 'region', 'jobTitle', 'department', 'startDate', 'managerName', 'needsMicrosoft', 'needsPerigee', 'needsDext'];
+    const PASTE_COLS = ['firstName', 'middleNames', 'lastName', 'personalEmail', 'cellphone', 'region', 'jobTitle', 'department', 'startDate', 'managerName', 'needsMicrosoft', 'needsPerigee', 'needsDext', 'managerEmail'];
     function parseRows(text) {
       const lines = text.split(/\r?\n/).filter(l => l.trim());
       const delim = lines.some(l => l.includes('\t')) ? '\t' : ',';
@@ -345,8 +351,8 @@
       showMsg(`Added ${rows.length} ${rows.length === 1 ? 'person' : 'people'} — check them below, then Send to IT.`, true);
     }
     function downloadTemplate() {
-      const head = 'First name,Middle names,Surname,Personal email,Cell,Region,Job title,Department,Start date (YYYY-MM-DD),Line manager,Microsoft (Y/N),Perigee (Y/N),Dext (Y/N)';
-      const eg = 'Sipho,,Ndlovu,sipho@gmail.com,082 123 4567,Gauteng,Merchandiser,Field / Merchandising,2026-12-01,Thandi Mokoena,Y,Y,N';
+      const head = 'First name,Middle names,Surname,Personal email,Cell,Region,Job title,Department,Start date (YYYY-MM-DD),Line manager,Microsoft (Y/N),Perigee (Y/N),Dext (Y/N),Supervisor email';
+      const eg = 'Sipho,,Ndlovu,sipho@gmail.com,082 123 4567,Gauteng,Merchandiser,Field / Merchandising,2026-12-01,Thandi Mokoena,Y,Y,N,thandi@iram.co.za';
       const blob = new Blob([head + '\r\n' + eg + '\r\n'], { type: 'text/csv' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'new-starter-template.csv'; a.click();
     }
@@ -360,6 +366,7 @@
       if (miss.length) return { msg: `${who}: please fill in ${miss.join(', ')}.`, field: [['firstName'], ['lastName'], ['cellphone'], ['region'], ['jobTitle'], ['department']].map(x => x[0]).find(k => !p[k]) };
       if (!p.needsMicrosoft && !p.needsPerigee && !p.needsDext) return { msg: `${who}: tick at least one account.` };
       if (/\s/.test(p.firstName)) return { msg: `${who}: first name must be one name — put others in Middle names.`, field: 'firstName' };
+      if (p.managerEmail && !isEmail(p.managerEmail)) return { msg: `${who}: the supervisor email isn't valid — fix it or leave it blank.`, field: 'managerEmail' };
       if (p.personalEmail && !isEmail(p.personalEmail)) return { msg: `${who}: the personal email isn't valid — fix it or leave it blank.`, field: 'personalEmail' };
       if (!normaliseSaMobile(p.cellphone)) return { msg: `${who}: the cell number must be a valid South African mobile (e.g. 083 123 4567).`, field: 'cellphone' };
       return null;

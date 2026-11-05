@@ -29,6 +29,16 @@
 // goes only to the real person previewing, and real HR users never see it.
 // Preview sessions can PATCH test records only; DELETE removes a test record.
 //
+// HANDOVER (IT, once accounts exist): POST ?action=handover { ticketID, index,
+//   ms:{displayName, username, password}, perigee:{username, password} }
+//   → emails the account details to the submitter, HR, Perigee admin(s), the
+//   new starter's supervisor and the IT manager(s); if Dext is needed, a second
+//   email asks the Dext recipients (default: Perigee admin + HR) to create it
+//   with the final usernames. Usernames are saved; PASSWORDS ARE NEVER STORED —
+//   they only exist in the email.
+// SETTINGS: GET ?settings=1 (IT) / POST ?action=settings (editIT) — who those
+//   handover emails go to (account-requests/settings.json).
+//
 // POST  { people: [ {...person} ], notes }            requestAccounts → { ticketID, verificationCode, count }
 // GET                     list (HR: own; IT: all)    ?active=1 → only Open / In Progress
 // GET   ?id=<ticketID>    full record + verified flag (HR: own only; IT: any)
@@ -47,6 +57,7 @@ const { formatDuration }  = require('../../assets/duration.js');
 const blob                = require('../../lib/blob.js');
 
 const INDEX_PATH = 'account-requests/index.json';
+const SETTINGS_PATH = 'account-requests/settings.json';
 const recordPath = id => `account-requests/${id}.json`;
 const ID_RE      = /^(IT|TEST)-\d{4}-\d{5}$/;
 
@@ -120,6 +131,19 @@ module.exports = async function handler(req, res) {
   if (!blob.isConfigured()) return res.status(503).json({ error: 'storage_not_configured', message: 'Storage isn\'t configured — ask IT.' });
 
   try {
+    const action = String((req.query || {}).action || '');
+    if (req.method === 'GET' && (req.query || {}).settings) {
+      if (!isIT) return res.status(403).json({ error: 'forbidden' });
+      return res.status(200).json({ settings: await loadSettings(), canEdit: hasPermission(session.role, 'editIT') && !session.preview });
+    }
+    if (req.method === 'POST' && action === 'settings') {
+      if (!hasPermission(session.role, 'editIT') || session.preview) return res.status(403).json({ error: 'Only Admins can change these email settings.' });
+      return await handleSaveSettings(req, res, session);
+    }
+    if (req.method === 'POST' && action === 'handover') {
+      if (!isIT) return res.status(403).json({ error: 'forbidden' });
+      return await handleHandover(req, res, session);
+    }
     if (req.method === 'GET')   return await handleGet(req, res, session, isIT, seesTests);
     if (req.method === 'POST') {
       if (!canRequest) return res.status(403).json({ error: 'forbidden', message: 'Only HR accounts can log account requests.' });
@@ -178,6 +202,7 @@ function cleanPerson(raw, i) {
     department:     clean(raw.department, 100),
     startDate:      clean(raw.startDate, 10),
     managerName:    clean(raw.managerName, 100),
+    managerEmail:   clean(raw.managerEmail, 120).toLowerCase(),
     needsMicrosoft: !!raw.needsMicrosoft,
     needsPerigee:   !!raw.needsPerigee,
     needsDext:      !!raw.needsDext,
@@ -198,6 +223,7 @@ function cleanPerson(raw, i) {
   if (missing.length) return { error: `${who}: please fill in ${missing.join(', ')}.` };
   if (!p.needsMicrosoft && !p.needsPerigee && !p.needsDext) return { error: `${who}: tick at least one account (Microsoft 365, Perigee or Dext).` };
   if (/\s/.test(p.firstName)) return { error: `${who}: first name must be one name — put any others in Middle names.` };
+  if (p.managerEmail && !isEmail(p.managerEmail)) return { error: `${who}: the supervisor email isn't a valid address — fix it or leave it blank.` };
   if (p.personalEmail && !isEmail(p.personalEmail)) return { error: `${who}: the personal email isn't a valid address — fix it or leave it blank.` };
   const cell = normaliseSaMobile(p.cellphone);
   if (!cell) return { error: `${who}: the cell number must be a valid South African mobile (e.g. 083 123 4567).` };
@@ -438,6 +464,173 @@ async function handlePatch(req, res, session) {
   await blob.putJson(INDEX_PATH, index);
 
   return res.status(200).json({ ok: true, record });
+}
+
+// ── Handover settings (who gets the account-details emails) ─────────────────
+const listOf = v => (Array.isArray(v) ? v : String(v || '').split(/[,;\s]+/))
+  .map(e => String(e).trim().toLowerCase()).filter(Boolean);
+
+function defaultSettings() {
+  return {
+    hrEmails:          listOf(process.env.HR_EMAIL || 'hr@iram.co.za'),
+    perigeeAdminEmails: [],   // Perigee support admin(s)
+    itManagerEmails:   [],    // the IT tech's line manager(s)
+    dextEmails:        [],    // who creates Dext accounts — blank = Perigee admin(s) + HR
+    includeSubmitter:  true,  // the HR person who logged the request
+    includeSupervisor: true   // the new starter's supervisor (from the request)
+  };
+}
+
+async function loadSettings() {
+  const saved = await blob.getJson(SETTINGS_PATH).catch(() => null);
+  return Object.assign(defaultSettings(), saved || {});
+}
+
+async function handleSaveSettings(req, res, session) {
+  const b = req.body || {};
+  const next = defaultSettings();
+  for (const k of ['hrEmails', 'perigeeAdminEmails', 'itManagerEmails', 'dextEmails']) {
+    const list = listOf(b[k]);
+    const bad = list.find(e => !isEmail(e));
+    if (bad) return res.status(400).json({ error: `"${bad}" isn't a valid email address.` });
+    next[k] = list;
+  }
+  next.includeSubmitter  = b.includeSubmitter !== false;
+  next.includeSupervisor = b.includeSupervisor !== false;
+  next.updatedAt = new Date().toISOString();
+  next.updatedBy = session.username;
+  await blob.putJson(SETTINGS_PATH, next);
+  return res.status(200).json({ ok: true, settings: next });
+}
+
+/** Everyone who should get the account details for person `p` of `record`. */
+function handoverRecipients(settings, record, p) {
+  return [...new Set([
+    ...(settings.includeSubmitter ? [record.requesterEmail] : []),
+    ...settings.hrEmails,
+    ...(p.needsPerigee ? settings.perigeeAdminEmails : []),
+    ...(settings.includeSupervisor ? [p.managerEmail] : []),
+    ...settings.itManagerEmails
+  ].map(e => String(e || '').toLowerCase()).filter(e => e && isEmail(e)))];
+}
+function dextRecipients(settings) {
+  const list = settings.dextEmails && settings.dextEmails.length ? settings.dextEmails : [...settings.perigeeAdminEmails, ...settings.hrEmails];
+  return [...new Set(list.filter(isEmail))];
+}
+
+// ── Handover: email the finished account details ────────────────────────────
+async function handleHandover(req, res, session) {
+  const b  = req.body || {};
+  const id = clean(b.ticketID, 40).toUpperCase();
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'bad_id' });
+  const record = await blob.getJson(recordPath(id)).catch(() => null);
+  if (!record || record.deleted) return res.status(404).json({ error: 'not_found' });
+  if (session.preview && !record.test) return res.status(403).json({ error: PREVIEW_MESSAGE, message: 'In preview test mode you can only work on TEST requests.' });
+  const i = Number(b.index);
+  const p = record.people[i];
+  if (!p) return res.status(400).json({ error: 'Unknown person.' });
+
+  // Passwords: used for this email only, never written anywhere.
+  const raw = v => String(v == null ? '' : v).trim().slice(0, 200);
+  const ms = b.ms || {}, pg = b.perigee || {};
+  const msInfo = p.needsMicrosoft ? { displayName: clean(ms.displayName, 120), username: clean(ms.username, 120), password: raw(ms.password) } : null;
+  const pgInfo = p.needsPerigee   ? { username: clean(pg.username, 120), password: raw(pg.password) } : null;
+  if (msInfo && (!msInfo.username || !isEmail(msInfo.username))) return res.status(400).json({ error: 'Enter the Microsoft 365 username (the email address created).' });
+  if (msInfo && !msInfo.password) return res.status(400).json({ error: 'Enter the Microsoft 365 temporary password.' });
+  if (pgInfo && !pgInfo.username) return res.status(400).json({ error: 'Enter the Perigee username / email.' });
+  if (pgInfo && !pgInfo.password) return res.status(400).json({ error: 'Enter the Perigee password.' });
+
+  const settings = await loadSettings();
+  const actorUser = await getUser(session.preview ? session.preview.actor : session.username).catch(() => null);
+  const actorEmail = actorUser && actorUser.email;
+  // TEST requests: only the person doing the test gets these emails.
+  let to = record.test ? [actorEmail].filter(Boolean) : handoverRecipients(settings, record, p);
+  if (!to.length) return res.status(400).json({ error: 'Nobody to email — add recipients in ⚙ Email settings.' });
+  const tag = record.test ? '[TEST] ' : '';
+  const name = fullName(p);
+  const now = new Date().toISOString();
+
+  const rows = [];
+  if (msInfo) rows.push(['Microsoft 365', [
+    ['Display name', msInfo.displayName || `${p.firstName} ${p.lastName}`],
+    ['Username / email', msInfo.username],
+    ['Temporary password', msInfo.password, true],
+    ['Sign in at', 'https://portal.office.com (Outlook, Teams) — they\'ll be asked to set a new password']
+  ]]);
+  if (pgInfo) rows.push(['Perigee', [
+    ['Username / email', pgInfo.username],
+    ['Password', pgInfo.password, true],
+    ['Role / team', [p.perigeeRole, p.teamName].filter(Boolean).join(' · ')],
+    ['Province', p.region]
+  ]]);
+  const personRows = [
+    ['Name', name], ['Job / department', `${p.jobTitle} · ${p.department}`], ['Region', p.region],
+    ['Cell', p.cellphone], ['Personal email', p.personalEmail], ['Start date', p.startDate],
+    ['Supervisor', [p.managerName, p.managerEmail].filter(Boolean).join(' · ')]
+  ].filter(([, v]) => v);
+
+  const accountTables = rows.map(([title, list]) => `
+    <p style="margin:22px 0 8px;font-size:15px;font-weight:800;color:#2D2D2D">${esc(title)}</p>
+    ${kvTable(list.filter(([, v]) => v))}`).join('');
+
+  try {
+    await sendEmail({
+      to, subject: `${tag}Accounts ready: ${name} — ${[msInfo && 'Microsoft 365', pgInfo && 'Perigee'].filter(Boolean).join(' & ')} (${id})`,
+      html: emailHtml({ heading: 'New Starter Accounts Ready', ticketID: id, code: record.verificationCode, test: record.test,
+        intro: `The accounts for <strong>${esc(name)}</strong> are set up. Please pass these details on securely and delete this email once handed over.${p.needsDext ? ' A separate request has gone out for their <strong>Dext</strong> account.' : ''}`,
+        table: kvTable(personRows) + accountTables,
+        footer: '🔒 Contains passwords — do not forward. The portal does not store these passwords.' })
+    });
+  } catch (err) {
+    console.error('handover email failed:', err.message);
+    return res.status(502).json({ error: 'The email could not be sent — nothing was saved. Try again.' });
+  }
+
+  // Dext: ask whoever creates Dext accounts, with the final usernames.
+  let dextTo = [];
+  if (p.needsDext) {
+    dextTo = record.test ? [actorEmail].filter(Boolean) : dextRecipients(settings);
+    if (dextTo.length) {
+      const dextRows = [
+        ...personRows,
+        ['Microsoft 365 email', msInfo ? msInfo.username : (p.createdEmail || '')],
+        ['Perigee username', pgInfo ? pgInfo.username : (p.perigeeUsername || '')]
+      ].filter(([, v]) => v);
+      try {
+        await sendEmail({
+          to: dextTo, subject: `${tag}Dext account needed: ${name} (${id})`,
+          html: emailHtml({ heading: 'Dext Account Needed', ticketID: id, code: record.verificationCode, test: record.test,
+            intro: `Please create a <strong>Dext</strong> account for <strong>${esc(name)}</strong>. Their Microsoft 365 and Perigee accounts are ready — final details below.`,
+            table: kvTable(dextRows) })
+        });
+      } catch (err) { console.error('dext email failed:', err.message); dextTo = []; }
+    }
+  }
+
+  // Save what's safe to keep (usernames, who was told) — never passwords.
+  p.done = p.done || {};
+  if (msInfo) { p.createdEmail = msInfo.username.toLowerCase(); p.msDisplayName = msInfo.displayName; p.done.microsoft = true; }
+  if (pgInfo) { p.perigeeUsername = pgInfo.username; p.done.perigee = true; }
+  if (p.needsDext && dextTo.length) { p.done.dext = true; p.dextRequestedAt = now; p.dextRequestedTo = dextTo; }
+  p.handover = { sentAt: now, by: session.preview ? session.preview.actor : session.username, to };
+  if (record.status === 'Open') {
+    record.status = 'In Progress';
+    (record.statusHistory = record.statusHistory || []).push({ status: 'In Progress', at: now, by: p.handover.by });
+  }
+  record.updatedAt = now; record.updatedBy = p.handover.by;
+  await blob.putJson(recordPath(id), record);
+  const index = (await blob.getJson(INDEX_PATH).catch(() => null)) || [];
+  const k = index.findIndex(r => r.ticketID === id);
+  if (k !== -1) { index[k] = indexEntry(record); await blob.putJson(INDEX_PATH, index); }
+
+  const allDone = record.people.every(isPersonDone) && record.people.every(x => x.handover);
+  return res.status(200).json({ ok: true, record, sentTo: to, dextTo, allDone });
+}
+
+function kvTable(list) {
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden;font-size:13px;border-collapse:collapse">${
+    list.map(([k, v, mono], i) => `<tr style="background:${i % 2 ? '#fff' : '#fafafa'}"><td style="padding:9px 14px;font-weight:600;color:#555;width:170px">${esc(k)}</td><td style="padding:9px 14px;color:#222${mono ? ';font-family:Consolas,monospace;font-size:14px;font-weight:700' : ''}">${esc(v)}</td></tr>`).join('')
+  }</table>`;
 }
 
 // ── DELETE ?id=TEST-… (clear out test records) ───────────────────────────────
