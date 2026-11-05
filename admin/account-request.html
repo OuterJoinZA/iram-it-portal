@@ -51,6 +51,9 @@
     .paste.show { display: block; }
     .paste code { background: #fff; border: 1px solid #e4e7ea; border-radius: 4px; padding: 1px 5px; font-size: 11.5px; }
 
+    .field-err { border-color: #d9534f !important; background: #fffafa; }
+    .ferr { font-size: 11px; color: #a4262c; margin-top: 3px; min-height: 0; }
+    .fok { font-size: 11px; color: #2f6b1a; margin-top: 3px; }
     .msg { display: none; font-size: 13px; padding: 10px 14px; border-radius: 8px; margin-top: 14px; line-height: 1.5; }
     .msg.ok { background: #edf7e8; color: #2f6b1a; border: 1px solid #b3dea8; display: block; }
     .msg.err { background: #fdf0f0; color: #a4262c; border: 1px solid #f0c0c0; display: block; }
@@ -145,11 +148,11 @@
         <button class="btn-link" data-act="remove">✕ Remove</button>
       </div>
       <div class="grid">
-        <div><label>First name <span class="req">*</span></label><input type="text" data-f="firstName" autocomplete="off"></div>
+        <div><label>First name <span class="req">*</span> <span class="opt">(one name)</span></label><input type="text" data-f="firstName" autocomplete="off"><div class="ferr" data-err="firstName"></div></div>
         <div><label>Middle names <span class="opt">(optional)</span></label><input type="text" data-f="middleNames" autocomplete="off"></div>
         <div><label>Surname <span class="req">*</span></label><input type="text" data-f="lastName" autocomplete="off"></div>
-        <div><label>Cell number <span class="req">*</span></label><input type="tel" data-f="cellphone" placeholder="082 123 4567" autocomplete="off"></div>
-        <div><label>Personal email <span class="opt">(if they have one)</span></label><input type="email" data-f="personalEmail" autocomplete="off"></div>
+        <div><label>Cell number <span class="req">*</span> <span class="opt">(SA mobile)</span></label><input type="tel" data-f="cellphone" placeholder="082 123 4567" autocomplete="off"><div class="ferr" data-err="cellphone"></div></div>
+        <div><label>Personal email <span class="opt">(valid address or leave blank)</span></label><input type="email" data-f="personalEmail" autocomplete="off"><div class="ferr" data-err="personalEmail"></div></div>
         <div><label>Region <span class="req">*</span></label><select data-f="region"></select></div>
         <div><label>Job title <span class="req">*</span></label><input type="text" data-f="jobTitle" list="job-list" autocomplete="off"></div>
         <div><label>Department <span class="req">*</span></label><input type="text" data-f="department" list="dept-list" autocomplete="off"></div>
@@ -188,6 +191,57 @@
       loadList();
     });
 
+    // ── Clean-up rules (same as the server, api/admin/account-request.js) ────
+    // Names: first letter of each word capital, rest lower ("sIPHO" → "Sipho",
+    // "mary-jane" → "Mary-Jane"). First name is ONE name — extra words move to
+    // Middle names. Cell: SA mobile only, stored as +27…. Email: valid or blank.
+    const nameCase = v => String(v || '').toLowerCase().replace(/(^|[\s'-])([a-zà-ÿ])/g, (m, sep, ch) => sep + ch.toUpperCase());
+    const isEmail = v => /^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(v) && !/\.\./.test(v) && !/^\.|\.@/.test(v);
+    function normaliseSaMobile(v) {
+      let d = String(v || '').replace(/[\s()\-.]/g, '');
+      if (/^00/.test(d)) d = '+' + d.slice(2);
+      if (/^0\d{9}$/.test(d)) d = '+27' + d.slice(1);
+      else if (/^27\d{9}$/.test(d)) d = '+' + d;
+      // SA mobile ranges: 06x, 07x, 081–085. (080 toll-free, 086 share-call, 087 VoIP aren't mobiles.)
+      return /^\+27(6\d|7\d|8[1-5])\d{7}$/.test(d) ? d : null;
+    }
+    const prettyCell = e164 => e164.replace(/^\+27(\d{2})(\d{3})(\d{4})$/, '+27 $1 $2 $3');
+
+    function setErr(node, k, text, ok) {
+      const el = node.querySelector(`[data-f=${k}]`), box = node.querySelector(`[data-err=${k}]`);
+      if (el) el.classList.toggle('field-err', !!text);
+      if (box) { box.textContent = text || ok || ''; box.className = text ? 'ferr' : (ok ? 'fok' : 'ferr'); }
+    }
+
+    /** Tidies one person's fields in place; returns an error message or null. */
+    function tidy(node, { quiet } = {}) {
+      const get = k => node.querySelector(`[data-f=${k}]`);
+      ['firstName', 'middleNames', 'lastName'].forEach(k => { const el = get(k); el.value = nameCase(el.value.replace(/\s+/g, ' ').trim()); });
+      // First name must be a single name — move any extra words to Middle names.
+      const fn = get('firstName'), mn = get('middleNames');
+      const parts = fn.value.split(' ').filter(Boolean);
+      if (parts.length > 1) {
+        fn.value = parts[0];
+        mn.value = [parts.slice(1).join(' '), mn.value].filter(Boolean).join(' ');
+        setErr(node, 'firstName', '', `Moved "${parts.slice(1).join(' ')}" to Middle names`);
+      } else setErr(node, 'firstName', '');
+
+      let err = null;
+      const em = get('personalEmail');
+      em.value = em.value.trim().toLowerCase();
+      if (em.value && !isEmail(em.value)) { setErr(node, 'personalEmail', 'Not a valid email — fix it or leave it blank'); err = err || 'personalEmail'; }
+      else setErr(node, 'personalEmail', '');
+
+      const cell = get('cellphone');
+      if (cell.value.trim()) {
+        const n = normaliseSaMobile(cell.value);
+        if (n) { cell.value = prettyCell(n); setErr(node, 'cellphone', ''); }
+        else { setErr(node, 'cellphone', 'Must be a SA mobile, e.g. 083 123 4567'); err = err || 'cellphone'; }
+      } else setErr(node, 'cellphone', '');
+      syncPerson(node);
+      return err;
+    }
+
     // ── People rows ─────────────────────────────────────────────────────────
     function personEls() { return [...document.querySelectorAll('#people .person')]; }
 
@@ -200,10 +254,13 @@
         const v = readPerson(last);
         COPY_ON_REPEAT.forEach(k => setField(node, k, v[k]));
       }
-      if (values) Object.keys(values).forEach(k => setField(node, k, values[k]));
+      if (values) { Object.keys(values).forEach(k => setField(node, k, values[k])); tidy(node); }
       node.querySelector('[data-act=remove]').addEventListener('click', () => { node.remove(); renumber(); });
       node.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => { node.classList.remove('err'); syncPerson(node); }));
       node.querySelectorAll('input[type=checkbox]').forEach(el => el.addEventListener('change', () => syncPerson(node)));
+      // Tidy names / cell / email as soon as someone leaves the field.
+      ['firstName', 'middleNames', 'lastName', 'cellphone', 'personalEmail'].forEach(k =>
+        node.querySelector(`[data-f=${k}]`).addEventListener('blur', () => tidy(node)));
       renumber();
       if (!values) node.querySelector('[data-f=firstName]').focus();
       return node;
@@ -301,8 +358,9 @@
       const miss = [['firstName', 'first name'], ['lastName', 'surname'], ['cellphone', 'cell number'], ['region', 'region'], ['jobTitle', 'job title'], ['department', 'department']].filter(([k]) => !p[k]).map(([, l]) => l);
       if (miss.length) return { msg: `${who}: please fill in ${miss.join(', ')}.`, field: [['firstName'], ['lastName'], ['cellphone'], ['region'], ['jobTitle'], ['department']].map(x => x[0]).find(k => !p[k]) };
       if (!p.needsMicrosoft && !p.needsPerigee && !p.needsDext) return { msg: `${who}: tick at least one account.` };
-      if (p.personalEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.personalEmail)) return { msg: `${who}: the personal email looks wrong.`, field: 'personalEmail' };
-      if (p.cellphone.replace(/\D/g, '').length < 9) return { msg: `${who}: the cell number looks too short.`, field: 'cellphone' };
+      if (/\s/.test(p.firstName)) return { msg: `${who}: first name must be one name — put others in Middle names.`, field: 'firstName' };
+      if (p.personalEmail && !isEmail(p.personalEmail)) return { msg: `${who}: the personal email isn't valid — fix it or leave it blank.`, field: 'personalEmail' };
+      if (!normaliseSaMobile(p.cellphone)) return { msg: `${who}: the cell number must be a valid South African mobile (e.g. 083 123 4567).`, field: 'cellphone' };
       return null;
     }
 
@@ -316,7 +374,9 @@
     }
 
     async function submitRequest() {
+      personEls().forEach(n => tidy(n));
       const people = personEls().map(readPerson);
+      people.forEach(p => { const n = normaliseSaMobile(p.cellphone); if (n) p.cellphone = n; });
       for (let i = 0; i < people.length; i++) {
         const e = validate(people[i], i);
         if (e) { showMsg(e.msg); flag(i, e.field); return; }

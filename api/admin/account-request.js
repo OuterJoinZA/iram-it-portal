@@ -27,7 +27,7 @@
 //                         manageTickets — IT working the request
 // ──────────────────────────────────────────────────────────────────────────────
 const crypto              = require('crypto');
-const { isValidPhoneNumber } = require('libphonenumber-js');
+const { parsePhoneNumberFromString } = require('libphonenumber-js/max');
 const { verifyToken, sessionTokenFromRequest } = require('../../lib/auth');
 const { isPreviewWrite, PREVIEW_MESSAGE } = require('../../lib/require-role');
 const { hasPermission, ROLES } = require('../../lib/roles');
@@ -66,7 +66,28 @@ function verificationCode({ ticketID, requestedBy, createdAt, people }) {
 }
 
 const clean   = (v, max = 200) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
-const isEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+// Stricter than "has an @": one @, no spaces, no ".." , a real-looking domain
+// with a 2+ letter ending (e.g. name@gmail.com, a.b@company.co.za).
+const isEmail = v => /^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(v) && !/\.\./.test(v) && !/^\.|\.@/.test(v);
+
+/** "sIPHO" → "Sipho", "mary-jane" → "Mary-Jane", "o'brien" → "O'Brien":
+ *  first letter of each word/part capital, the rest lower case. */
+const nameCase = v => String(v || '').toLowerCase().replace(/(^|[\s'-])([a-zà-ÿ])/g, (m, sep, ch) => sep + ch.toUpperCase());
+
+/** South African mobile → +27XXXXXXXXX, or null if it isn't one.
+ *  Accepts 083 123 4567, 0831234567, 27831234567, +27 83 123 4567. */
+function normaliseSaMobile(v) {
+  let d = String(v || '').replace(/[\s()\-.]/g, '');
+  if (/^00/.test(d)) d = '+' + d.slice(2);
+  if (/^0\d{9}$/.test(d)) d = '+27' + d.slice(1);
+  else if (/^27\d{9}$/.test(d)) d = '+' + d;
+  if (!/^\+27(6\d|7\d|8[1-5])\d{7}$/.test(d)) return null; // 080/086/087 aren't mobiles
+  const pn = parsePhoneNumberFromString(d, 'ZA');
+  if (!pn || !pn.isValid() || pn.country !== 'ZA') return null;
+  const t = pn.getType();
+  if (t && t !== 'MOBILE' && t !== 'FIXED_LINE_OR_MOBILE') return null;
+  return pn.number; // E.164, e.g. +27831234567
+}
 const isDate  = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
 const fullName = p => [p.firstName, p.middleNames, p.lastName].filter(Boolean).join(' ');
 const services = p => [p.needsMicrosoft && 'Microsoft 365', p.needsPerigee && 'Perigee', p.needsDext && 'Dext'].filter(Boolean);
@@ -128,9 +149,9 @@ async function handleGet(req, res, session, isIT) {
 // ── POST (HR submits) ───────────────────────────────────────────────────────
 function cleanPerson(raw, i) {
   const p = {
-    firstName:      clean(raw.firstName, 60),
-    middleNames:    clean(raw.middleNames, 80),
-    lastName:       clean(raw.lastName, 60),
+    firstName:      nameCase(clean(raw.firstName, 60)),
+    middleNames:    nameCase(clean(raw.middleNames, 80)),
+    lastName:       nameCase(clean(raw.lastName, 60)),
     personalEmail:  clean(raw.personalEmail, 120).toLowerCase(),
     cellphone:      clean(raw.cellphone, 30),
     region:         clean(raw.region, 60),
@@ -157,8 +178,11 @@ function cleanPerson(raw, i) {
   if (!p.department) missing.push('department');
   if (missing.length) return { error: `${who}: please fill in ${missing.join(', ')}.` };
   if (!p.needsMicrosoft && !p.needsPerigee && !p.needsDext) return { error: `${who}: tick at least one account (Microsoft 365, Perigee or Dext).` };
-  if (p.personalEmail && !isEmail(p.personalEmail)) return { error: `${who}: the personal email looks wrong.` };
-  if (!isValidPhoneNumber(p.cellphone, 'ZA')) return { error: `${who}: the cell number looks wrong.` };
+  if (/\s/.test(p.firstName)) return { error: `${who}: first name must be one name — put any others in Middle names.` };
+  if (p.personalEmail && !isEmail(p.personalEmail)) return { error: `${who}: the personal email isn't a valid address — fix it or leave it blank.` };
+  const cell = normaliseSaMobile(p.cellphone);
+  if (!cell) return { error: `${who}: the cell number must be a valid South African mobile (e.g. 083 123 4567).` };
+  p.cellphone = cell;
   if (p.startDate && !isDate(p.startDate)) p.startDate = '';
   return { person: p };
 }
