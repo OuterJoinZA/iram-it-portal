@@ -81,6 +81,7 @@
     sessionStorage.setItem('iram_it_auth', 'true');
     sessionStorage.setItem('iram_username', me.username);
     sessionStorage.setItem('iram_role', me.role);
+    if (me.preview) showPreviewBanner(me);
     const needs = Array.isArray(needPerm) ? needPerm : (needPerm ? [needPerm] : []);
     if (needs.length && !needs.some(p => can(me.role, p))) {
       location.replace(landingPage(me.role) || '/login.html');
@@ -89,13 +90,65 @@
     return me;
   }
 
+  // ── Super Admin "preview as" ───────────────────────────────────────────────
+  // A sticky banner on every page while previewing, plus a fetch guard so a
+  // click on Save/Submit explains itself instead of failing oddly. The real
+  // enforcement is server-side (lib/require-role.js refuses writes).
+  let previewShown = false;
+  function showPreviewBanner(me) {
+    if (previewShown || !me || !me.preview) return;
+    previewShown = true;
+    const label = me.role.replace(/_/g, ' ');
+    const bar = document.createElement('div');
+    bar.id = 'pn-preview';
+    bar.innerHTML = `<span>👁 Previewing as <b></b> (${label}) — <b>read-only</b>. You're really signed in as <b></b>.</span>
+      <button type="button">Exit preview</button>`;
+    const bs = bar.querySelectorAll('b');
+    bs[0].textContent = me.username;
+    bs[2].textContent = me.preview.actor;
+    bar.querySelector('button').addEventListener('click', exitPreview);
+    document.body.prepend(bar);
+
+    const realFetch = window.fetch.bind(window);
+    window.fetch = (url, opts = {}) => {
+      const method = String((opts && opts.method) || 'GET').toUpperCase();
+      const u = String(url && url.url ? url.url : url);
+      if (method !== 'GET' && /\/api\/admin\//.test(u) && !/\/api\/admin\/(preview|logout)\b/.test(u)) {
+        toast('Preview is read-only — exit preview to make changes.');
+        const msg = { error: 'Preview mode is read-only — exit preview to make changes.', message: 'Preview mode is read-only — exit preview to make changes.' };
+        return Promise.resolve(new Response(JSON.stringify(msg), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+      }
+      return realFetch(url, opts);
+    };
+  }
+
+  async function exitPreview() {
+    try {
+      const r = await fetch('/api/admin/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ exit: true }) });
+      const d = await r.json();
+      sessionStorage.setItem('iram_username', d.username);
+      sessionStorage.setItem('iram_role', d.role);
+      location.href = '/admin/users.html';
+    } catch (_) { location.replace('/login.html'); }
+  }
+
+  function toast(text) {
+    let t = document.getElementById('pn-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'pn-toast'; document.body.appendChild(t); }
+    t.textContent = text; t.style.display = 'block';
+    clearTimeout(t._h); t._h = setTimeout(() => { t.style.display = 'none'; }, 3500);
+  }
+
   // Shared styling for the links, injected once so each page just needs a container.
   const css = `.pn-links{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .pn-link{font:700 12.5px 'Segoe UI',Arial,sans-serif;text-decoration:none;border:none;cursor:pointer;padding:8px 12px;border-radius:8px;background:#4a4a4a;color:#fff;margin:0;white-space:nowrap}
-.pn-link:hover{background:#5a5a5a}.pn-link.pn-active{background:#4e9938}.pn-logout{background:#6b2a2a}.pn-logout:hover{background:#7d3232}`;
+.pn-link:hover{background:#5a5a5a}.pn-link.pn-active{background:#4e9938}.pn-logout{background:#6b2a2a}.pn-logout:hover{background:#7d3232}
+#pn-preview{position:sticky;top:0;z-index:1000;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff4d6;color:#6b4a00;border-bottom:2px solid #e0a030;padding:8px 20px;font:13px 'Segoe UI',Arial,sans-serif}
+#pn-preview span{margin-right:auto}#pn-preview button{border:none;background:#8a5a00;color:#fff;font:700 12.5px 'Segoe UI',Arial,sans-serif;padding:7px 12px;border-radius:7px;cursor:pointer}
+#pn-toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#8a5a00;color:#fff;padding:10px 18px;border-radius:8px;font:600 13px 'Segoe UI',Arial,sans-serif;display:none;z-index:1001}`;
   if (typeof document !== 'undefined') {
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   }
 
-  window.IRAM_NAV = { ROLE_PERMS, perms, can, landingPage, pagesFor, renderLinks, requireSession, logout };
+  window.IRAM_NAV = { ROLE_PERMS, perms, can, landingPage, pagesFor, renderLinks, requireSession, logout, showPreviewBanner, exitPreview };
 })();

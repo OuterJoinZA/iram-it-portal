@@ -29,7 +29,17 @@ fetch('/api/admin/me', { cache: 'no-store' }).then(r => {
     console.warn('Session check failed (status ' + r.status + ') — bouncing to login. If you just logged in, this usually means the session cookie was not sent back; check DevTools → Application → Cookies for iram_session.');
     sessionStorage.clear();
     window.location.href = '../login.html';
+    return;
   }
+  // Super Admin "preview as" — show the shared read-only banner (and its
+  // fetch guard) here too, since this page doesn't otherwise load portal-nav.
+  r.json().then(me => {
+    if (!me.preview) return;
+    const sc = document.createElement('script');
+    sc.src = '/admin/assets/portal-nav.js';
+    sc.onload = () => window.IRAM_NAV.showPreviewBanner(me);
+    document.head.appendChild(sc);
+  }).catch(() => {});
 });
 if (MY_ROLE === 'super_admin') {
   document.addEventListener('DOMContentLoaded', () => {

@@ -5,6 +5,7 @@
 // are sent there — otherwise a borrowed, unlocked session could redirect them.
 // ──────────────────────────────────────────────────────────────────────────────
 const { verifyToken, sessionTokenFromRequest } = require('../../lib/auth');
+const { isPreviewWrite } = require('../../lib/require-role');
 const { getUser, updateProfile, verifyPasswordHash } = require('../../lib/users');
 
 module.exports = async function handler(req, res) {
@@ -14,6 +15,7 @@ module.exports = async function handler(req, res) {
 
   const session = verifyToken(sessionTokenFromRequest(req));
   if (!session) return res.status(401).json({ error: 'Unauthorized' });
+  if (isPreviewWrite(req, session)) return res.status(403).json({ error: 'preview_read_only', message: 'Preview mode is read-only — exit preview to make changes.' });
 
   const record = await getUser(session.username);
   if (!record) return res.status(400).json({ error: 'The shared break-glass login has no profile to edit.' });

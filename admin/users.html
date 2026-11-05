@@ -98,7 +98,9 @@
     </div>
 
     <div class="card">
-      <h2>Accounts</h2>
+      <h2 style="display:flex;align-items:center;gap:12px">Accounts
+        <select id="preview-role" onchange="previewRole()" title="See the portal as any role, read-only" style="margin-left:auto;font-size:13px;padding:6px 8px;border-radius:7px;border:1.5px solid #ddd;font-weight:600"></select>
+      </h2>
       <table id="users-table">
         <thead>
           <tr><th>Username</th><th>Email</th><th>Role</th><th>2FA</th><th>Policy</th><th>Status</th><th>Created</th><th></th></tr>
@@ -148,6 +150,8 @@
       ROLES = data.roles || [];
       const roleSelect = document.getElementById('f-role');
       roleSelect.innerHTML = ROLES.map(r => `<option value="${r.key}">${r.label}</option>`).join('');
+      document.getElementById('preview-role').innerHTML = '<option value="">👁 Preview as a role…</option>' +
+        ROLES.filter(r => r.key !== 'super_admin').map(r => `<option value="${r.key}">${r.label}</option>`).join('');
 
       const body = document.getElementById('users-body');
       const users = data.users || [];
@@ -172,6 +176,7 @@
           <td><span class="pill ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
           <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
           <td class="row-actions">
+            <button class="btn-grey" onclick="startPreview({ username: '${esc(u.username)}' })" title="See the portal exactly as this person does (read-only)">👁 Preview</button>
             <button class="btn-grey" onclick="resetPassword('${esc(u.username)}')">Reset password</button>
             ${u.mfaEnabled ? `<button class="btn-grey" onclick="resetMfa('${esc(u.username)}')">Remove 2FA</button>` : ''}
             <button class="btn-grey" onclick="toggleActive('${esc(u.username)}', ${!u.active})">${u.active ? 'Deactivate' : 'Reactivate'}</button>
@@ -179,6 +184,22 @@
           </td>
         </tr>
       `).join('');
+    }
+
+    // Super Admin "preview as": swaps this browser's session to the chosen
+    // user/role (read-only, 1h) — exit from the banner on any page.
+    async function startPreview(target) {
+      const res  = await adminFetch('/api/admin/preview', { method: 'POST', body: JSON.stringify(target) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not start the preview.', false); return; }
+      sessionStorage.setItem('iram_it_auth', 'true');
+      sessionStorage.setItem('iram_username', data.username);
+      sessionStorage.setItem('iram_role', data.role);
+      location.href = window.IRAM_NAV.landingPage(data.role) || '/admin/account.html';
+    }
+    function previewRole() {
+      const role = document.getElementById('preview-role').value;
+      if (role) startPreview({ role });
     }
 
     function esc(s) {

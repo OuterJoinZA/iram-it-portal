@@ -23,6 +23,7 @@ module.exports = async function handler(req, res) {
   return res.status(200).json({
     username: session.username,
     role: session.role,
+    preview: session.preview ? { actor: session.preview.actor, actorRole: session.preview.actorRole } : null,
     hasAccount: !!record,
     mfaEnabled: record ? !!record.mfaEnabled : false,
     mfaType: record ? (record.mfaType || null) : null,
