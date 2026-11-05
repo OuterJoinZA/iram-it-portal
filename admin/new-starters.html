@@ -135,7 +135,7 @@
 
     <div class="settings" id="settings">
       <h3 style="font-size:14px;font-weight:800">⚙ Who gets the account details</h3>
-      <p class="hint" style="margin-bottom:6px">When IT clicks <strong>Send account details</strong> on a person, the Microsoft 365 and Perigee logins are emailed to everyone below. Separate several addresses with commas.</p>
+      <p class="hint" style="margin-bottom:6px">When IT (or the Perigee support admin) clicks <strong>Send account details</strong>, the logins are emailed to everyone below. The Perigee support admin is also copied on every new request. To let her record account info in this queue herself, give her a login with the <strong>Perigee Support Admin</strong> role. Separate several addresses with commas.</p>
       <div class="grid2">
         <div><label>HR inbox(es)</label><input type="text" id="st-hrEmails" placeholder="hr@iram.co.za"></div>
         <div><label>Perigee support admin(s)</label><input type="text" id="st-perigeeAdminEmails" placeholder="perigee.admin@iram.co.za"></div>
@@ -175,7 +175,9 @@
     const COUNTRY = 'South Africa';
     let rows = [], tab = 'active', spTickets = null, open = null;
 
-    IRAM_NAV.requireSession('manageTickets').then(me => {
+    let isIT = false; // full controls (status, notes, booking); else Perigee support admin view
+    IRAM_NAV.requireSession(['manageTickets', 'updateAccounts']).then(me => {
+      isIT = IRAM_NAV.can(me.role, 'manageTickets');
       IRAM_NAV.renderLinks('pn-links', me.role, 'newstarters');
       load();
       loadSharePoint();
@@ -336,13 +338,17 @@
         : `<div class="box verify-bad"><h3>✖ Signature doesn't match</h3><p style="font-size:13px">This record was changed outside the portal. <strong>Don't create accounts</strong> — check with HR directly.</p></div>`;
 
       const statusOpts = ['Open', 'In Progress', 'Resolved', 'Closed'].map(s => `<option ${s === st ? 'selected' : ''}>${s}</option>`).join('');
+      const locked = !isIT && (st === 'Resolved' || st === 'Closed');
       const manage = `<div class="box"><h3>Work this request</h3>
-        <div class="row">
+        ${!isIT ? `<p class="hint" style="margin-bottom:10px">${locked
+          ? '🔒 IT has marked this request completed, so it\'s locked. Ask IT to reopen it if something needs changing.'
+          : 'Record the real usernames below as accounts are created, and send the logins. IT marks the request completed once everything is in.'}</p>` : ''}
+        <div class="row" style="${isIT ? '' : 'display:none'}">
           <div style="max-width:200px"><label>Status</label><select id="m-status">${statusOpts}</select></div>
           <div><label>IT notes (internal)</label><textarea id="m-notes" rows="1">${esc(r.itNotes || '')}</textarea></div>
           <div style="flex:0"><button class="b b-green" onclick="saveRequest()">Save</button></div>
         </div>
-        <div class="row" style="margin-top:12px">
+        <div class="row" style="margin-top:12px;${isIT ? '' : 'display:none'}">
           <div style="flex:0;white-space:nowrap"><label>Calendar booking</label>
             ${sp ? `<button class="b b-grey" onclick="calendar('reschedule')">📅 Auto-rebook next free slot</button>` : '<span class="hint">Booking controls appear once the ticket shows in SharePoint.</span>'}</div>
           ${sp ? `<div style="max-width:220px"><label>…or exact time (SAST)</label><input type="datetime-local" id="m-when"></div>
@@ -355,7 +361,7 @@
             <button class="b b-grey" onclick="exportCsv('perigee')">⬇ Perigee CSV</button>
             <button class="b b-grey" onclick="copyAll()">⧉ Copy all as text</button></div>
         </div>
-        <p class="hint" style="margin-top:8px">Marking Resolved/Closed also clears the calendar booking and emails ${esc(r.requesterName || 'HR')} the status change. Tick each account below as you create it.</p>
+        ${isIT ? `<p class="hint" style="margin-top:8px">Marking Resolved/Closed also clears the calendar booking and emails ${esc(r.requesterName || 'HR')} the status change. Tick each account below as you create it.</p>` : ''}
       </div>`;
 
       const people = r.people.map((p, i) => {
@@ -363,7 +369,7 @@
         const allDone = (!p.needsMicrosoft || d.microsoft) && (!p.needsPerigee || d.perigee) && (!p.needsDext || d.dext);
         const col = (key, title, on, fields, extra = '') => `<div class="p-col ${on ? '' : 'off'}">
           <h4>${title}${on ? '' : ' — not needed'}</h4>
-          ${on ? fieldList(fields) + extra + `<label class="tick"><input type="checkbox" data-i="${i}" data-done="${key}" ${d[key] ? 'checked' : ''}> Created</label>` : ''}</div>`;
+          ${on ? fieldList(fields) + extra + `<label class="tick"><input type="checkbox" data-i="${i}" data-done="${key}" ${d[key] ? 'checked' : ''} ${locked ? 'disabled' : ''}> Created</label>` : ''}</div>`;
         return `<div class="person">
           <div class="p-top"><span class="nm">${i + 1}. ${esc(nameFor(p))}</span>
             <span class="hint">${esc(p.jobTitle)} · ${esc(p.department)} · ${esc(p.region)}${p.startDate ? ' · starts ' + esc(p.startDate) : ''}</span>
@@ -374,7 +380,8 @@
             ${col('dext', '🧾 Dext', p.needsDext, dextFields(p))}
           </div>
           ${p.notes ? `<div style="padding:0 16px 12px" class="hint">Note: ${esc(p.notes)}</div>` : ''}
-          ${handoverHtml(r, p, i)}
+          ${accountInfoHtml(p, i, locked)}
+          ${locked ? '' : handoverHtml(r, p, i)}
         </div>`;
       }).join('');
 
@@ -385,7 +392,34 @@
       $('m-body').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copy(b.dataset.copy)));
       $('m-body').querySelectorAll('[data-done]').forEach(cb => cb.addEventListener('change', () =>
         patch({ people: [{ index: +cb.dataset.i, done: { [cb.dataset.done]: cb.checked } }] }, cb.checked ? 'Ticked ✓' : 'Unticked')));
+      $('m-body').querySelectorAll('[data-save-info]').forEach(b => b.addEventListener('click', () => saveAccountInfo(+b.dataset.saveInfo)));
       $('m-body').querySelectorAll('[data-paste]').forEach(ta => ta.addEventListener('input', () => applyMsPaste(+ta.dataset.paste, ta.value)));
+    }
+
+    // ── Real account info (IT or the Perigee support admin records it) ──────
+    function accountInfoHtml(p, i, locked) {
+      const dis = locked ? 'disabled' : '';
+      const who = p.accountInfoUpdatedBy ? `<span class="hint">Last updated by ${esc(p.accountInfoUpdatedBy)}, ${esc(fmt(p.accountInfoUpdatedAt))}</span>` : '';
+      return `<div class="handover" style="background:#fff">
+        <h4>🗂 Real account info ${who}</h4>
+        <div class="ho-grid">
+          ${p.needsMicrosoft ? `<div><label>Microsoft email created</label><input type="email" id="ai-ms-${i}" value="${esc(p.createdEmail || '')}" placeholder="${esc(upnFor(p))}" ${dis}></div>` : ''}
+          ${p.needsPerigee ? `<div><label>Perigee username</label><input type="text" id="ai-pg-${i}" value="${esc(p.perigeeUsername || '')}" ${dis}></div>` : ''}
+          ${p.needsDext ? `<div><label>Dext username</label><input type="text" id="ai-dx-${i}" value="${esc(p.dextUsername || '')}" ${dis}>
+            ${p.dextRequestedAt ? `<div class="hint">Dext requested ${esc(fmt(p.dextRequestedAt))}</div>` : ''}</div>` : ''}
+        </div>
+        ${locked ? '' : `<button class="b b-grey" style="margin-top:10px" data-save-info="${i}">💾 Save account info</button>
+        <span class="hint" style="margin-left:8px">Saving a username also ticks that account as created.</span>`}
+      </div>`;
+    }
+    async function saveAccountInfo(i) {
+      const p = open.record.people[i];
+      const v = id => ($(id) ? $(id).value.trim() : undefined);
+      const u = { index: i, done: {} };
+      if (p.needsMicrosoft) { u.createdEmail = v('ai-ms-' + i); if (u.createdEmail) u.done.microsoft = true; }
+      if (p.needsPerigee)   { u.perigeeUsername = v('ai-pg-' + i); if (u.perigeeUsername) u.done.perigee = true; }
+      if (p.needsDext)      { u.dextUsername = v('ai-dx-' + i); if (u.dextUsername) u.done.dext = true; }
+      await patch({ people: [u] }, 'Account info saved ✓');
     }
 
     // ── Handover: send the finished logins ─────────────────────────────────
@@ -396,7 +430,7 @@
       return [...new Set([
         ...(settings.includeSubmitter ? [r.requesterEmail] : []),
         ...settings.hrEmails,
-        ...(p.needsPerigee ? settings.perigeeAdminEmails : []),
+        ...settings.perigeeAdminEmails,
         ...(settings.includeSupervisor ? [p.managerEmail] : []),
         ...settings.itManagerEmails
       ].filter(Boolean))];
@@ -426,9 +460,14 @@
           <div><label>Perigee username / email</label><input type="text" id="ho-pg-user-${i}" value="${esc(p.perigeeUsername || (p.needsMicrosoft ? msUser : (p.personalEmail || '')))}"></div>
           <div><label>Perigee password</label><input type="text" id="ho-pg-pass-${i}" autocomplete="off" spellcheck="false"></div>
           <div></div>` : ''}
+          ${p.needsDext ? `
+          <div><label>Dext username <span class="hint">(if Dext is set up)</span></label><input type="text" id="ho-dx-user-${i}" value="${esc(p.dextUsername || '')}"></div>
+          <div><label>Dext password</label><input type="text" id="ho-dx-pass-${i}" autocomplete="off" spellcheck="false"></div>
+          <div></div>` : ''}
         </div>
         <div class="ho-to">Emails the logins to: <b>${to.length ? esc(to.join(', ')) : '— nobody yet, set up ⚙ Email settings —'}</b>
-          ${p.needsDext ? `<br>Dext request (with the final usernames) goes to: <b>${r.test ? '(TEST — only you)' : esc(dextRecipients().join(', ') || '— set up ⚙ Email settings —')}</b>` : ''}
+          <br><span style="color:#999">Fill in only the accounts you're handing over — the others can be sent later.</span>
+          ${p.needsDext && !(p.done || {}).dext && !p.dextRequestedAt ? `<br>If Dext isn't filled in, a Dext request (with the final usernames) goes to: <b>${r.test ? '(TEST — only you)' : esc(dextRecipients().join(', ') || '— set up ⚙ Email settings —')}</b>` : ''}
           <br><span style="color:#999">🔒 Passwords are only put in the email — the portal never stores them.</span></div>
         <button class="b b-green" style="margin-top:10px" onclick="sendHandover(${i})">📧 ${h ? 'Resend' : 'Send'} account details</button>
       </div>`;
@@ -452,10 +491,11 @@
       const body = { ticketID: r.ticketID, index: i };
       if (p.needsMicrosoft) body.ms = { displayName: v('ho-ms-name-' + i), username: v('ho-ms-user-' + i), password: v('ho-ms-pass-' + i) };
       if (p.needsPerigee) body.perigee = { username: v('ho-pg-user-' + i), password: v('ho-pg-pass-' + i) };
-      if (p.needsMicrosoft && !body.ms.password) return toast('Enter the Microsoft temporary password first', true);
-      if (p.needsPerigee && !body.perigee.password) return toast('Enter the Perigee password first', true);
+      if (p.needsDext) body.dext = { username: v('ho-dx-user-' + i), password: v('ho-dx-pass-' + i) };
+      const sending = [body.ms && body.ms.password && 'Microsoft 365', body.perigee && body.perigee.password && 'Perigee', body.dext && body.dext.username && 'Dext'].filter(Boolean);
+      if (!sending.length) return toast('Fill in at least one account (username + password) to send', true);
       const to = handoverRecipients(r, p);
-      if (!confirm(`Email ${nameFor(p)}'s login details${p.needsDext ? ' (and the Dext request)' : ''} to:\n\n${to.join('\n')}`)) return;
+      if (!confirm(`Email ${nameFor(p)}'s ${sending.join(' + ')} login details to:\n\n${to.join('\n')}`)) return;
       try {
         const res = await fetch('/api/admin/account-request?action=handover', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const d = await res.json().catch(() => ({}));
@@ -464,7 +504,7 @@
         renderModal(); load();
         toast(`Sent to ${d.sentTo.length} ${d.sentTo.length === 1 ? 'person' : 'people'}${d.dextTo && d.dextTo.length ? ' + Dext request' : ''} ✓`);
         const st = $('m-status');
-        if (d.allDone && st && st.value !== 'Resolved' && st.value !== 'Closed' &&
+        if (isIT && d.allDone && st && st.value !== 'Resolved' && st.value !== 'Closed' &&
             confirm('Everyone in this request has their logins now. Mark the request as Resolved? (This also clears the calendar booking.)')) {
           st.value = 'Resolved';
           saveRequest();

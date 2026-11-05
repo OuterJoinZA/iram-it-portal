@@ -16,6 +16,7 @@
     hr_manager:      ['editHR', 'viewTicketStats', 'requestAccounts'],
     hr:              ['editHR', 'viewTicketStats', 'requestAccounts'],
     assistant_hr:    ['editHR', 'viewTicketStats', 'requestAccounts'],
+    perigee_admin:   ['updateAccounts'],
     field_goosehelp: [],
     staff:           []
   };
@@ -23,7 +24,7 @@
   // Order = order in the top bar. `perm` null → everyone signed in.
   const PAGES = [
     { key: 'dashboard',   href: '/admin/index.html',             label: '🎫 IT Dashboard',      perm: 'manageTickets' },
-    { key: 'newstarters', href: '/admin/new-starters.html',      label: '🧑‍💻 New Starter Queue', perm: 'manageTickets' },
+    { key: 'newstarters', href: '/admin/new-starters.html',      label: '🧑‍💻 New Starter Queue', perm: ['manageTickets', 'updateAccounts'] },
     { key: 'summary',     href: '/admin/hr-dashboard.html',      label: '📊 Ticket Summary',    perm: 'viewTicketStats', hideIf: 'manageTickets' },
     { key: 'request',     href: '/admin/account-request.html',   label: '👤 Request Accounts',  perm: 'requestAccounts' },
     { key: 'hredit',      href: '/admin/site-edit.html',         label: '✏️ Edit HR Page',      perm: 'editHR' },
@@ -38,6 +39,7 @@
   function landingPage(role) {
     if (can(role, 'manageTickets') || can(role, 'editIT')) return '/admin/index.html';
     if (can(role, 'requestAccounts')) return '/admin/account-request.html';
+    if (can(role, 'updateAccounts')) return '/admin/new-starters.html';
     if (can(role, 'viewTicketStats')) return '/admin/hr-dashboard.html';
     if (can(role, 'editHR')) return '/admin/site-edit.html';
     return null;
@@ -45,7 +47,8 @@
 
   /** Visible pages for a role (the summary page is hidden from IT, who have the full dashboard). */
   function pagesFor(role) {
-    return PAGES.filter(p => (!p.perm || can(role, p.perm)) && !(p.hideIf && can(role, p.hideIf)));
+    const ok = perm => !perm || (Array.isArray(perm) ? perm.some(x => can(role, x)) : can(role, perm));
+    return PAGES.filter(p => ok(p.perm) && !(p.hideIf && can(role, p.hideIf)));
   }
 
   /** Renders links into `el` (an element or id), marking `currentKey` active,

@@ -36,6 +36,10 @@
 //   email asks the Dext recipients (default: Perigee admin + HR) to create it
 //   with the final usernames. Usernames are saved; PASSWORDS ARE NEVER STORED —
 //   they only exist in the email.
+// PERIGEE SUPPORT ADMIN (updateAccounts): sees every request in the queue, is
+//   copied on new requests and every handover, and can record real usernames /
+//   tick accounts / send logins — until the request is Resolved or Closed. She
+//   can't change status, IT notes or bookings (that stays with IT).
 // SETTINGS: GET ?settings=1 (IT) / POST ?action=settings (editIT) — who those
 //   handover emails go to (account-requests/settings.json).
 //
@@ -124,16 +128,17 @@ module.exports = async function handler(req, res) {
   if (!session) return res.status(401).json({ error: 'Unauthorized' });
   const canRequest = hasPermission(session.role, 'requestAccounts');
   const isIT       = hasPermission(session.role, 'manageTickets');
+  const canUpdate  = isIT || hasPermission(session.role, 'updateAccounts');
   // Test records are visible to IT, preview sessions and Developers/Super Admins
   // — never to real HR users.
-  const seesTests  = !!session.preview || isIT || hasPermission(session.role, 'previewUsers');
-  if (!canRequest && !isIT) return res.status(403).json({ error: 'forbidden' });
+  const seesTests  = !!session.preview || canUpdate || hasPermission(session.role, 'previewUsers');
+  if (!canRequest && !canUpdate) return res.status(403).json({ error: 'forbidden' });
   if (!blob.isConfigured()) return res.status(503).json({ error: 'storage_not_configured', message: 'Storage isn\'t configured — ask IT.' });
 
   try {
     const action = String((req.query || {}).action || '');
     if (req.method === 'GET' && (req.query || {}).settings) {
-      if (!isIT) return res.status(403).json({ error: 'forbidden' });
+      if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
       return res.status(200).json({ settings: await loadSettings(), canEdit: hasPermission(session.role, 'editIT') && !session.preview });
     }
     if (req.method === 'POST' && action === 'settings') {
@@ -141,17 +146,17 @@ module.exports = async function handler(req, res) {
       return await handleSaveSettings(req, res, session);
     }
     if (req.method === 'POST' && action === 'handover') {
-      if (!isIT) return res.status(403).json({ error: 'forbidden' });
-      return await handleHandover(req, res, session);
+      if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
+      return await handleHandover(req, res, session, isIT);
     }
-    if (req.method === 'GET')   return await handleGet(req, res, session, isIT, seesTests);
+    if (req.method === 'GET')   return await handleGet(req, res, session, canUpdate, seesTests);
     if (req.method === 'POST') {
       if (!canRequest) return res.status(403).json({ error: 'forbidden', message: 'Only HR accounts can log account requests.' });
       return await handlePost(req, res, session);
     }
     if (req.method === 'PATCH') {
-      if (!isIT) return res.status(403).json({ error: 'forbidden' });
-      return await handlePatch(req, res, session);
+      if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
+      return await handlePatch(req, res, session, isIT);
     }
     if (req.method === 'DELETE') {
       if (!seesTests) return res.status(403).json({ error: 'forbidden' });
@@ -347,10 +352,12 @@ async function handlePost(req, res, session) {
   }
 
   const hrInbox  = process.env.HR_EMAIL || 'hr@iram.co.za';
+  const notifySettings = await loadSettings();
   const itEmails = [...new Set([
     process.env.IT_EMAIL,
     ...itPool.map(s => s.email),
-    ...(count('needsPerigee') ? perigeePool.map(s => s.email) : [])
+    ...(count('needsPerigee') ? perigeePool.map(s => s.email) : []),
+    ...notifySettings.perigeeAdminEmails  // Perigee support admin is kept in the loop on every request
   ].filter(Boolean))];
   const table = peopleTable(people);
   if (test) {
@@ -425,7 +432,7 @@ function indexEntry(r) {
 }
 
 // ── PATCH (IT works the request) ─────────────────────────────────────────────
-async function handlePatch(req, res, session) {
+async function handlePatch(req, res, session, isIT) {
   const b  = req.body || {};
   const id = clean(b.ticketID, 40).toUpperCase();
   if (!ID_RE.test(id)) return res.status(400).json({ error: 'bad_id' });
@@ -433,6 +440,10 @@ async function handlePatch(req, res, session) {
   if (!record || record.deleted) return res.status(404).json({ error: 'not_found' });
   if (session.preview && !record.test) return res.status(403).json({ error: PREVIEW_MESSAGE, message: 'In preview test mode you can only work on TEST requests.' });
 
+  if (!isIT) {
+    if (['Resolved', 'Closed'].includes(record.status)) return res.status(403).json({ error: 'This request is completed — ask IT to reopen it if something needs changing.' });
+    if (b.status !== undefined || b.itNotes !== undefined || b.assignedTo !== undefined) return res.status(403).json({ error: 'Only IT can change the status, notes or assignment.' });
+  }
   const now = new Date().toISOString();
   if (b.status !== undefined) {
     if (!STATUSES.includes(b.status)) return res.status(400).json({ error: 'bad_status' });
@@ -452,6 +463,11 @@ async function handlePatch(req, res, session) {
         ['microsoft', 'perigee', 'dext'].forEach(k => { if (u.done[k] !== undefined) p.done[k] = !!u.done[k]; });
       }
       if (u.createdEmail !== undefined) p.createdEmail = clean(u.createdEmail, 120).toLowerCase();
+      if (u.msDisplayName !== undefined) p.msDisplayName = clean(u.msDisplayName, 120);
+      if (u.perigeeUsername !== undefined) p.perigeeUsername = clean(u.perigeeUsername, 120);
+      if (u.dextUsername !== undefined) p.dextUsername = clean(u.dextUsername, 120);
+      p.accountInfoUpdatedBy = session.preview ? session.preview.actor : session.username;
+      p.accountInfoUpdatedAt = new Date().toISOString();
     }
   }
   record.updatedAt = now;
@@ -508,7 +524,7 @@ function handoverRecipients(settings, record, p) {
   return [...new Set([
     ...(settings.includeSubmitter ? [record.requesterEmail] : []),
     ...settings.hrEmails,
-    ...(p.needsPerigee ? settings.perigeeAdminEmails : []),
+    ...settings.perigeeAdminEmails,   // always kept in the loop
     ...(settings.includeSupervisor ? [p.managerEmail] : []),
     ...settings.itManagerEmails
   ].map(e => String(e || '').toLowerCase()).filter(e => e && isEmail(e)))];
@@ -519,26 +535,31 @@ function dextRecipients(settings) {
 }
 
 // ── Handover: email the finished account details ────────────────────────────
-async function handleHandover(req, res, session) {
+async function handleHandover(req, res, session, isIT) {
   const b  = req.body || {};
   const id = clean(b.ticketID, 40).toUpperCase();
   if (!ID_RE.test(id)) return res.status(400).json({ error: 'bad_id' });
   const record = await blob.getJson(recordPath(id)).catch(() => null);
   if (!record || record.deleted) return res.status(404).json({ error: 'not_found' });
   if (session.preview && !record.test) return res.status(403).json({ error: PREVIEW_MESSAGE, message: 'In preview test mode you can only work on TEST requests.' });
+  if (!isIT && ['Resolved', 'Closed'].includes(record.status)) return res.status(403).json({ error: 'This request is completed — ask IT to reopen it if something needs changing.' });
   const i = Number(b.index);
   const p = record.people[i];
   if (!p) return res.status(400).json({ error: 'Unknown person.' });
 
   // Passwords: used for this email only, never written anywhere.
   const raw = v => String(v == null ? '' : v).trim().slice(0, 200);
-  const ms = b.ms || {}, pg = b.perigee || {};
-  const msInfo = p.needsMicrosoft ? { displayName: clean(ms.displayName, 120), username: clean(ms.username, 120), password: raw(ms.password) } : null;
-  const pgInfo = p.needsPerigee   ? { username: clean(pg.username, 120), password: raw(pg.password) } : null;
+  // Each account is optional — send whichever ones are filled in (e.g. the
+  // Perigee admin may only have done Perigee and Dext). A password with no
+  // username (or vice versa) is an error rather than a half-sent login.
+  const ms = b.ms || {}, pg = b.perigee || {}, dx = b.dext || {};
+  const filled = o => !!(String(o.password || '').trim());
+  const msInfo = p.needsMicrosoft && filled(ms) ? { displayName: clean(ms.displayName, 120), username: clean(ms.username, 120), password: raw(ms.password) } : null;
+  const pgInfo = p.needsPerigee   && filled(pg) ? { username: clean(pg.username, 120), password: raw(pg.password) } : null;
+  const dxInfo = p.needsDext      && clean(dx.username, 120) ? { username: clean(dx.username, 120), password: raw(dx.password) } : null;
   if (msInfo && (!msInfo.username || !isEmail(msInfo.username))) return res.status(400).json({ error: 'Enter the Microsoft 365 username (the email address created).' });
-  if (msInfo && !msInfo.password) return res.status(400).json({ error: 'Enter the Microsoft 365 temporary password.' });
   if (pgInfo && !pgInfo.username) return res.status(400).json({ error: 'Enter the Perigee username / email.' });
-  if (pgInfo && !pgInfo.password) return res.status(400).json({ error: 'Enter the Perigee password.' });
+  if (!msInfo && !pgInfo && !dxInfo) return res.status(400).json({ error: 'Fill in at least one account (username + password) to send.' });
 
   const settings = await loadSettings();
   const actorUser = await getUser(session.preview ? session.preview.actor : session.username).catch(() => null);
@@ -556,6 +577,10 @@ async function handleHandover(req, res, session) {
     ['Username / email', msInfo.username],
     ['Temporary password', msInfo.password, true],
     ['Sign in at', 'https://portal.office.com (Outlook, Teams) — they\'ll be asked to set a new password']
+  ]]);
+  if (dxInfo) rows.push(['Dext', [
+    ['Username / email', dxInfo.username],
+    ['Password', dxInfo.password, true]
   ]]);
   if (pgInfo) rows.push(['Perigee', [
     ['Username / email', pgInfo.username],
@@ -575,9 +600,9 @@ async function handleHandover(req, res, session) {
 
   try {
     await sendEmail({
-      to, subject: `${tag}Accounts ready: ${name} — ${[msInfo && 'Microsoft 365', pgInfo && 'Perigee'].filter(Boolean).join(' & ')} (${id})`,
+      to, subject: `${tag}Accounts ready: ${name} — ${[msInfo && 'Microsoft 365', pgInfo && 'Perigee', dxInfo && 'Dext'].filter(Boolean).join(' & ')} (${id})`,
       html: emailHtml({ heading: 'New Starter Accounts Ready', ticketID: id, code: record.verificationCode, test: record.test,
-        intro: `The accounts for <strong>${esc(name)}</strong> are set up. Please pass these details on securely and delete this email once handed over.${p.needsDext ? ' A separate request has gone out for their <strong>Dext</strong> account.' : ''}`,
+        intro: `The accounts for <strong>${esc(name)}</strong> are set up. Please pass these details on securely and delete this email once handed over.${p.needsDext && !dxInfo && !(p.done || {}).dext ? ' A separate request has gone out for their <strong>Dext</strong> account.' : ''}`,
         table: kvTable(personRows) + accountTables,
         footer: '🔒 Contains passwords — do not forward. The portal does not store these passwords.' })
     });
@@ -588,7 +613,8 @@ async function handleHandover(req, res, session) {
 
   // Dext: ask whoever creates Dext accounts, with the final usernames.
   let dextTo = [];
-  if (p.needsDext) {
+  // Only ask for Dext if it isn't being handed over now and wasn't already done/requested.
+  if (p.needsDext && !dxInfo && !(p.done || {}).dext && !p.dextRequestedAt) {
     dextTo = record.test ? [actorEmail].filter(Boolean) : dextRecipients(settings);
     if (dextTo.length) {
       const dextRows = [
@@ -611,8 +637,13 @@ async function handleHandover(req, res, session) {
   p.done = p.done || {};
   if (msInfo) { p.createdEmail = msInfo.username.toLowerCase(); p.msDisplayName = msInfo.displayName; p.done.microsoft = true; }
   if (pgInfo) { p.perigeeUsername = pgInfo.username; p.done.perigee = true; }
-  if (p.needsDext && dextTo.length) { p.done.dext = true; p.dextRequestedAt = now; p.dextRequestedTo = dextTo; }
-  p.handover = { sentAt: now, by: session.preview ? session.preview.actor : session.username, to };
+  if (dxInfo) { p.dextUsername = dxInfo.username; p.done.dext = true; }
+  // Requesting Dext isn't the same as Dext existing — it stays open until
+  // whoever creates it records the username / ticks it (or sends its login).
+  if (dextTo.length) { p.dextRequestedAt = now; p.dextRequestedTo = dextTo; }
+  p.handover = { sentAt: now, by: session.preview ? session.preview.actor : session.username, to,
+    accounts: [msInfo && 'Microsoft 365', pgInfo && 'Perigee', dxInfo && 'Dext'].filter(Boolean) };
+  (p.handoverLog = p.handoverLog || []).push(p.handover);
   if (record.status === 'Open') {
     record.status = 'In Progress';
     (record.statusHistory = record.statusHistory || []).push({ status: 'In Progress', at: now, by: p.handover.by });
