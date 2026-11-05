@@ -19,6 +19,9 @@
 
     table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
     .card:has(#users-table) { overflow-x: auto; }
+    .mfa-select { font-size: 12.5px; padding: 5px 6px; border-radius: 6px; border: 1.5px solid #ddd; font-weight: 600; }
+    .mfa-select.mfa-email, .mfa-select.mfa-totp { background: #edf7e8; border-color: #b3dea8; color: #2f6b1a; }
+    .mfa-select.mfa-off { background: #fdf0f0; border-color: #f0c0c0; color: #a4262c; }
     th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #eee; }
     th { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: #888; }
     .pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
@@ -167,7 +170,13 @@
               ${ROLES.map(r => `<option value="${r.key}" ${r.key === u.role ? 'selected' : ''}>${r.label}</option>`).join('')}
             </select>
           </td>
-          <td>${u.mfaEnabled ? `<span class="pill active">${u.mfaType === 'totp' ? 'Authenticator' : 'Email'}</span>` : '<span class="pill inactive">Off</span>'}</td>
+          <td>
+            <select class="mfa-select mfa-${u.loginMfa}" onchange="changeMfa('${esc(u.username)}', this.value, '${u.loginMfa}', this)" title="What this person must enter after their password">
+              <option value="email" ${u.loginMfa === 'email' ? 'selected' : ''}>📧 Email code</option>
+              <option value="totp" ${u.loginMfa === 'totp' ? 'selected' : 'disabled'}>📱 Authenticator app${u.loginMfa === 'totp' ? '' : ' (user sets up)'}</option>
+              <option value="off" ${u.loginMfa === 'off' ? 'selected' : ''}>⚠️ Off — no 2FA</option>
+            </select>
+          </td>
           <td>
             <select onchange="changePolicy('${esc(u.username)}', this.value)">
               <option value="none" ${!u.forceResetOnFirstLogin && !u.passwordRotationDays ? 'selected' : ''}>None</option>
@@ -180,7 +189,6 @@
           <td><div class="row-actions">
             <button class="btn-grey" onclick="startPreview({ username: '${esc(u.username)}' })" title="See the portal exactly as this person does (read-only)">👁 Preview</button>
             <button class="btn-grey" onclick="resetPassword('${esc(u.username)}')">Reset password</button>
-            ${u.mfaEnabled ? `<button class="btn-grey" onclick="resetMfa('${esc(u.username)}')">Remove 2FA</button>` : ''}
             <button class="btn-grey" onclick="toggleActive('${esc(u.username)}', ${!u.active})">${u.active ? 'Deactivate' : 'Reactivate'}</button>
             <button class="btn-danger" onclick="removeUser('${esc(u.username)}')">Delete</button>
           </div></td>
@@ -251,6 +259,25 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { showMsg(data.error || 'Could not reset the password.', false); return; }
       showMsg(`Password reset for ${username}.` + (data.emailSent ? ' They have been emailed the new password.' : ' Could not send the email — share the new password with them directly.'), true);
+    }
+
+    // Super Admin: set someone's login 2FA. An authenticator app can only be
+    // added by the user (My Account → it needs their phone), so that option
+    // only appears selected when they've already set one up.
+    async function changeMfa(username, mode, current, sel) {
+      if (mode === current) return;
+      const msgs = {
+        email: current === 'totp'
+          ? `Switch ${username} from their authenticator app to emailed codes? Their app will stop working for this portal.`
+          : `Turn on emailed login codes for ${username}?`,
+        off: `Turn OFF two-factor for ${username}? They'll log in with just a password — not recommended, especially for HR or Super Admin accounts.`
+      };
+      if (!confirm(msgs[mode])) { sel.value = current; return; }
+      const res  = await adminFetch(`/api/admin/users?username=${encodeURIComponent(username)}`, { method: 'PATCH', body: JSON.stringify({ mfaMode: mode }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not change two-factor.', false); sel.value = current; return; }
+      showMsg(mode === 'off' ? `Two-factor is now OFF for ${username}.` : `${username} will now get an emailed code at every login.`, true);
+      loadUsers();
     }
 
     async function resetMfa(username) {
