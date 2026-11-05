@@ -392,7 +392,7 @@
         if (r.status === 401) { location.replace('/login.html'); return; }
         if (!r.ok) { if (data.index !== undefined) flag(data.index); throw new Error(data.message || 'Something went wrong. Please try again.'); }
         $('done-title').textContent = data.test
-          ? `🧪 TEST request saved (${data.count} ${data.count === 1 ? 'person' : 'people'}) — emailed only to you, not sent to IT`
+          ? `🧪 TEST request sent to IT and auto-completed (${data.count} ${data.count === 1 ? 'person' : 'people'})`
           : (data.count === 1 ? 'Request sent to IT' : `Request for ${data.count} people sent to IT`);
         $('done-ticket').textContent = data.ticketID;
         $('done-code').textContent = data.verificationCode;

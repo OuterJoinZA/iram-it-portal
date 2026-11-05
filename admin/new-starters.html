@@ -344,7 +344,7 @@
       }).join('');
 
       const testBox = r.test ? `<div class="box" style="border-left:4px solid #5b2ea6;background:#faf7ff"><h3>🧪 Test request</h3>
-          <p style="font-size:13px">Submitted by <strong>${esc(r.testBy)}</strong> while previewing as ${esc(r.requesterName || r.requestedBy)}. No SharePoint ticket or calendar booking exists for it, and only Developers, Super Admins and preview sessions can see it.</p>
+          <p style="font-size:13px">Submitted by <strong>${esc(r.testBy)}</strong> while testing as ${esc(r.requesterName || r.requestedBy)}. It was <strong>auto-completed</strong> — no accounts to create. There's no SharePoint ticket or calendar booking, and HR never sees test requests.</p>
           <button class="b b-red" style="margin-top:10px" onclick="deleteTest()">🗑 Delete this test request</button></div>` : '';
       $('m-body').innerHTML = testBox + verify + manage + people;
       $('m-body').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copy(b.dataset.copy)));

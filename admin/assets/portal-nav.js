@@ -102,7 +102,7 @@
     const label = me.role.replace(/_/g, ' ');
     const bar = document.createElement('div');
     bar.id = 'pn-preview';
-    bar.innerHTML = `<span>🧪 <b>Test mode</b> — previewing as <b></b> (${label}). Account requests you submit are saved as <b>TEST</b>: emailed only to you, nothing sent to IT/HR or booked. Other changes are blocked. Signed in as <b></b>.</span>
+    bar.innerHTML = `<span>🧪 <b>Test mode</b> — previewing as <b></b> (${label}). Account requests you submit go to IT marked <b>TEST</b> and are auto-completed (no booking; HR's copy comes only to you). Other changes are blocked. Signed in as <b></b>.</span>
       <button type="button">Exit preview</button>`;
     const bs = bar.querySelectorAll('b');
     bs[1].textContent = me.username;

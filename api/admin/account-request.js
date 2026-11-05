@@ -22,10 +22,12 @@
 //
 // TEST MODE: while a Developer/Super Admin is previewing as someone
 // (api/admin/preview.js), POST creates a TEST-YYYY-NNNNN record marked
-// test:true — no Power Automate call (so no SharePoint row or calendar
-// booking), emails only to the real person previewing, and it's hidden from
-// everyone except preview sessions and Developers/Super Admins. PATCH works
-// on test records only; DELETE removes a test record.
+// test:true and AUTO-COMPLETED (status Resolved). It still reaches IT — the
+// IT email goes out with a [TEST] subject and banner, and it's in the New
+// Starter Queue (Completed tab) with a TEST badge — but there's no Power
+// Automate call (no SharePoint row or calendar booking), the HR confirmation
+// goes only to the real person previewing, and real HR users never see it.
+// Preview sessions can PATCH test records only; DELETE removes a test record.
 //
 // POST  { people: [ {...person} ], notes }            requestAccounts → { ticketID, verificationCode, count }
 // GET                     list (HR: own; IT: all)    ?active=1 → only Open / In Progress
@@ -111,8 +113,9 @@ module.exports = async function handler(req, res) {
   if (!session) return res.status(401).json({ error: 'Unauthorized' });
   const canRequest = hasPermission(session.role, 'requestAccounts');
   const isIT       = hasPermission(session.role, 'manageTickets');
-  // Test records are visible to preview sessions and to Developers/Super Admins.
-  const seesTests  = !!session.preview || hasPermission(session.role, 'previewUsers');
+  // Test records are visible to IT, preview sessions and Developers/Super Admins
+  // — never to real HR users.
+  const seesTests  = !!session.preview || isIT || hasPermission(session.role, 'previewUsers');
   if (!canRequest && !isIT) return res.status(403).json({ error: 'forbidden' });
   if (!blob.isConfigured()) return res.status(503).json({ error: 'storage_not_configured', message: 'Storage isn\'t configured — ask IT.' });
 
@@ -264,6 +267,10 @@ async function handlePost(req, res, session) {
     auditRecord.test = true;
     auditRecord.testBy = session.preview.actor;
     auditRecord.assignedTo = '';
+    // Auto-completed: a test proves the request reached IT; there's nothing to set up.
+    auditRecord.status = 'Resolved';
+    auditRecord.statusHistory.push({ status: 'Resolved', at: createdAt, by: 'system (test request — auto-completed)' });
+    auditRecord.itNotes = 'TEST request — auto-completed. No accounts to create.';
   }
 
   // Audit record first: if it can't be stored, IT couldn't verify the request,
@@ -319,17 +326,27 @@ async function handlePost(req, res, session) {
   ].filter(Boolean))];
   const table = peopleTable(people);
   if (test) {
-    // Only the real person previewing gets anything, clearly marked TEST.
-    const to = actor && actor.email;
+    const who = `<strong>${esc(session.preview.actor)}</strong> while testing as <strong>${esc(session.username)}</strong> (${esc(requesterRole)})`;
+    const subj = `[TEST — auto-completed] New starter request ${ticketID} — ${people.length} ${people.length === 1 ? 'person' : 'people'}`;
+    const actorEmail = actor && actor.email;
     try {
-      if (to) await sendEmail({
-        to, subject: `[TEST] New starter request ${ticketID} — ${people.length} ${people.length === 1 ? 'person' : 'people'} (previewing as ${session.username})`,
-        html: emailHtml({ heading: 'TEST — New Starter Account Request', ticketID, code, table, buttonUrl: queueUrl, buttonLabel: 'Open in New Starter Queue',
-          intro: `🧪 <strong>Test request</strong> submitted by <strong>${esc(session.preview.actor)}</strong> while previewing as <strong>${esc(session.username)}</strong> (${esc(requesterRole)}). Nothing was sent to IT or HR, and nothing was booked.`,
-          footer: 'Test records show a TEST badge and are only visible to Developers, Super Admins and preview sessions.' })
+      // IT gets it like a real request, so the path is proven end to end —
+      // but unmistakably marked, and already completed.
+      const toIT = [...new Set([...itEmails, actorEmail].filter(Boolean))];
+      if (toIT.length) await sendEmail({
+        to: toIT, subject: subj,
+        html: emailHtml({ heading: '🧪 TEST — New Starter Account Request', ticketID, code, table, buttonUrl: queueUrl, buttonLabel: 'Open in New Starter Queue', test: true,
+          intro: `🧪 <strong>THIS IS A TEST.</strong> Submitted by ${who}. It has been <strong>marked completed automatically</strong> — no accounts need to be created, and nothing was booked on the calendar.`,
+          footer: 'Test requests show a TEST badge in the New Starter Queue (Completed tab) and are never shown to HR.' })
+      });
+      // The HR confirmation goes only to the person testing, not the real HR inbox.
+      if (actorEmail) await sendEmail({
+        to: actorEmail, subject: `[TEST] HR confirmation preview — ${ticketID}`,
+        html: emailHtml({ heading: '🧪 TEST — Account Request Logged', ticketID, code, table, test: true,
+          intro: `🧪 This is the confirmation HR would receive. It was sent only to you because you were testing as ${esc(session.username)}.` })
       });
     } catch (err) { console.error('account-request: test email error', err.message); }
-    return res.status(200).json({ ticketID, verificationCode: code, count: people.length, test: true });
+    return res.status(200).json({ ticketID, verificationCode: code, count: people.length, test: true, status: 'Resolved' });
   }
   try {
     if (itEmails.length) {
@@ -451,7 +468,7 @@ function peopleTable(people) {
   return `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden;font-size:12.5px;border-collapse:collapse"><tr>${head}</tr>${rows}</table>`;
 }
 
-function emailHtml({ heading, intro, ticketID, code, table, buttonUrl, buttonLabel, footer }) {
+function emailHtml({ heading, intro, ticketID, code, table, buttonUrl, buttonLabel, footer, test }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;font-family:Segoe UI,Arial,sans-serif;background:#f4f6f8">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 20px">
@@ -460,6 +477,7 @@ function emailHtml({ heading, intro, ticketID, code, table, buttonUrl, buttonLab
     <p style="margin:0;color:#fff;font-size:22px;font-weight:700">iRam IT Support</p>
     <p style="margin:8px 0 0;color:#6BBF4E;font-size:12px;text-transform:uppercase;letter-spacing:1.5px">${esc(heading)}</p>
   </td></tr>
+  ${test ? `<tr><td style="background:#5b2ea6;color:#fff;padding:12px 32px;text-align:center;font-size:15px;font-weight:800;letter-spacing:1px">🧪 TEST REQUEST — AUTO-COMPLETED — NO ACTION NEEDED</td></tr>` : ''}
   <tr><td style="background:#edf7e8;padding:20px 32px;text-align:center;border-bottom:2px solid #6BBF4E">
     <p style="margin:0;font-size:28px;font-weight:700;color:#4e9938;letter-spacing:2px">${esc(ticketID)}</p>
     <p style="margin:8px 0 0;color:#2f6b1a;font-size:13px">✅ Verified HR request &nbsp;·&nbsp; Code <strong style="font-family:monospace;font-size:15px">${esc(code)}</strong></p>
