@@ -12,29 +12,24 @@
 //   3. If the account requires a forced password change (first login /
 //      rotation), return { mustChangePassword:true, pendingToken } instead of
 //      a session — client posts the new password to force-change-password.js.
-//   4. If MFA is enabled, return { mfaRequired:'totp'|'email', pendingToken }
-//      instead of a session — client posts the code to mfa-verify.js.
-//   5. Otherwise issue the real session cookie now.
+//   4. 2FA is required for every named account with an email: an authenticator
+//      code if they set one up, otherwise a code emailed to them. Returns
+//      { mfaRequired:'totp'|'email', pendingToken } instead of a session —
+//      client posts the code to mfa-verify.js.
+//   5. Only an account with no email at all gets a session straight away.
+//
+// `remember` (the "Remember me" tick box) rides along in the pending token and
+// makes the final session last 30 days instead of 12 hours.
 // ──────────────────────────────────────────────────────────────────────────────
 const { issueToken, issuePendingToken, sessionCookieHeader } = require('../../lib/auth');
-const { verifyPassword, needsPasswordChange, issueLoginOtp } = require('../../lib/users');
+const { verifyPassword, needsPasswordChange, loginMfaType } = require('../../lib/users');
 const { checkLocked, recordFailure, recordSuccess } = require('../../lib/rate-limit');
-const { sendEmail } = require('../../lib/mail');
+const { sendLoginOtpEmail, maskEmail } = require('../../lib/login-otp');
 
 function clientIp(req) {
   const fwd = req.headers['x-forwarded-for'];
   if (fwd) return String(fwd).split(',')[0].trim();
   return (req.socket && req.socket.remoteAddress) || 'unknown';
-}
-
-async function sendLoginOtpEmail(user) {
-  const code = await issueLoginOtp(user.username);
-  await sendEmail(user.email, 'iRam IT Portal — Your login code', `
-    <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;margin:0 auto">
-      <p>Your iRam IT Portal login code is:</p>
-      <p style="font-size:28px;font-weight:700;font-family:monospace;letter-spacing:3px">${code}</p>
-      <p style="color:#888;font-size:12px">Expires in 10 minutes. If this wasn't you, ignore this email.</p>
-    </div>`);
 }
 
 module.exports = async function handler(req, res) {
@@ -43,6 +38,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { username, password } = req.body || {};
+  const remember = !!(req.body && req.body.remember);
   if (!username || !password) return res.status(400).json({ error: 'Username and password are required.' });
 
   const ip  = clientIp(req);
@@ -59,8 +55,8 @@ module.exports = async function handler(req, res) {
   const breakGlass = process.env.ADMIN_PASSWORD;
   if (breakGlass && password === breakGlass) {
     await recordSuccess(key);
-    const token = issueToken({ username, role: 'super_admin' });
-    res.setHeader('Set-Cookie', sessionCookieHeader(token));
+    const token = issueToken({ username, role: 'super_admin', remember });
+    res.setHeader('Set-Cookie', sessionCookieHeader(token, remember));
     return res.status(200).json({ ok: true, username, role: 'super_admin' });
   }
 
@@ -80,19 +76,20 @@ module.exports = async function handler(req, res) {
   await recordSuccess(key);
 
   if (needsPasswordChange(user)) {
-    const pendingToken = issuePendingToken({ username: user.username, purpose: 'forceChange' });
+    const pendingToken = issuePendingToken({ username: user.username, purpose: 'forceChange', data: { remember } });
     return res.status(200).json({ ok: true, mustChangePassword: true, pendingToken });
   }
 
-  if (user.mfaEnabled) {
-    if (user.mfaType === 'email') {
+  const mfaType = loginMfaType(user);
+  if (mfaType) {
+    if (mfaType === 'email') {
       try { await sendLoginOtpEmail(user); } catch (err) { console.error('Login OTP email failed:', err.message); }
     }
-    const pendingToken = issuePendingToken({ username: user.username, purpose: 'mfa', data: { mfaType: user.mfaType } });
-    return res.status(200).json({ ok: true, mfaRequired: user.mfaType, pendingToken });
+    const pendingToken = issuePendingToken({ username: user.username, purpose: 'mfa', data: { mfaType, remember } });
+    return res.status(200).json({ ok: true, mfaRequired: mfaType, sentTo: mfaType === 'email' ? maskEmail(user.email) : undefined, pendingToken });
   }
 
-  const token = issueToken({ username: user.username, role: user.role });
-  res.setHeader('Set-Cookie', sessionCookieHeader(token));
+  const token = issueToken({ username: user.username, role: user.role, remember });
+  res.setHeader('Set-Cookie', sessionCookieHeader(token, remember));
   return res.status(200).json({ ok: true, username: user.username, role: user.role });
 };

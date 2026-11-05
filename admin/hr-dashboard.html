@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam — IT Ticket Summary</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <script src="/admin/assets/portal-nav.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #2D2D2D; --ink2: #555; --muted: #8a8f95; --grid: #eceef0; --bar: #4e9938; --bar-hi: #3d7828; --surface: #fff; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: var(--ink); background: #f4f6f8; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; gap: 12px; background: #2D2D2D; color: #fff; padding: 10px 20px; flex-wrap: wrap; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 22px 20px 60px; }
+    .readonly { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: #fff; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 16px; }
+    .filters select, .filters input { padding: 7px 9px; border: 1.5px solid #dcdfe3; border-radius: 7px; font: 13px 'Segoe UI', Arial, sans-serif; background: #fff; }
+    .filters input[type=text] { min-width: 200px; flex: 1; }
+    .filters button { border: none; background: #eef0f2; border-radius: 7px; padding: 8px 12px; font: 700 12.5px 'Segoe UI', Arial, sans-serif; cursor: pointer; }
+    .seg { display: flex; background: #eef0f2; border-radius: 8px; padding: 3px; }
+    .seg button { background: none; padding: 6px 11px; }
+    .seg button.on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1); color: var(--bar-hi); }
+
+    .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 16px; }
+    .tile { background: #fff; border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .tile .l { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .tile .v { font-size: 30px; font-weight: 800; margin-top: 4px; }
+    .tile .s { font-size: 12px; color: var(--muted); }
+
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    .chart { background: #fff; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .chart.wide { grid-column: 1 / -1; }
+    .chart h3 { font-size: 14px; font-weight: 800; }
+    .chart .sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+    .hbar { display: grid; grid-template-columns: minmax(110px, 34%) 1fr 44px; gap: 6px 10px; align-items: center; font-size: 12.5px; }
+    .hbar .lab { color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hbar .track { height: 18px; position: relative; border-radius: 0 4px 4px 0; cursor: pointer; }
+    .hbar .fill { height: 100%; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; }
+    .hbar .track:hover .fill { background: var(--bar-hi); }
+    .hbar .num { text-align: right; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .hbar .lab.click { cursor: pointer; } .hbar .lab.click:hover { color: var(--bar-hi); text-decoration: underline; }
+
+    .cols { position: relative; height: 180px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #cfd3d7; padding-top: 8px; }
+    .cols .c { flex: 1; height: 100%; display: flex; align-items: flex-end; cursor: pointer; }
+    .cols .c i { display: block; width: 100%; background: var(--bar); border-radius: 4px 4px 0 0; min-height: 1px; }
+    .cols .c:hover i { background: var(--bar-hi); }
+    .xlab { display: flex; gap: 2px; font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+    .xlab span { flex: 1; text-align: center; white-space: nowrap; overflow: hidden; }
+    .gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--grid); font-size: 10px; color: var(--muted); }
+    .gridline span { position: absolute; top: -8px; left: -2px; background: #fff; padding-right: 4px; }
+
+    .tip { position: fixed; pointer-events: none; background: #2D2D2D; color: #fff; font-size: 12px; padding: 7px 10px; border-radius: 6px; display: none; z-index: 30; line-height: 1.5; }
+    .tip b { font-weight: 800; }
+
+    .table-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow-x: auto; }
+    .table-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 0; }
+    .table-head h3 { font-size: 14px; font-weight: 800; }
+    table.t { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+    .t th { text-align: left; font-size: 11px; text-transform: uppercase; color: var(--muted); padding: 9px 12px; border-bottom: 2px solid #eef0f2; white-space: nowrap; cursor: pointer; }
+    .t td { padding: 9px 12px; border-bottom: 1px solid #f2f3f5; vertical-align: top; }
+    .t tbody tr:hover { background: #f8fbf7; }
+    .t .desc { max-width: 360px; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .s-Open { background: #e8f1fb; color: #1d5fa8; } .s-In-Progress { background: #fff4e0; color: #9a5b00; }
+    .s-Resolved { background: #edf7e8; color: #2f6b1a; } .s-Closed { background: #f0f0f0; color: #777; }
+    .empty { text-align: center; color: #aaa; padding: 40px; }
+    .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; padding: 10px 16px; font-size: 12.5px; color: var(--muted); }
+    .pager button { border: none; background: #eef0f2; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-weight: 700; }
+    @media (max-width: 1000px) { .tiles { grid-template-columns: repeat(3, 1fr); } .charts { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) { .tiles { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>📊 IT Ticket Summary</h1>
+    <span class="pn-links" id="pn-links"></span>
+  </div>
+
+  <div class="wrap">
+    <p class="readonly">Read-only view of every IT ticket. Filter to drill down. Click any bar to filter by it. Tickets can only be changed by IT.</p>
+
+    <div class="filters">
+      <div class="seg" id="range">
+        <button data-d="7">7 days</button><button data-d="30" class="on">30 days</button><button data-d="90">90 days</button><button data-d="365">12 months</button><button data-d="0">All</button>
+      </div>
+      <select id="f-status"><option value="">All statuses</option><option value="active">Open + In Progress</option><option>Open</option><option>In Progress</option><option>Resolved</option><option>Closed</option></select>
+      <select id="f-cat"><option value="">All categories</option></select>
+      <select id="f-prio"><option value="">All priorities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+      <select id="f-dept"><option value="">All departments</option></select>
+      <select id="f-assigned"><option value="">All IT staff</option></select>
+      <input type="text" id="f-q" placeholder="Search ticket, name, description…">
+      <button onclick="resetFilters()">↺ Reset</button>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="l">Tickets</div><div class="v" id="t-total">—</div><div class="s">In this view</div></div>
+      <div class="tile"><div class="l">Open</div><div class="v" id="t-open">—</div><div class="s">Waiting for IT</div></div>
+      <div class="tile"><div class="l">In progress</div><div class="v" id="t-prog">—</div><div class="s">Being worked on</div></div>
+      <div class="tile"><div class="l">Resolved / closed</div><div class="v" id="t-done">—</div><div class="s" id="t-done-pct">—</div></div>
+      <div class="tile"><div class="l">Avg. time to resolve</div><div class="v" id="t-ttr">—</div><div class="s">From logged to last update</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="chart wide"><h3>Tickets logged per week</h3><div class="sub" id="trend-sub">Count of tickets logged each week</div><div id="c-trend"></div></div>
+      <div class="chart"><h3>By status</h3><div class="sub">Where tickets are right now</div><div id="c-status"></div></div>
+      <div class="chart"><h3>By category</h3><div class="sub">What people need help with</div><div id="c-cat"></div></div>
+      <div class="chart"><h3>By department</h3><div class="sub">Who is logging tickets</div><div id="c-dept"></div></div>
+      <div class="chart"><h3>Open workload by IT staff</h3><div class="sub">Open + In Progress tickets assigned to each person</div><div id="c-assigned"></div></div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><h3 id="tbl-title">Tickets</h3><span class="readonly" style="margin:0">Click a column to sort</span></div>
+      <table class="t">
+        <thead><tr>
+          <th data-sort="TicketID">Ticket</th><th data-sort="Created">Logged</th><th data-sort="SubmitterName">Submitted by</th><th data-sort="Department">Dept</th>
+          <th data-sort="Category">Category</th><th>Description</th><th data-sort="Priority">Priority</th><th data-sort="Status">Status</th><th data-sort="AssignedTo">Assigned</th><th>Latest update</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="10" class="empty">Loading tickets…</td></tr></tbody>
+      </table>
+      <div class="pager"><span id="pg-info"></span><button onclick="page(-1)">‹ Prev</button><button onclick="page(1)">Next ›</button></div>
+    </div>
+  </div>
+  <div class="tip" id="tip"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const NEW_STARTER = '[NEW STARTER ACCOUNT REQUEST]';
+    const STATUS_ORDER = ['Open', 'In Progress', 'Resolved', 'Closed'];
+    const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+    let all = [], days = 30, sortKey = 'Created', sortDir = -1, pg = 0;
+    const PAGE = 25;
+
+    IRAM_NAV.requireSession('viewTicketStats').then(me => {
+      IRAM_NAV.renderLinks('pn-links', me.role, 'summary');
+      load();
+    });
+
+    const spVal = v => (v && typeof v === 'object' && !Array.isArray(v)) ? (v.Value ?? v.DisplayName ?? '') : (v ?? '');
+    function normalize(t) {
+      const desc = String(t.Description || '');
+      return {
+        TicketID: t.TicketID ?? t.Title ?? t.ticketID ?? '',
+        SubmitterName: spVal(t.SubmitterName), Department: spVal(t.Department) || '—',
+        // New-starter account requests are logged as tickets; label them plainly.
+        Category: desc.startsWith(NEW_STARTER) ? 'New Starter Accounts' : (spVal(t.Category) || 'Other'),
+        Priority: spVal(t.Priority) || spVal(t.SuggestedPriority) || 'Medium',
+        Status: spVal(t.Status) || 'Open', AssignedTo: spVal(t.AssignedTo) || 'Unassigned',
+        Description: desc.startsWith(NEW_STARTER) ? desc.split('\n')[0].replace(NEW_STARTER, 'New starter accounts:') : desc,
+        PublicUpdate: t.PublicUpdate || '', Created: t.Created || t.created || '', Modified: t.Modified || t.modified || ''
+      };
+    }
+
+    async function load() {
+      try {
+        const r = await fetch('/api/admin/tickets', { cache: 'no-store' });
+        if (r.status === 503) throw new Error('Ticket data isn\'t connected yet (PA_GET_TICKETS_URL not set).');
+        if (r.status === 504) throw new Error('SharePoint took too long to respond — try again in a moment.');
+        if (!r.ok) throw new Error('Could not load tickets (error ' + r.status + ').');
+        const list = await r.json();
+        all = (Array.isArray(list) ? list : []).map(normalize);
+        fillOptions();
+        render();
+      } catch (e) {
+        $('tbody').innerHTML = `<tr><td colspan="10" class="empty">${esc(e.message)}</td></tr>`;
+      }
+    }
+
+    function fillOptions() {
+      const opts = (id, key, label) => {
+        const vals = [...new Set(all.map(t => t[key]).filter(Boolean))].sort();
+        $(id).innerHTML = `<option value="">${label}</option>` + vals.map(v => `<option>${esc(v)}</option>`).join('');
+      };
+      opts('f-cat', 'Category', 'All categories');
+      opts('f-dept', 'Department', 'All departments');
+      opts('f-assigned', 'AssignedTo', 'All IT staff');
+    }
+
+    function filtered() {
+      const since = days ? Date.now() - days * 86400000 : 0;
+      const st = $('f-status').value, cat = $('f-cat').value, pr = $('f-prio').value, dp = $('f-dept').value, as = $('f-assigned').value;
+      const q = $('f-q').value.trim().toLowerCase();
+      return all.filter(t => {
+        if (since && new Date(t.Created).getTime() < since) return false;
+        if (st === 'active' ? !['Open', 'In Progress'].includes(t.Status) : (st && t.Status !== st)) return false;
+        if (cat && t.Category !== cat) return false;
+        if (pr && t.Priority !== pr) return false;
+        if (dp && t.Department !== dp) return false;
+        if (as && t.AssignedTo !== as) return false;
+        if (q && ![t.TicketID, t.SubmitterName, t.Description, t.Category].join(' ').toLowerCase().includes(q)) return false;
+        return true;
+      });
+    }
+
+    function countBy(list, key, order) {
+      const m = new Map();
+      list.forEach(t => m.set(t[key], (m.get(t[key]) || 0) + 1));
+      let arr = [...m.entries()];
+      if (order) arr.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+      else arr.sort((a, b) => b[1] - a[1]);
+      return arr;
+    }
+
+    // Horizontal bars, one hue (magnitude). Max 8 rows; the rest fold into "Other".
+    function hbars(el, entries, filterId, total) {
+      if (!entries.length) { $(el).innerHTML = '<div class="empty" style="padding:20px">No tickets</div>'; return; }
+      let rows = entries;
+      if (rows.length > 8) { const rest = rows.slice(7).reduce((n, [, v]) => n + v, 0); rows = [...rows.slice(0, 7), ['Other (' + (entries.length - 7) + ')', rest, true]]; }
+      const max = Math.max(...rows.map(r => r[1]));
+      $(el).innerHTML = '<div class="hbar">' + rows.map(([k, v, isOther]) => {
+        const pct = total ? Math.round(100 * v / total) : 0;
+        const clickable = filterId && !isOther;
+        return `<div class="lab ${clickable ? 'click' : ''}" title="${esc(k)}" ${clickable ? `data-f="${filterId}" data-v="${esc(k)}"` : ''}>${esc(k)}</div>
+          <div class="track" data-tip="<b>${esc(k)}</b><br>${v} ticket${v === 1 ? '' : 's'} · ${pct}%" ${clickable ? `data-f="${filterId}" data-v="${esc(k)}"` : ''}><div class="fill" style="width:${max ? (100 * v / max) : 0}%"></div></div>
+          <div class="num">${v}</div>`;
+      }).join('') + '</div>';
+    }
+
+    function weekStart(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+    function trend(list) {
+      const nWeeks = days && days <= 90 ? Math.max(2, Math.ceil(days / 7)) : (days ? 52 : 26);
+      const start = weekStart(Date.now() - (nWeeks - 1) * 7 * 86400000);
+      const buckets = Array.from({ length: nWeeks }, (_, i) => ({ d: new Date(start.getTime() + i * 7 * 86400000), n: 0 }));
+      list.forEach(t => {
+        const i = Math.floor((weekStart(t.Created) - start) / (7 * 86400000));
+        if (i >= 0 && i < nWeeks) buckets[i].n++;
+      });
+      $('trend-sub').textContent = `Count of tickets logged each week — last ${nWeeks} weeks (weeks start Monday)`;
+      const max = Math.max(1, ...buckets.map(b => b.n));
+      const step = Math.max(1, Math.ceil(max / 4));
+      const lines = [];
+      for (let v = step; v <= max; v += step) lines.push(`<div class="gridline" style="bottom:${100 * v / max}%"><span>${v}</span></div>`);
+      const lab = d => d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+      // One label per ~70px of chart width so they never collide.
+      const every = Math.ceil(nWeeks / Math.max(3, Math.floor(($('c-trend').clientWidth || 600) / 70)));
+      $('c-trend').innerHTML = `<div class="cols">${lines.join('')}${buckets.map(b =>
+        `<div class="c" data-tip="<b>Week of ${lab(b.d)}</b><br>${b.n} ticket${b.n === 1 ? '' : 's'}"><i style="height:${100 * b.n / max}%"></i></div>`).join('')}</div>
+        <div class="xlab">${buckets.map((b, i) => `<span>${i % every === 0 ? lab(b.d) : ''}</span>`).join('')}</div>`;
+    }
+
+    function render() {
+      const list = filtered();
+      const open = list.filter(t => t.Status === 'Open').length;
+      const prog = list.filter(t => t.Status === 'In Progress').length;
+      const done = list.filter(t => t.Status === 'Resolved' || t.Status === 'Closed');
+      $('t-total').textContent = list.length;
+      $('t-open').textContent = open;
+      $('t-prog').textContent = prog;
+      $('t-done').textContent = done.length;
+      $('t-done-pct').textContent = list.length ? `${Math.round(100 * done.length / list.length)}% of this view` : '—';
+      const durs = done.map(t => new Date(t.Modified) - new Date(t.Created)).filter(ms => ms > 0);
+      if (durs.length) {
+        const avgH = durs.reduce((a, b) => a + b, 0) / durs.length / 3600000;
+        $('t-ttr').textContent = avgH < 48 ? `${avgH.toFixed(1)} h` : `${(avgH / 24).toFixed(1)} d`;
+      } else $('t-ttr').textContent = '—';
+
+      trend(list);
+      hbars('c-status', countBy(list, 'Status', STATUS_ORDER), 'f-status', list.length);
+      hbars('c-cat', countBy(list, 'Category'), 'f-cat', list.length);
+      hbars('c-dept', countBy(list, 'Department'), 'f-dept', list.length);
+      const activeList = list.filter(t => t.Status === 'Open' || t.Status === 'In Progress');
+      hbars('c-assigned', countBy(activeList, 'AssignedTo'), 'f-assigned', activeList.length);
+      renderTable(list);
+    }
+
+    function cmp(a, b) {
+      if (sortKey === 'Created') return (new Date(a.Created) - new Date(b.Created)) * sortDir;
+      if (sortKey === 'Priority') return ((PRIO_ORDER[a.Priority] ?? 9) - (PRIO_ORDER[b.Priority] ?? 9)) * sortDir;
+      if (sortKey === 'Status') return (STATUS_ORDER.indexOf(a.Status) - STATUS_ORDER.indexOf(b.Status)) * sortDir;
+      return String(a[sortKey]).localeCompare(String(b[sortKey])) * sortDir;
+    }
+    function renderTable(list) {
+      const sorted = [...list].sort(cmp);
+      const pages = Math.max(1, Math.ceil(sorted.length / PAGE));
+      pg = Math.min(pg, pages - 1);
+      const slice = sorted.slice(pg * PAGE, pg * PAGE + PAGE);
+      $('tbl-title').textContent = `Tickets (${sorted.length})`;
+      $('pg-info').textContent = sorted.length ? `${pg * PAGE + 1}–${pg * PAGE + slice.length} of ${sorted.length}` : '';
+      if (!slice.length) { $('tbody').innerHTML = '<tr><td colspan="10" class="empty">No tickets match these filters.</td></tr>'; return; }
+      $('tbody').innerHTML = slice.map(t => `<tr>
+        <td style="font-weight:800;color:#4e9938;white-space:nowrap">${esc(t.TicketID)}</td>
+        <td style="white-space:nowrap">${esc(t.Created ? new Date(t.Created).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: '2-digit' }) : '')}</td>
+        <td>${esc(t.SubmitterName)}</td><td>${esc(t.Department)}</td><td>${esc(t.Category)}</td>
+        <td><div class="desc" title="${esc(t.Description)}">${esc(t.Description)}</div></td>
+        <td>${esc(t.Priority)}</td>
+        <td><span class="badge s-${esc(t.Status.replace(' ', '-'))}">${esc(t.Status)}</span></td>
+        <td>${esc(t.AssignedTo)}</td>
+        <td><div class="desc" title="${esc(t.PublicUpdate)}">${esc(t.PublicUpdate || '—')}</div></td></tr>`).join('');
+    }
+    function page(d) { pg = Math.max(0, pg + d); render(); }
+
+    document.querySelectorAll('.t th[data-sort]').forEach(th => th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = k === 'Created' ? -1 : 1; }
+      render();
+    }));
+    $('range').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.querySelectorAll('#range button').forEach(x => x.classList.toggle('on', x === b));
+      days = +b.dataset.d; pg = 0; render();
+    });
+    ['f-status', 'f-cat', 'f-prio', 'f-dept', 'f-assigned', 'f-q'].forEach(id => $(id).addEventListener('input', () => { pg = 0; render(); }));
+    function resetFilters() {
+      ['f-status', 'f-cat', 'f-prio', 'f-dept', 'f-assigned', 'f-q'].forEach(id => $(id).value = '');
+      days = 30; document.querySelectorAll('#range button').forEach(x => x.classList.toggle('on', x.dataset.d === '30'));
+      pg = 0; render();
+    }
+
+    // Click a bar/label → filter by it. Hover → tooltip.
+    document.addEventListener('click', e => {
+      const el = e.target.closest('[data-f]'); if (!el) return;
+      $(el.dataset.f).value = el.dataset.v; pg = 0; render();
+    });
+    const tip = $('tip');
+    document.addEventListener('mousemove', e => {
+      const el = e.target.closest('[data-tip]');
+      if (!el) { tip.style.display = 'none'; return; }
+      tip.innerHTML = el.dataset.tip; tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px';
+      tip.style.top = (e.clientY - tip.offsetHeight - 10) + 'px';
+    });
+  </script>
+</body>
+</html>

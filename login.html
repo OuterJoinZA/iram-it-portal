@@ -61,6 +61,9 @@
     .back-link { display: block; text-align: center; margin-top: 20px;
                  font-size: 13px; color: #888; text-decoration: none; }
     .back-link:hover { color: var(--green-dark); }
+    .remember { display: flex !important; align-items: center; gap: 8px; font-size: 13px !important; font-weight: 600 !important; color: #555 !important; text-transform: none !important; letter-spacing: 0 !important; margin: -4px 0 16px !important; cursor: pointer; user-select: none; }
+    .remember input { width: 16px; height: 16px; accent-color: var(--green-dark); margin: 0; }
+    .remember small { color: #999; font-weight: 400; }
     .show-pw { font-size: 12px; color: var(--green-dark); cursor: pointer;
                float: right; font-weight: 600; text-decoration: underline; margin-bottom: 4px; }
   </style>
@@ -98,7 +101,11 @@
         </label>
         <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
       </div>
-      <button type="submit" class="btn-login">Login to Admin Panel →</button>
+      <label class="remember" for="remember-me">
+        <input type="checkbox" id="remember-me">
+        Remember me <small>— stay signed in on this device for 30 days</small>
+      </label>
+      <button type="submit" class="btn-login">Login →</button>
     </form>
     <a href="#" class="back-link" id="forgot-link" style="margin-top:14px">Forgot your username or password?</a>
 
@@ -135,6 +142,7 @@
   </div>
 
   <script src="assets/config.js"></script>
+  <script src="/admin/assets/portal-nav.js"></script>
   <script>
     // Toggle password visibility
     document.getElementById('show-pw-btn').addEventListener('click', () => {
@@ -144,21 +152,9 @@
       else { pw.type = 'password'; btn.textContent = 'Show'; }
     });
 
-    // Role → permissions, mirrors lib/roles.js. Duplicated here (no build step
-    // on this static site) purely to decide which admin page to land on.
-    const ROLE_PERMS = {
-      super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets'],
-      admin:       ['editHR', 'editIT', 'manageTickets'],
-      hr_admin:    ['editHR'],
-      it:          ['manageTickets'],
-      hr_manager: [], hr: [], assistant_hr: [], field_goosehelp: [], staff: []
-    };
-    function landingPage(role) {
-      const perms = ROLE_PERMS[role] || [];
-      if (perms.includes('manageTickets') || perms.includes('editIT')) return 'admin/index.html';
-      if (perms.includes('editHR')) return 'admin/site-edit.html';
-      return null; // identity-only role: nowhere to land yet
-    }
+    // Role → landing page lives in admin/assets/portal-nav.js (shared with
+    // every signed-in page). UI convenience only — the server checks access.
+    const landingPage = role => window.IRAM_NAV.landingPage(role);
 
     const forms = {
       login:  document.getElementById('login-form'),
@@ -194,9 +190,10 @@
         try {
           const res = await fetch('/api/admin/me', { cache: 'no-store' });
           if (res.ok) {
+            // Still signed in (e.g. "Remember me") — set up this tab's session
+            // cache the same way a fresh login does, then go straight in.
             const me = await res.json();
-            const dest = landingPage(me.role);
-            if (dest) window.location.href = dest;
+            if (landingPage(me.role)) loginOk(me);
           }
         } catch (_) {}
       })();
@@ -220,13 +217,17 @@
       e.preventDefault();
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
+      const remember = document.getElementById('remember-me').checked;
       if (!username || !password) { showError('Enter both a username/email and a password.'); return; }
+      // Remember me also pre-fills the username next time.
+      if (remember) localStorage.setItem('iram_remember_user', username);
+      else localStorage.removeItem('iram_remember_user');
 
       try {
         const res  = await fetch('/api/admin/login', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ username, password })
+          body:    JSON.stringify({ username, password, remember })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) { showError(data.error); document.getElementById('password').value = ''; return; }
@@ -236,13 +237,7 @@
           showStep('reset', 'Choose a New Password', 'Your password needs to be changed before you can continue.');
           return;
         }
-        if (data.mfaRequired) {
-          pendingToken = data.pendingToken;
-          showStep('mfa', 'Enter Your Code', data.mfaRequired === 'email'
-            ? 'We emailed a 6-digit code to your account\'s email address.'
-            : 'Enter the 6-digit code from your authenticator app.');
-          return;
-        }
+        if (data.mfaRequired) { showMfaStep(data); return; }
         loginOk(data);
       } catch (_) {
         showError('Could not reach the server. Please try again.');
@@ -284,11 +279,30 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) { showError(data.error); return; }
+        if (data.mfaRequired) { showMfaStep(data); return; }
         loginOk(data);
       } catch (_) {
         showError('Could not reach the server. Please try again.');
       }
     });
+
+    // 2FA step — every named account gets one (authenticator app if set up,
+    // otherwise a code emailed to the account's address).
+    function showMfaStep(data) {
+      pendingToken = data.pendingToken;
+      showStep('mfa', 'Enter Your Code', data.mfaRequired === 'email'
+        ? 'We emailed a 6-digit login code to ' + (data.sentTo || "your account's email address") + '. It expires in 10 minutes.'
+        : 'Enter the 6-digit code from your authenticator app.');
+      document.getElementById('mfa-code').value = '';
+      setTimeout(() => document.getElementById('mfa-code').focus(), 50);
+    }
+
+    const rememberedUser = localStorage.getItem('iram_remember_user');
+    if (rememberedUser) {
+      document.getElementById('username').value = rememberedUser;
+      document.getElementById('remember-me').checked = true;
+      document.getElementById('password').focus();
+    }
 
     document.getElementById('forgot-link').addEventListener('click', (e) => {
       e.preventDefault();

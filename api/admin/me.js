@@ -25,6 +25,9 @@ module.exports = async function handler(req, res) {
     role: session.role,
     hasAccount: !!record,
     mfaEnabled: record ? !!record.mfaEnabled : false,
-    mfaType: record ? (record.mfaType || null) : null
+    mfaType: record ? (record.mfaType || null) : null,
+    email: record ? (record.email || '') : '',
+    fullName: record ? (record.fullName || '') : '',
+    phone: record ? (record.phone || '') : ''
   });
 };

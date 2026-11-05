@@ -44,8 +44,16 @@ module.exports = async function handler(req, res) {
   // trigger validation rejects the whole call before the flow even runs.
   let estimatedMinutes = 0;
   if (flowAction === 'reschedule') {
-    const { config } = await loadConfig();
-    estimatedMinutes = estimateMinutes(body.category, body.description, config);
+    // New-starter account requests book a fixed duration per person/service
+    // (see api/admin/account-request.js), not the keyword estimate — the
+    // queue page sends it explicitly.
+    const override = Number(body.estimatedMinutes);
+    if (override > 0) {
+      estimatedMinutes = Math.min(480, Math.max(10, Math.round(override)));
+    } else {
+      const { config } = await loadConfig();
+      estimatedMinutes = estimateMinutes(body.category, body.description, config);
+    }
   }
 
   const payload = {

@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>iRam Admin — My Account</title>
+  <title>iRam — My Account</title>
+  <script src="/admin/assets/portal-nav.js"></script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔑</text></svg>">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -11,7 +12,9 @@
 
     .topbar { display: flex; align-items: center; gap: 14px; background: #2D2D2D; color: #fff; padding: 12px 20px; }
     .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
-    .topbar a { font-size: 13px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; padding: 9px 15px; border-radius: 8px; background: #4a4a4a; color: #fff; }
+    .topbar { flex-wrap: wrap; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
 
     .wrap { max-width: 640px; margin: 0 auto; padding: 28px 20px; }
     .card { background: #fff; border-radius: 10px; padding: 22px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
@@ -19,7 +22,7 @@
     .card .sub { font-size: 12.5px; color: #888; margin-bottom: 16px; line-height: 1.6; }
 
     label { display: block; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin: 12px 0 6px; }
-    input[type=text], input[type=password] { width: 100%; padding: 9px 11px; border: 1.5px solid #ddd; border-radius: 7px; font-size: 13.5px; font-family: inherit; }
+    input[type=text], input[type=password], input[type=email], input[type=tel] { width: 100%; padding: 9px 11px; border: 1.5px solid #ddd; border-radius: 7px; font-size: 13.5px; font-family: inherit; }
     input:focus { outline: none; border-color: #4e9938; }
 
     button { border: none; cursor: pointer; border-radius: 7px; padding: 9px 16px; font-size: 13px; font-weight: 700; margin-top: 14px; }
@@ -49,7 +52,7 @@
 <body>
   <div class="topbar">
     <h1>🔑 My Account</h1>
-    <a href="/admin/index.html">← Admin</a>
+    <span class="pn-links" id="pn-links"></span>
   </div>
 
   <div class="wrap">
@@ -60,6 +63,23 @@
     </div>
 
     <div id="self-service-cards" style="display:none">
+    <div class="card">
+      <h2>My details</h2>
+      <p class="sub">Your name appears on requests you log and on tickets. Your login codes are emailed to this address.</p>
+      <div class="grid2">
+        <div><label for="pd-name">Full name</label><input type="text" id="pd-name" autocomplete="name"></div>
+        <div><label for="pd-phone">Phone</label><input type="tel" id="pd-phone" autocomplete="tel"></div>
+      </div>
+      <label for="pd-email">Email (login codes go here)</label>
+      <input type="email" id="pd-email" autocomplete="email">
+      <div id="pd-pw-wrap" style="display:none">
+        <label for="pd-password">Current password (needed to change your email)</label>
+        <input type="password" id="pd-password" autocomplete="current-password">
+      </div>
+      <p class="sub" style="margin:10px 0 0">Username: <strong id="pd-username"></strong> · Role: <strong id="pd-role"></strong></p>
+      <button class="btn-green" onclick="saveDetails()">Save details</button>
+    </div>
+
     <div class="card">
       <h2>Change password</h2>
       <p class="sub">Signed in as <strong id="whoami">…</strong></p>
@@ -72,7 +92,7 @@
 
     <div class="card">
       <h2>Two-factor authentication <span id="mfa-status" class="pill inactive">Off</span></h2>
-      <p class="sub">Add a second step at login — a code from an authenticator app, or a code emailed to you.</p>
+      <p class="sub">Every login needs a second step. Unless you set up an authenticator app here, a 6-digit code is emailed to you each time you log in.</p>
 
       <div id="mfa-off">
         <div class="mfa-options">
@@ -105,7 +125,6 @@
   </div>
 
   <script>
-    if (sessionStorage.getItem('iram_it_auth') !== 'true') location.replace('../login.html');
 
     const adminFetch = (url, opts = {}) => fetch(url, Object.assign({ cache: 'no-store' }, opts, {
       headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers)
@@ -119,10 +138,10 @@
 
     let pendingMfaType = null;
 
+    let originalEmail = '';
     async function loadMe() {
-      const res = await adminFetch('/api/admin/me');
-      if (!res.ok) { sessionStorage.clear(); location.replace('../login.html'); return; }
-      const me = await res.json();
+      const me = await IRAM_NAV.requireSession();
+      IRAM_NAV.renderLinks('pn-links', me.role, 'account');
 
       if (!me.hasAccount) {
         document.getElementById('no-account-banner').style.display = 'block';
@@ -132,7 +151,32 @@
 
       document.getElementById('self-service-cards').style.display = 'block';
       document.getElementById('whoami').textContent = me.username;
+      document.getElementById('pd-name').value = me.fullName || '';
+      document.getElementById('pd-phone').value = me.phone || '';
+      document.getElementById('pd-email').value = originalEmail = me.email || '';
+      document.getElementById('pd-username').textContent = me.username;
+      document.getElementById('pd-role').textContent = me.role.replace(/_/g, ' ');
       renderMfaState(me.mfaEnabled, me.mfaType);
+    }
+
+    document.getElementById('pd-email').addEventListener('input', e => {
+      document.getElementById('pd-pw-wrap').style.display = e.target.value.trim().toLowerCase() !== originalEmail.toLowerCase() ? 'block' : 'none';
+    });
+
+    async function saveDetails() {
+      const body = {
+        fullName: document.getElementById('pd-name').value.trim(),
+        phone: document.getElementById('pd-phone').value.trim(),
+        email: document.getElementById('pd-email').value.trim(),
+        currentPassword: document.getElementById('pd-password').value
+      };
+      const res  = await adminFetch('/api/admin/update-profile', { method: 'POST', body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg(data.error || 'Could not save your details.', false); return; }
+      originalEmail = data.user.email || body.email;
+      document.getElementById('pd-password').value = '';
+      document.getElementById('pd-pw-wrap').style.display = 'none';
+      showMsg('Details saved.', true);
     }
 
     async function changePassword() {

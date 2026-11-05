@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam — Request New Starter Accounts</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👤</text></svg>">
+  <script src="/admin/assets/portal-nav.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D2D2D; background: #f4f6f8; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; gap: 12px; background: #2D2D2D; color: #fff; padding: 10px 20px; flex-wrap: wrap; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .topbar .who { font-size: 12px; color: #aaa; }
+
+    .wrap { max-width: 900px; margin: 0 auto; padding: 26px 20px 60px; }
+    .card { background: #fff; border-radius: 10px; padding: 22px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h2 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+    .sub { font-size: 13px; color: #888; line-height: 1.6; }
+
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 4px; }
+    button { border: none; cursor: pointer; border-radius: 7px; padding: 9px 15px; font-size: 13px; font-weight: 700; font-family: inherit; }
+    .btn-green { background: #4e9938; color: #fff; } .btn-green:hover { background: #3d7828; }
+    .btn-green:disabled { background: #9cc78d; cursor: wait; }
+    .btn-grey { background: #eef0f2; color: #444; } .btn-grey:hover { background: #e2e5e8; }
+    .btn-link { background: none; color: #a4262c; padding: 4px 6px; font-size: 12px; }
+    .btn-big { padding: 12px 24px; font-size: 14.5px; }
+
+    .person { border: 1.5px solid #e4e7ea; border-radius: 10px; padding: 14px 16px 16px; margin-top: 14px; }
+    .person.err { border-color: #e7a3a3; background: #fffafa; }
+    .p-head { display: flex; align-items: center; gap: 10px; }
+    .p-num { width: 26px; height: 26px; border-radius: 50%; background: #4e9938; color: #fff; font-weight: 800; font-size: 12.5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .p-title { font-weight: 800; font-size: 14px; margin-right: auto; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 12px; }
+    label { display: block; font-size: 10.5px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 5px; }
+    label .req { color: #a4262c; } label .opt { color: #aaa; font-weight: 600; text-transform: none; letter-spacing: 0; }
+    input[type=text], input[type=email], input[type=date], input[type=tel], select, textarea { width: 100%; padding: 8px 10px; border: 1.5px solid #dcdfe3; border-radius: 7px; font-size: 13.5px; font-family: inherit; background: #fff; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #4e9938; }
+    textarea { resize: vertical; min-height: 64px; }
+
+    .accts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+    .accts .lbl { font-size: 10.5px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin-right: 4px; }
+    label.chip { text-transform: none; letter-spacing: 0; margin: 0; color: #333; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; border: 1.5px solid #dcdfe3; border-radius: 20px; padding: 6px 13px; font-size: 13px; font-weight: 700; cursor: pointer; user-select: none; }
+    .chip input { width: 15px; height: 15px; accent-color: #4e9938; margin: 0; }
+    .chip.on { border-color: #4e9938; background: #edf7e8; color: #2f6b1a; }
+    .perigee-extra { display: none; margin-top: 4px; padding: 2px 0 0 12px; border-left: 3px solid #4e9938; }
+    .perigee-extra.show { display: block; }
+
+    .paste { display: none; margin-top: 14px; background: #f8faf8; border: 1.5px dashed #b3dea8; border-radius: 10px; padding: 14px 16px; }
+    .paste.show { display: block; }
+    .paste code { background: #fff; border: 1px solid #e4e7ea; border-radius: 4px; padding: 1px 5px; font-size: 11.5px; }
+
+    .msg { display: none; font-size: 13px; padding: 10px 14px; border-radius: 8px; margin-top: 14px; line-height: 1.5; }
+    .msg.ok { background: #edf7e8; color: #2f6b1a; border: 1px solid #b3dea8; display: block; }
+    .msg.err { background: #fdf0f0; color: #a4262c; border: 1px solid #f0c0c0; display: block; }
+    .submit-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+    .count { font-size: 13px; color: #666; }
+
+    .done { text-align: center; padding: 8px 0; }
+    .done .big { font-size: 30px; font-weight: 800; color: #4e9938; letter-spacing: 2px; margin: 8px 0; }
+    .code { font-family: monospace; font-size: 15px; background: #edf7e8; color: #2f6b1a; padding: 3px 9px; border-radius: 6px; }
+
+    .list { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .list th { text-align: left; font-size: 11px; text-transform: uppercase; color: #888; padding: 8px; border-bottom: 2px solid #eee; }
+    .list td { padding: 10px 8px; border-bottom: 1px solid #f2f2f2; vertical-align: top; }
+    .tid { color: #4e9938; font-weight: 800; white-space: nowrap; }
+    .hint { font-size: 11.5px; color: #999; margin-top: 2px; }
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+    .pill.Open { background: #e8f1fb; color: #1d5fa8; }
+    .pill.In.Progress, .pill.inprog { background: #fff4e0; color: #9a5b00; }
+    .empty { color: #aaa; font-size: 13px; padding: 8px 0; }
+    .bar { height: 6px; background: #eef0f2; border-radius: 4px; overflow: hidden; margin-top: 5px; width: 90px; }
+    .bar > i { display: block; height: 100%; background: #4e9938; }
+
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } .list .hide-sm { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>👤 Request New Starter Accounts</h1>
+    <span class="who" id="whoami"></span>
+    <span class="pn-links" id="pn-links"></span>
+  </div>
+
+  <div class="wrap">
+    <div class="card" id="form-card">
+      <div id="form-view">
+        <h2>Who needs accounts?</h2>
+        <p class="sub">Add one person or many. IT gets a verified request with your name on it, and you get a confirmation email.
+          <strong>*</strong> = required.</p>
+
+        <div class="toolbar">
+          <button class="btn-grey" onclick="addPerson()">＋ Add person</button>
+          <button class="btn-grey" onclick="addPerson(true)" title="New row with the same job, department, region, start date and accounts as the last person">⧉ Add another like the last</button>
+          <button class="btn-grey" onclick="togglePaste()">📋 Paste many from Excel</button>
+        </div>
+
+        <div class="paste" id="paste-box">
+          <p class="sub" style="margin-bottom:8px">Copy rows from Excel (or a CSV) and paste them below. Columns in this order —
+            <a href="#" onclick="downloadTemplate();return false" style="color:#4e9938;font-weight:700">download the template</a>:</p>
+          <p class="sub" style="margin-bottom:10px"><code>First name</code> <code>Middle names</code> <code>Surname</code> <code>Personal email</code> <code>Cell</code> <code>Region</code> <code>Job title</code> <code>Department</code> <code>Start date</code> <code>Line manager</code> <code>Microsoft (Y/N)</code> <code>Perigee (Y/N)</code> <code>Dext (Y/N)</code></p>
+          <textarea id="paste-input" rows="5" placeholder="Paste rows here…"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn-green" onclick="importPaste()">Add these people</button>
+            <button class="btn-grey" onclick="togglePaste()">Cancel</button>
+          </div>
+        </div>
+
+        <div id="people"></div>
+
+        <label for="batch-notes" style="margin-top:18px">Anything else IT should know? <span class="opt">(optional — applies to everyone above)</span></label>
+        <textarea id="batch-notes"></textarea>
+
+        <div class="submit-row">
+          <button class="btn-green btn-big" id="submit-btn" onclick="submitRequest()">Send to IT</button>
+          <span class="count" id="count"></span>
+        </div>
+        <div id="form-msg" class="msg"></div>
+      </div>
+
+      <div id="done-view" class="done" style="display:none">
+        <div style="font-size:38px">✅</div>
+        <h2 id="done-title">Request sent to IT</h2>
+        <div class="big" id="done-ticket"></div>
+        <p class="sub">Verification code <span class="code" id="done-code"></span></p>
+        <p class="sub" style="margin-top:10px">A confirmation email is on its way to you. It'll stay under <strong>My requests</strong> below until IT completes it.</p>
+        <button class="btn-grey" style="margin-top:16px" onclick="resetForm()">Request more accounts</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>My requests</h2>
+      <p class="sub" style="margin-bottom:10px">Requests still being worked on. Completed ones drop off this list.</p>
+      <div id="list"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <template id="person-tpl">
+    <div class="person">
+      <div class="p-head">
+        <div class="p-num"></div>
+        <div class="p-title">New person</div>
+        <button class="btn-link" data-act="remove">✕ Remove</button>
+      </div>
+      <div class="grid">
+        <div><label>First name <span class="req">*</span></label><input type="text" data-f="firstName" autocomplete="off"></div>
+        <div><label>Middle names <span class="opt">(optional)</span></label><input type="text" data-f="middleNames" autocomplete="off"></div>
+        <div><label>Surname <span class="req">*</span></label><input type="text" data-f="lastName" autocomplete="off"></div>
+        <div><label>Cell number <span class="req">*</span></label><input type="tel" data-f="cellphone" placeholder="082 123 4567" autocomplete="off"></div>
+        <div><label>Personal email <span class="opt">(if they have one)</span></label><input type="email" data-f="personalEmail" autocomplete="off"></div>
+        <div><label>Region <span class="req">*</span></label><select data-f="region"></select></div>
+        <div><label>Job title <span class="req">*</span></label><input type="text" data-f="jobTitle" list="job-list" autocomplete="off"></div>
+        <div><label>Department <span class="req">*</span></label><input type="text" data-f="department" list="dept-list" autocomplete="off"></div>
+        <div><label>Start date <span class="opt">(optional)</span></label><input type="date" data-f="startDate"></div>
+        <div><label>Line manager / team leader <span class="opt">(optional)</span></label><input type="text" data-f="managerName" autocomplete="off"></div>
+      </div>
+      <div class="accts">
+        <span class="lbl">Accounts needed <span style="color:#a4262c">*</span></span>
+        <label class="chip"><input type="checkbox" data-f="needsMicrosoft" checked> ✉️ Microsoft 365 email</label>
+        <label class="chip"><input type="checkbox" data-f="needsPerigee"> 📱 Perigee</label>
+        <label class="chip"><input type="checkbox" data-f="needsDext"> 🧾 Dext</label>
+      </div>
+      <div class="perigee-extra">
+        <div class="grid">
+          <div><label>Perigee user type <span class="opt">(optional)</span></label>
+            <select data-f="perigeeRole"><option value="">— Choose —</option><option>Merchandiser</option><option>Sales Rep</option><option>Team Leader</option><option>Supervisor</option><option>ASM</option><option>Regional Manager</option><option>Office / Admin</option><option>Other</option></select></div>
+          <div><label>Team name <span class="opt">(optional)</span></label><input type="text" data-f="teamName" autocomplete="off"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <datalist id="dept-list"><option>Field / Merchandising</option><option>Sales</option><option>Operations</option><option>Finance</option><option>HR</option><option>IT</option><option>Management</option></datalist>
+  <datalist id="job-list"><option>Merchandiser</option><option>Sales Rep</option><option>Team Leader</option><option>Supervisor</option><option>Area Sales Manager</option><option>Regional Manager</option><option>Administrator</option></datalist>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const REGIONS = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Head Office', 'National'];
+    const FIELDS = ['firstName', 'middleNames', 'lastName', 'cellphone', 'personalEmail', 'region', 'jobTitle', 'department', 'startDate', 'managerName', 'perigeeRole', 'teamName'];
+    const CHECKS = ['needsMicrosoft', 'needsPerigee', 'needsDext'];
+    const COPY_ON_REPEAT = ['region', 'jobTitle', 'department', 'startDate', 'managerName', 'perigeeRole', 'teamName', ...CHECKS];
+
+    IRAM_NAV.requireSession('requestAccounts').then(me => {
+      $('whoami').textContent = me.fullName || me.username;
+      IRAM_NAV.renderLinks('pn-links', me.role, 'request');
+      loadList();
+    });
+
+    // ── People rows ─────────────────────────────────────────────────────────
+    function personEls() { return [...document.querySelectorAll('#people .person')]; }
+
+    function addPerson(copyLast, values) {
+      const node = $('person-tpl').content.firstElementChild.cloneNode(true);
+      node.querySelector('[data-f=region]').innerHTML = '<option value="">— Choose —</option>' + REGIONS.map(r => `<option>${r}</option>`).join('');
+      const last = personEls().slice(-1)[0];
+      $('people').appendChild(node);
+      if (copyLast && last) {
+        const v = readPerson(last);
+        COPY_ON_REPEAT.forEach(k => setField(node, k, v[k]));
+      }
+      if (values) Object.keys(values).forEach(k => setField(node, k, values[k]));
+      node.querySelector('[data-act=remove]').addEventListener('click', () => { node.remove(); renumber(); });
+      node.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => { node.classList.remove('err'); syncPerson(node); }));
+      node.querySelectorAll('input[type=checkbox]').forEach(el => el.addEventListener('change', () => syncPerson(node)));
+      renumber();
+      if (!values) node.querySelector('[data-f=firstName]').focus();
+      return node;
+    }
+
+    function setField(node, k, v) {
+      const el = node.querySelector(`[data-f=${k}]`);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!v;
+      else if (el.tagName === 'SELECT' && v && ![...el.options].some(o => o.value === v)) {
+        // e.g. a pasted region spelled slightly differently — match case-insensitively
+        const m = [...el.options].find(o => o.value.toLowerCase() === String(v).toLowerCase());
+        if (m) el.value = m.value;
+      } else el.value = v == null ? '' : v;
+      syncPerson(node);
+    }
+
+    function readPerson(node) {
+      const p = {};
+      FIELDS.forEach(k => { const el = node.querySelector(`[data-f=${k}]`); p[k] = el ? el.value.trim() : ''; });
+      CHECKS.forEach(k => { p[k] = node.querySelector(`[data-f=${k}]`).checked; });
+      return p;
+    }
+
+    function syncPerson(node) {
+      node.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.querySelector('input').checked));
+      node.querySelector('.perigee-extra').classList.toggle('show', node.querySelector('[data-f=needsPerigee]').checked);
+      const p = readPerson(node);
+      node.querySelector('.p-title').textContent = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'New person';
+    }
+
+    function renumber() {
+      const els = personEls();
+      els.forEach((el, i) => {
+        el.querySelector('.p-num').textContent = i + 1;
+        el.querySelector('[data-act=remove]').style.visibility = els.length > 1 ? 'visible' : 'hidden';
+      });
+      $('count').textContent = els.length === 1 ? '1 person' : `${els.length} people`;
+    }
+
+    // ── Paste from Excel ────────────────────────────────────────────────────
+    function togglePaste() { $('paste-box').classList.toggle('show'); if ($('paste-box').classList.contains('show')) $('paste-input').focus(); }
+
+    const PASTE_COLS = ['firstName', 'middleNames', 'lastName', 'personalEmail', 'cellphone', 'region', 'jobTitle', 'department', 'startDate', 'managerName', 'needsMicrosoft', 'needsPerigee', 'needsDext'];
+    function parseRows(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const delim = lines.some(l => l.includes('\t')) ? '\t' : ',';
+      return lines.map(l => {
+        // simple CSV: honour "quoted, values"
+        if (delim === '\t') return l.split('\t');
+        const out = []; let cur = '', q = false;
+        for (const ch of l) {
+          if (ch === '"') q = !q; else if (ch === ',' && !q) { out.push(cur); cur = ''; } else cur += ch;
+        }
+        out.push(cur); return out;
+      }).filter(cells => !/^first/i.test((cells[0] || '').trim())); // skip header row
+    }
+    const yes = v => /^(y|yes|true|1|x|✓)$/i.test(String(v || '').trim());
+    function toIsoDate(v) {
+      v = String(v || '').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+      const m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(v); // dd/mm/yyyy (SA format)
+      return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+    }
+    function importPaste() {
+      const rows = parseRows($('paste-input').value);
+      if (!rows.length) return showMsg('Nothing to add — paste at least one row.');
+      // Replace a single untouched blank row rather than leaving it at the top.
+      const els = personEls();
+      if (els.length === 1 && !readPerson(els[0]).firstName && !readPerson(els[0]).lastName) els[0].remove();
+      rows.forEach(cells => {
+        const v = {};
+        PASTE_COLS.forEach((k, i) => { v[k] = (cells[i] || '').trim(); });
+        CHECKS.forEach(k => { v[k] = yes(v[k]); });
+        if (!v.needsMicrosoft && !v.needsPerigee && !v.needsDext) v.needsMicrosoft = true;
+        v.startDate = toIsoDate(v.startDate);
+        addPerson(false, v);
+      });
+      $('paste-input').value = '';
+      togglePaste();
+      showMsg(`Added ${rows.length} ${rows.length === 1 ? 'person' : 'people'} — check them below, then Send to IT.`, true);
+    }
+    function downloadTemplate() {
+      const head = 'First name,Middle names,Surname,Personal email,Cell,Region,Job title,Department,Start date (YYYY-MM-DD),Line manager,Microsoft (Y/N),Perigee (Y/N),Dext (Y/N)';
+      const eg = 'Sipho,,Ndlovu,sipho@gmail.com,082 123 4567,Gauteng,Merchandiser,Field / Merchandising,2026-12-01,Thandi Mokoena,Y,Y,N';
+      const blob = new Blob([head + '\r\n' + eg + '\r\n'], { type: 'text/csv' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'new-starter-template.csv'; a.click();
+    }
+
+    // ── Submit ──────────────────────────────────────────────────────────────
+    function showMsg(text, ok) { const el = $('form-msg'); el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); }
+
+    function validate(p, i) {
+      const who = [p.firstName, p.lastName].filter(Boolean).join(' ') || `Person ${i + 1}`;
+      const miss = [['firstName', 'first name'], ['lastName', 'surname'], ['cellphone', 'cell number'], ['region', 'region'], ['jobTitle', 'job title'], ['department', 'department']].filter(([k]) => !p[k]).map(([, l]) => l);
+      if (miss.length) return { msg: `${who}: please fill in ${miss.join(', ')}.`, field: [['firstName'], ['lastName'], ['cellphone'], ['region'], ['jobTitle'], ['department']].map(x => x[0]).find(k => !p[k]) };
+      if (!p.needsMicrosoft && !p.needsPerigee && !p.needsDext) return { msg: `${who}: tick at least one account.` };
+      if (p.personalEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.personalEmail)) return { msg: `${who}: the personal email looks wrong.`, field: 'personalEmail' };
+      if (p.cellphone.replace(/\D/g, '').length < 9) return { msg: `${who}: the cell number looks too short.`, field: 'cellphone' };
+      return null;
+    }
+
+    function flag(i, field) {
+      const node = personEls()[i];
+      if (!node) return;
+      node.classList.add('err');
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const el = field && node.querySelector(`[data-f=${field}]`);
+      if (el) setTimeout(() => el.focus(), 300);
+    }
+
+    async function submitRequest() {
+      const people = personEls().map(readPerson);
+      for (let i = 0; i < people.length; i++) {
+        const e = validate(people[i], i);
+        if (e) { showMsg(e.msg); flag(i, e.field); return; }
+      }
+      const btn = $('submit-btn');
+      btn.disabled = true; btn.textContent = 'Sending…';
+      try {
+        const r = await fetch('/api/admin/account-request', {
+          method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ people, notes: $('batch-notes').value.trim() })
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 401) { location.replace('/login.html'); return; }
+        if (!r.ok) { if (data.index !== undefined) flag(data.index); throw new Error(data.message || 'Something went wrong. Please try again.'); }
+        $('done-title').textContent = data.count === 1 ? 'Request sent to IT' : `Request for ${data.count} people sent to IT`;
+        $('done-ticket').textContent = data.ticketID;
+        $('done-code').textContent = data.verificationCode;
+        $('form-view').style.display = 'none';
+        $('done-view').style.display = '';
+        loadList();
+      } catch (err) {
+        showMsg(err.message);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Send to IT';
+      }
+    }
+
+    function resetForm() {
+      $('people').innerHTML = '';
+      $('batch-notes').value = '';
+      $('form-msg').className = 'msg';
+      addPerson();
+      $('done-view').style.display = 'none';
+      $('form-view').style.display = '';
+      window.scrollTo(0, 0);
+    }
+
+    // ── My requests (active only) ────────────────────────────────────────────
+    async function loadList() {
+      try {
+        const r = await fetch('/api/admin/account-request?active=1', { cache: 'no-store' });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.message || 'Could not load your requests.');
+        const rows = (data.requests || []).filter(x => !data.seesAll || true);
+        if (!rows.length) { $('list').innerHTML = '<div class="empty">Nothing in progress. 🎉</div>'; return; }
+        $('list').innerHTML = `<table class="list"><thead><tr><th>Ticket</th><th>People</th><th>Accounts</th><th class="hide-sm">Logged</th><th>Status</th></tr></thead><tbody>` +
+          rows.map(x => {
+            const s = x.services || {};
+            const accts = [s.microsoft && `${s.microsoft}× Microsoft`, s.perigee && `${s.perigee}× Perigee`, s.dext && `${s.dext}× Dext`].filter(Boolean).join('<br>');
+            const more = x.count > (x.names || []).length ? ` +${x.count - x.names.length} more` : '';
+            const pct = x.count ? Math.round(100 * (x.doneCount || 0) / x.count) : 0;
+            const st = x.status || 'Open';
+            return `<tr>
+              <td class="tid">${esc(x.ticketID)}</td>
+              <td>${esc((x.names || []).join(', '))}${esc(more)}<div class="hint">${esc((x.regions || []).join(', '))}${x.earliestStart ? ' · starts ' + esc(x.earliestStart) : ''}</div></td>
+              <td style="font-size:12.5px">${accts}</td>
+              <td class="hide-sm" style="white-space:nowrap">${esc(new Date(x.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }))}</td>
+              <td><span class="pill ${st === 'In Progress' ? 'inprog' : 'Open'}">${esc(st)}</span>
+                <div class="bar" title="${x.doneCount || 0} of ${x.count} people done"><i style="width:${pct}%"></i></div>
+                <div class="hint">${x.doneCount || 0} of ${x.count} done</div></td>
+            </tr>`;
+          }).join('') + '</tbody></table>';
+      } catch (err) {
+        $('list').innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+      }
+    }
+
+    addPerson();
+  </script>
+</body>
+</html>

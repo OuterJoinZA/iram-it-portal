@@ -109,16 +109,11 @@
     </div>
   </div>
 
+  <script src="/admin/assets/portal-nav.js"></script>
   <script>
     // Mirrors lib/roles.js — duplicated here since this is a static site with
     // no build step. This page needs manageUsers (Super Admin only).
-    const ROLE_PERMS = {
-      super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets'],
-      admin:       ['editHR', 'editIT', 'manageTickets'],
-      hr_admin:    ['editHR'],
-      it:          ['manageTickets'],
-      hr_manager: [], hr: [], assistant_hr: [], field_goosehelp: [], staff: []
-    };
+    const ROLE_PERMS = window.IRAM_NAV.ROLE_PERMS; // admin/assets/portal-nav.js
     const MY_PERMS = ROLE_PERMS[sessionStorage.getItem('iram_role')] || [];
     if (sessionStorage.getItem('iram_it_auth') !== 'true' || !MY_PERMS.includes('manageUsers')) {
       location.replace('../login.html');

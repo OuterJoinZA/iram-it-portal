@@ -6,11 +6,14 @@
 // Mirrors lib/roles.js — duplicated here since this is a static site with no
 // build step. This page is the ticket dashboard, so it needs manageTickets.
 const ROLE_PERMS = {
-  super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets'],
-  admin:       ['editHR', 'editIT', 'manageTickets'],
-  hr_admin:    ['editHR'],
-  it:          ['manageTickets'],
-  hr_manager: [], hr: [], assistant_hr: [], field_goosehelp: [], staff: []
+  super_admin: ['manageUsers', 'editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts'],
+  admin:       ['editHR', 'editIT', 'manageTickets', 'viewTicketStats', 'requestAccounts'],
+  hr_admin:    ['editHR', 'viewTicketStats', 'requestAccounts'],
+  it:          ['manageTickets', 'viewTicketStats'],
+  hr_manager:  ['editHR', 'viewTicketStats', 'requestAccounts'],
+  hr:          ['editHR', 'viewTicketStats', 'requestAccounts'],
+  assistant_hr: ['editHR', 'viewTicketStats', 'requestAccounts'],
+  field_goosehelp: [], staff: []
 };
 const MY_ROLE  = sessionStorage.getItem('iram_role');
 const MY_PERMS = ROLE_PERMS[MY_ROLE] || [];
@@ -47,6 +50,17 @@ document.addEventListener('DOMContentLoaded', () => {
     a.className = 'nav-item';
     a.href = '/admin/account';
     a.innerHTML = '<span class="icon">🔑</span> My Account';
+    link.after(a);
+  }
+});
+// HR-verified new-starter account requests (verify + register) — IT side.
+document.addEventListener('DOMContentLoaded', () => {
+  const link = document.getElementById('nav-links-section');
+  if (link) {
+    const a = document.createElement('a');
+    a.className = 'nav-item';
+    a.href = '/admin/new-starters';
+    a.innerHTML = '<span class="icon">🧑‍💻</span> New Starter Queue';
     link.after(a);
   }
 });
@@ -272,8 +286,16 @@ function normalizeTicket(t) {
   };
 }
 
+// New-starter account requests are logged as tickets too (so they get a
+// calendar booking and SharePoint row), but they're worked from their own
+// queue page — /admin/new-starters — so they're kept out of this table.
+const ACCOUNT_REQUEST_MARKER = '[NEW STARTER ACCOUNT REQUEST]';
+function isAccountRequestTicket(t) {
+  return String(t.Description || '').startsWith(ACCOUNT_REQUEST_MARKER);
+}
+
 function renderAll() {
-  allTickets = (Array.isArray(allTickets) ? allTickets : []).map(normalizeTicket);
+  allTickets = (Array.isArray(allTickets) ? allTickets : []).map(normalizeTicket).filter(t => !isAccountRequestTicket(t));
   populateFilterOptions();
   renderStats();
   renderTable();

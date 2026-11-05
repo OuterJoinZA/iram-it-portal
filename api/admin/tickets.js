@@ -1,6 +1,8 @@
 // ──────────────────────────────────────────────────────────────────────────────
 // Admin: list all tickets. Proxies the Power Automate "get all tickets" flow so
-// the flow URL stays server-side. Gated by the admin key (see isAuthed).
+// the flow URL stays server-side. IT (manageTickets) get everything; HR
+// (viewTicketStats, read-only summary page) get the same list minus IT's
+// internal Notes. Neither permission can change a ticket from here.
 // ──────────────────────────────────────────────────────────────────────────────
 const { requireRole } = require('../../lib/require-role');
 
@@ -10,7 +12,9 @@ async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  if (!requireRole(req, 'manageTickets')) return res.status(401).json({ error: 'Unauthorized' });
+  const isIT    = !!requireRole(req, 'manageTickets');
+  const canView = isIT || !!requireRole(req, 'viewTicketStats');
+  if (!canView) return res.status(401).json({ error: 'Unauthorized' });
 
   const flowUrl = process.env.PA_GET_TICKETS_URL;
   if (!flowUrl) return res.status(503).json({ error: 'not_configured' });
@@ -40,6 +44,7 @@ async function handler(req, res) {
     const text = await r.text();
     const data = text ? JSON.parse(text) : [];
     const list = Array.isArray(data) ? data : (Array.isArray(data.value) ? data.value : []);
+    if (!isIT) list.forEach(t => { if (t && typeof t === 'object') { delete t.Notes; delete t.notes; } });
     return res.status(200).json(list);
   } catch (err) {
     clearTimeout(timeout);

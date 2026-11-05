@@ -5,8 +5,9 @@
 // the rotation clock — see lib/users.js updateUser) and issues the real
 // session cookie.
 // ──────────────────────────────────────────────────────────────────────────────
-const { verifyPendingToken, issueToken, sessionCookieHeader } = require('../../lib/auth');
-const { updateUser } = require('../../lib/users');
+const { verifyPendingToken, issuePendingToken, issueToken, sessionCookieHeader } = require('../../lib/auth');
+const { updateUser, getUser, loginMfaType } = require('../../lib/users');
+const { sendLoginOtpEmail, maskEmail } = require('../../lib/login-otp');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -26,7 +27,19 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: err.message || 'Could not set the new password.' });
   }
 
-  const token = issueToken({ username: user.username, role: user.role });
-  res.setHeader('Set-Cookie', sessionCookieHeader(token));
+  // Changing the password doesn't skip 2FA — continue to the code step.
+  const remember = !!(pending.data && pending.data.remember);
+  const full = await getUser(user.username);
+  const mfaType = loginMfaType(full);
+  if (mfaType) {
+    if (mfaType === 'email') {
+      try { await sendLoginOtpEmail(full); } catch (err) { console.error('Login OTP email failed:', err.message); }
+    }
+    const pendingToken = issuePendingToken({ username: user.username, purpose: 'mfa', data: { mfaType, remember } });
+    return res.status(200).json({ ok: true, mfaRequired: mfaType, sentTo: mfaType === 'email' ? maskEmail(full.email) : undefined, pendingToken });
+  }
+
+  const token = issueToken({ username: user.username, role: user.role, remember });
+  res.setHeader('Set-Cookie', sessionCookieHeader(token, remember));
   return res.status(200).json({ ok: true, username: user.username, role: user.role });
 };

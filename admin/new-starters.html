@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam IT — New Starter Queue</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧑‍💻</text></svg>">
+  <script src="/admin/assets/portal-nav.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D2D2D; background: #f4f6f8; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; gap: 12px; background: #2D2D2D; color: #fff; padding: 10px 20px; flex-wrap: wrap; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 22px 20px 60px; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .stat { background: #fff; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06); border-top: 3px solid #4e9938; }
+    .stat .l { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .5px; }
+    .stat .v { font-size: 28px; font-weight: 800; margin-top: 4px; }
+    .stat .s { font-size: 12px; color: #999; }
+    .stat.blue { border-top-color: #1d5fa8; } .stat.amber { border-top-color: #d08a00; } .stat.red { border-top-color: #a4262c; }
+
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .tabs { display: flex; background: #fff; border-radius: 8px; padding: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+    .tab { border: none; background: none; padding: 7px 13px; font: 700 13px inherit; font-family: inherit; color: #666; border-radius: 6px; cursor: pointer; }
+    .tab.active { background: #4e9938; color: #fff; }
+    .filters input, .filters select { padding: 8px 10px; border: 1.5px solid #dcdfe3; border-radius: 7px; font: 13px inherit; font-family: inherit; background: #fff; }
+    .filters input { min-width: 240px; flex: 1; }
+
+    .table-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow-x: auto; }
+    table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .t th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: #888; padding: 11px 12px; border-bottom: 2px solid #eef0f2; white-space: nowrap; }
+    .t td { padding: 11px 12px; border-bottom: 1px solid #f2f3f5; vertical-align: top; }
+    .t tbody tr { cursor: pointer; } .t tbody tr:hover { background: #f8fbf7; }
+    .tid { font-weight: 800; color: #4e9938; white-space: nowrap; }
+    .hint { font-size: 11.5px; color: #999; margin-top: 2px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+    .b-Open { background: #e8f1fb; color: #1d5fa8; } .b-In-Progress { background: #fff4e0; color: #9a5b00; }
+    .b-Resolved { background: #edf7e8; color: #2f6b1a; } .b-Closed { background: #f0f0f0; color: #777; }
+    .b-High { background: #fdeee6; color: #c03d00; } .b-Medium { background: #fff8e1; color: #8a6d00; }
+    .svc { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin: 0 3px 3px 0; background: #eef0f2; }
+    .svc.ms { background: #e8f1fb; color: #1d5fa8; } .svc.pg { background: #fdeee6; color: #c03d00; } .svc.dx { background: #f1ebfb; color: #5b2ea6; }
+    .empty { text-align: center; color: #aaa; padding: 40px 10px; }
+    .bar { height: 6px; background: #eef0f2; border-radius: 4px; overflow: hidden; margin-top: 5px; width: 80px; }
+    .bar > i { display: block; height: 100%; background: #4e9938; }
+    .soon { color: #a4262c; font-weight: 800; }
+
+    /* modal */
+    .overlay { position: fixed; inset: 0; background: rgba(20,24,28,.5); display: none; align-items: flex-start; justify-content: center; padding: 30px 14px; overflow-y: auto; z-index: 20; }
+    .overlay.show { display: flex; }
+    .modal { background: #f4f6f8; border-radius: 12px; width: 100%; max-width: 1000px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+    .m-head { background: #2D2D2D; color: #fff; padding: 16px 22px; border-radius: 12px 12px 0 0; display: flex; align-items: center; gap: 12px; }
+    .m-head h2 { font-size: 18px; margin-right: auto; }
+    .m-close { background: #4a4a4a; color: #fff; border: none; border-radius: 7px; padding: 7px 12px; cursor: pointer; font-weight: 700; }
+    .m-body { padding: 18px 22px 24px; }
+    .box { background: #fff; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+    .box h3 { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+    .verify-ok { border-left: 4px solid #4e9938; } .verify-bad { border-left: 4px solid #a4262c; background: #fffafa; }
+    .kv { display: grid; grid-template-columns: 150px 1fr; gap: 5px 12px; font-size: 13px; }
+    .kv dt { font-weight: 700; color: #777; } .kv dd { word-break: break-word; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .row > div { flex: 1; min-width: 160px; }
+    label { display: block; font-size: 10.5px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin: 0 0 5px; }
+    select, input[type=text], input[type=email], input[type=datetime-local], textarea { width: 100%; padding: 8px 10px; border: 1.5px solid #dcdfe3; border-radius: 7px; font: 13px inherit; font-family: inherit; background: #fff; }
+    textarea { min-height: 60px; resize: vertical; }
+    button.b { border: none; cursor: pointer; border-radius: 7px; padding: 9px 14px; font: 700 13px inherit; font-family: inherit; }
+    .b-green { background: #4e9938; color: #fff; } .b-green:hover { background: #3d7828; }
+    .b-grey { background: #eef0f2; color: #333; } .b-grey:hover { background: #e2e5e8; }
+    .b-red { background: #fdf0f0; color: #a4262c; }
+    .b-sm { padding: 5px 9px !important; font-size: 11.5px !important; }
+
+    .person { background: #fff; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05); overflow: hidden; }
+    .p-top { display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f0f1f3; flex-wrap: wrap; }
+    .p-top .nm { font-weight: 800; font-size: 15px; margin-right: auto; }
+    .p-top .done-all { color: #2f6b1a; font-weight: 800; font-size: 12px; }
+    .p-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+    .p-col { padding: 12px 16px; border-right: 1px solid #f0f1f3; }
+    .p-col:last-child { border-right: none; }
+    .p-col h4 { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .p-col.off { opacity: .45; }
+    .fields { font-size: 12.5px; display: grid; grid-template-columns: auto 1fr auto; gap: 3px 8px; align-items: baseline; }
+    .fields .k { color: #888; white-space: nowrap; }
+    .fields .v { font-family: Consolas, monospace; font-size: 12px; word-break: break-all; }
+    .copy { border: none; background: none; cursor: pointer; font-size: 12px; color: #4e9938; padding: 0 2px; }
+    .tick { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin-top: 10px; cursor: pointer; }
+    .tick input { width: 16px; height: 16px; accent-color: #4e9938; }
+    .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #2D2D2D; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; display: none; z-index: 40; }
+    .toast.show { display: block; } .toast.err { background: #a4262c; }
+    @media (max-width: 900px) { .stats { grid-template-columns: 1fr 1fr; } .p-cols { grid-template-columns: 1fr; } .p-col { border-right: none; border-bottom: 1px solid #f0f1f3; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🧑‍💻 New Starter Queue</h1>
+    <span class="pn-links" id="pn-links"></span>
+  </div>
+
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat blue"><div class="l">Open requests</div><div class="v" id="s-open">—</div><div class="s">Not started yet</div></div>
+      <div class="stat amber"><div class="l">In progress</div><div class="v" id="s-prog">—</div><div class="s">Being set up</div></div>
+      <div class="stat"><div class="l">People waiting</div><div class="v" id="s-people">—</div><div class="s">Across active requests</div></div>
+      <div class="stat red"><div class="l">Starting ≤ 7 days</div><div class="v" id="s-soon">—</div><div class="s">Active, start date soon</div></div>
+    </div>
+
+    <div class="filters">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="active">Active</button>
+        <button class="tab" data-tab="Open">Open</button>
+        <button class="tab" data-tab="In Progress">In Progress</button>
+        <button class="tab" data-tab="done">Completed</button>
+        <button class="tab" data-tab="all">All</button>
+      </div>
+      <input type="text" id="q" placeholder="Search ticket, name, HR person…">
+      <select id="f-region"><option value="">All regions</option></select>
+      <select id="f-svc"><option value="">All accounts</option><option value="microsoft">Microsoft 365</option><option value="perigee">Perigee</option><option value="dext">Dext</option></select>
+      <button class="b b-grey" onclick="load()">↻ Refresh</button>
+    </div>
+
+    <div class="table-card">
+      <table class="t">
+        <thead><tr><th>Ticket</th><th>People</th><th>Accounts</th><th>Region</th><th>Starts</th><th>Requested by</th><th>Priority</th><th>Status</th><th>Assigned</th><th>Logged</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="10" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="m-head"><h2 id="m-title">—</h2><span id="m-status-badge"></span><button class="m-close" onclick="closeModal()">✕ Close</button></div>
+      <div class="m-body" id="m-body"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const DOMAIN = 'iram.co.za';
+    const COUNTRY = 'South Africa';
+    let rows = [], tab = 'active', spTickets = null, open = null;
+
+    IRAM_NAV.requireSession('manageTickets').then(me => {
+      IRAM_NAV.renderLinks('pn-links', me.role, 'newstarters');
+      load();
+      loadSharePoint();
+      const id = new URLSearchParams(location.search).get('id') || new URLSearchParams(location.search).get('verify');
+      if (id) openRequest(id.toUpperCase());
+    });
+
+    function toast(msg, err) { const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._h); t._h = setTimeout(() => t.className = 'toast', 3200); }
+    const fmt = d => { try { return new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; } };
+    const daysTo = d => d ? Math.ceil((Date.parse(d + 'T00:00:00+02:00') - Date.now()) / 86400000) : null;
+    const isActive = s => s === 'Open' || s === 'In Progress' || !s;
+
+    // ── List ────────────────────────────────────────────────────────────────
+    async function load() {
+      try {
+        const r = await fetch('/api/admin/account-request', { cache: 'no-store' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.message || d.error || 'Could not load requests');
+        rows = d.requests || [];
+        const regions = [...new Set(rows.flatMap(x => x.regions || []))].sort();
+        $('f-region').innerHTML = '<option value="">All regions</option>' + regions.map(r => `<option>${esc(r)}</option>`).join('');
+        render();
+      } catch (e) {
+        $('tbody').innerHTML = `<tr><td colspan="10" class="empty">${esc(e.message)}</td></tr>`;
+      }
+    }
+
+    // SharePoint row (id + current fields) per ticket — needed to change status
+    // and the calendar booking through the existing update-ticket flow.
+    async function loadSharePoint() {
+      try {
+        const r = await fetch('/api/admin/tickets', { cache: 'no-store' });
+        if (!r.ok) return;
+        const list = await r.json();
+        spTickets = {};
+        (Array.isArray(list) ? list : []).forEach(t => {
+          const v = x => (x && typeof x === 'object') ? (x.Value ?? x.DisplayName ?? '') : (x ?? '');
+          const id = t.TicketID ?? t.Title ?? t.ticketID;
+          if (id) spTickets[id] = { id: t.id ?? t.ID ?? t.ItemInternalId, Status: v(t.Status), Priority: v(t.Priority), AssignedTo: v(t.AssignedTo), PublicUpdate: t.PublicUpdate || '', Notes: t.Notes || '', Category: v(t.Category), Description: t.Description || '' };
+        });
+        if (open) renderModal();
+      } catch (_) {}
+    }
+
+    function render() {
+      const q = $('q').value.trim().toLowerCase(), reg = $('f-region').value, svc = $('f-svc').value;
+      const active = rows.filter(x => isActive(x.status));
+      $('s-open').textContent = rows.filter(x => (x.status || 'Open') === 'Open').length;
+      $('s-prog').textContent = rows.filter(x => x.status === 'In Progress').length;
+      $('s-people').textContent = active.reduce((n, x) => n + (x.count - (x.doneCount || 0)), 0);
+      $('s-soon').textContent = active.filter(x => { const d = daysTo(x.earliestStart); return d !== null && d <= 7; }).length;
+
+      const list = rows.filter(x => {
+        const st = x.status || 'Open';
+        if (tab === 'active' && !isActive(st)) return false;
+        if (tab === 'done' && isActive(st)) return false;
+        if ((tab === 'Open' || tab === 'In Progress') && st !== tab) return false;
+        if (reg && !(x.regions || []).includes(reg)) return false;
+        if (svc && !(x.services || {})[svc]) return false;
+        if (q && ![x.ticketID, x.requesterName, x.requestedBy, ...(x.names || [])].join(' ').toLowerCase().includes(q)) return false;
+        return true;
+      });
+      if (!list.length) { $('tbody').innerHTML = '<tr><td colspan="10" class="empty">No requests match.</td></tr>'; return; }
+      $('tbody').innerHTML = list.map(x => {
+        const s = x.services || {}, st = x.status || 'Open';
+        const d = daysTo(x.earliestStart);
+        const more = x.count > (x.names || []).length ? ` +${x.count - x.names.length}` : '';
+        const pct = x.count ? Math.round(100 * (x.doneCount || 0) / x.count) : 0;
+        return `<tr onclick="openRequest('${esc(x.ticketID)}')">
+          <td class="tid">${esc(x.ticketID)}</td>
+          <td><strong>${x.count}</strong> — ${esc((x.names || []).join(', '))}${esc(more)}<div class="bar"><i style="width:${pct}%"></i></div><div class="hint">${x.doneCount || 0}/${x.count} done</div></td>
+          <td>${s.microsoft ? `<span class="svc ms">${s.microsoft} MS365</span>` : ''}${s.perigee ? `<span class="svc pg">${s.perigee} Perigee</span>` : ''}${s.dext ? `<span class="svc dx">${s.dext} Dext</span>` : ''}</td>
+          <td>${esc((x.regions || []).join(', '))}</td>
+          <td style="white-space:nowrap" class="${d !== null && d <= 3 && isActive(st) ? 'soon' : ''}">${esc(x.earliestStart || '—')}</td>
+          <td>${esc(x.requesterName || x.requestedBy)}<div class="hint">${esc(x.requesterRole || '')}</div></td>
+          <td><span class="badge b-${esc(x.priority || 'Medium')}">${esc(x.priority || 'Medium')}</span></td>
+          <td><span class="badge b-${esc(st.replace(' ', '-'))}">${esc(st)}</span></td>
+          <td>${esc(x.assignedTo || '—')}</td>
+          <td style="white-space:nowrap;color:#888">${esc(fmt(x.createdAt))}</td></tr>`;
+      }).join('');
+    }
+    $('tabs').addEventListener('click', e => {
+      const b = e.target.closest('.tab'); if (!b) return;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === b));
+      tab = b.dataset.tab; render();
+    });
+    ['q', 'f-region', 'f-svc'].forEach(id => $(id).addEventListener('input', render));
+
+    // ── Detail ──────────────────────────────────────────────────────────────
+    async function openRequest(id) {
+      $('overlay').classList.add('show');
+      $('m-title').textContent = id;
+      $('m-status-badge').innerHTML = '';
+      $('m-body').innerHTML = '<p class="hint">Loading…</p>';
+      try {
+        const r = await fetch('/api/admin/account-request?id=' + encodeURIComponent(id), { cache: 'no-store' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.message || 'Could not load the request');
+        if (!d.record) {
+          open = null;
+          $('m-body').innerHTML = `<div class="box verify-bad"><h3>✖ Not an HR-verified request</h3><p style="font-size:13px">No request with ticket number <strong>${esc(id)}</strong> was logged through the HR portal. <strong>Don't create accounts</strong> — ask HR to log it from their Request Accounts page.</p></div>`;
+          return;
+        }
+        open = d;
+        history.replaceState(null, '', '?id=' + encodeURIComponent(id));
+        renderModal();
+      } catch (e) {
+        $('m-body').innerHTML = `<div class="box verify-bad">${esc(e.message)}</div>`;
+      }
+    }
+    function closeModal() { $('overlay').classList.remove('show'); open = null; history.replaceState(null, '', location.pathname); }
+    $('overlay').addEventListener('click', e => { if (e.target === $('overlay')) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && open) closeModal(); });
+
+    // Suggested Microsoft sign-in: firstname.surname@domain (accents/spaces stripped).
+    const slug = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+    const upnFor = p => p.createdEmail || `${slug(p.firstName)}.${slug(p.lastName)}@${DOMAIN}`;
+    const nameFor = p => [p.firstName, p.middleNames, p.lastName].filter(Boolean).join(' ');
+    function msFields(p) {
+      return [
+        ['User name (UPN)', upnFor(p)], ['First name', p.firstName], ['Last name', p.lastName],
+        ['Display name', `${p.firstName} ${p.lastName}`], ['Job title', p.jobTitle], ['Department', p.department],
+        ['Office', p.region], ['Mobile phone', p.cellphone], ['Alternate email', p.personalEmail],
+        ['Manager', p.managerName], ['Usage location', 'ZA — ' + COUNTRY]
+      ];
+    }
+    function perigeeFields(p) {
+      return [
+        ['Email address', p.needsMicrosoft ? upnFor(p) : (p.personalEmail || '— needs an email —')],
+        ['First name', p.firstName], ['Last name', p.lastName], ['Secondary email', p.personalEmail],
+        ['Phone', p.cellphone], ['Job title', p.jobTitle], ['Department', p.department],
+        ['Manager', p.managerName], ['Starting date', p.startDate], ['Assigned province', p.region],
+        ['App role / user type', p.perigeeRole], ['Team name', p.teamName], ['Middle names', p.middleNames]
+      ];
+    }
+    function dextFields(p) {
+      return [['Name', `${p.firstName} ${p.lastName}`], ['Email', p.needsMicrosoft ? upnFor(p) : (p.personalEmail || '— needs an email —')], ['Department', p.department], ['Region', p.region]];
+    }
+    function fieldList(list) {
+      return '<div class="fields">' + list.filter(([, v]) => v).map(([k, v]) =>
+        `<span class="k">${esc(k)}</span><span class="v">${esc(v)}</span><button class="copy" title="Copy" data-copy="${esc(v)}">⧉</button>`).join('') + '</div>';
+    }
+
+    function renderModal() {
+      if (!open) return;
+      const r = open.record, st = r.status || 'Open';
+      const sp = spTickets && spTickets[r.ticketID];
+      $('m-title').textContent = `${r.ticketID} · ${r.people.length} ${r.people.length === 1 ? 'person' : 'people'}`;
+      $('m-status-badge').innerHTML = `<span class="badge b-${esc(st.replace(' ', '-'))}">${esc(st)}</span>`;
+
+      const verify = open.verified
+        ? `<div class="box verify-ok"><h3>✔ Genuine HR request <span style="font-family:monospace;font-weight:700;color:#2f6b1a;margin-left:6px">${esc(r.verificationCode)}</span></h3>
+            <dl class="kv"><dt>Requested by</dt><dd>${esc(r.requesterName || r.requestedBy)} — ${esc(r.requesterRole)}${r.requesterEmail ? ' &lt;' + esc(r.requesterEmail) + '&gt;' : ''}</dd>
+            <dt>Signed in with</dt><dd>${r.hasAccount ? 'Personal account + 2FA code' : '⚠️ Shared break-glass login — confirm with HR before acting'}</dd>
+            <dt>Logged</dt><dd>${esc(fmt(r.createdAt))}${r.ip ? ' · IP ' + esc(r.ip) : ''}</dd>
+            ${r.notes ? `<dt>HR notes</dt><dd>${esc(r.notes)}</dd>` : ''}</dl></div>`
+        : `<div class="box verify-bad"><h3>✖ Signature doesn't match</h3><p style="font-size:13px">This record was changed outside the portal. <strong>Don't create accounts</strong> — check with HR directly.</p></div>`;
+
+      const statusOpts = ['Open', 'In Progress', 'Resolved', 'Closed'].map(s => `<option ${s === st ? 'selected' : ''}>${s}</option>`).join('');
+      const manage = `<div class="box"><h3>Work this request</h3>
+        <div class="row">
+          <div style="max-width:200px"><label>Status</label><select id="m-status">${statusOpts}</select></div>
+          <div><label>IT notes (internal)</label><textarea id="m-notes" rows="1">${esc(r.itNotes || '')}</textarea></div>
+          <div style="flex:0"><button class="b b-green" onclick="saveRequest()">Save</button></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div style="flex:0;white-space:nowrap"><label>Calendar booking</label>
+            ${sp ? `<button class="b b-grey" onclick="calendar('reschedule')">📅 Auto-rebook next free slot</button>` : '<span class="hint">Booking controls appear once the ticket shows in SharePoint.</span>'}</div>
+          ${sp ? `<div style="max-width:220px"><label>…or exact time (SAST)</label><input type="datetime-local" id="m-when"></div>
+          <div style="flex:0"><button class="b b-grey" onclick="calendar('reschedule', true)">Move to this time</button></div>
+          <div style="flex:0"><button class="b b-red" onclick="calendar('cancel')">Cancel booking</button></div>` : ''}
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div style="flex:0;white-space:nowrap"><label>Export everyone</label>
+            <button class="b b-grey" onclick="exportCsv('ms')">⬇ Microsoft 365 bulk CSV</button>
+            <button class="b b-grey" onclick="exportCsv('perigee')">⬇ Perigee CSV</button>
+            <button class="b b-grey" onclick="copyAll()">⧉ Copy all as text</button></div>
+        </div>
+        <p class="hint" style="margin-top:8px">Marking Resolved/Closed also clears the calendar booking and emails ${esc(r.requesterName || 'HR')} the status change. Tick each account below as you create it.</p>
+      </div>`;
+
+      const people = r.people.map((p, i) => {
+        const d = p.done || {};
+        const allDone = (!p.needsMicrosoft || d.microsoft) && (!p.needsPerigee || d.perigee) && (!p.needsDext || d.dext);
+        const col = (key, title, on, fields, extra = '') => `<div class="p-col ${on ? '' : 'off'}">
+          <h4>${title}${on ? '' : ' — not needed'}</h4>
+          ${on ? fieldList(fields) + extra + `<label class="tick"><input type="checkbox" data-i="${i}" data-done="${key}" ${d[key] ? 'checked' : ''}> Created</label>` : ''}</div>`;
+        return `<div class="person">
+          <div class="p-top"><span class="nm">${i + 1}. ${esc(nameFor(p))}</span>
+            <span class="hint">${esc(p.jobTitle)} · ${esc(p.department)} · ${esc(p.region)}${p.startDate ? ' · starts ' + esc(p.startDate) : ''}</span>
+            ${allDone ? '<span class="done-all">✔ All done</span>' : ''}</div>
+          <div class="p-cols">
+            ${col('microsoft', '✉️ Microsoft 365', p.needsMicrosoft, msFields(p),
+              `<div style="margin-top:8px"><label>Address actually created</label><input type="email" data-i="${i}" data-created placeholder="${esc(upnFor(p))}" value="${esc(p.createdEmail || '')}"></div>`)}
+            ${col('perigee', '📱 Perigee', p.needsPerigee, perigeeFields(p))}
+            ${col('dext', '🧾 Dext', p.needsDext, dextFields(p))}
+          </div>
+          ${p.notes ? `<div style="padding:0 16px 12px" class="hint">Note: ${esc(p.notes)}</div>` : ''}
+        </div>`;
+      }).join('');
+
+      $('m-body').innerHTML = verify + manage + people;
+      $('m-body').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copy(b.dataset.copy)));
+      $('m-body').querySelectorAll('[data-done]').forEach(cb => cb.addEventListener('change', () =>
+        patch({ people: [{ index: +cb.dataset.i, done: { [cb.dataset.done]: cb.checked } }] }, cb.checked ? 'Ticked ✓' : 'Unticked')));
+      $('m-body').querySelectorAll('[data-created]').forEach(inp => inp.addEventListener('change', () =>
+        patch({ people: [{ index: +inp.dataset.i, createdEmail: inp.value.trim() }] }, 'Saved address ✓')));
+    }
+
+    async function copy(text) {
+      try { await navigator.clipboard.writeText(text); toast('Copied'); } catch (_) { toast('Copy failed — select and copy manually', true); }
+    }
+
+    async function patch(body, okMsg) {
+      try {
+        const r = await fetch('/api/admin/account-request', { method: 'PATCH', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketID: open.record.ticketID, ...body }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.message || d.error || 'Save failed');
+        open.record = d.record;
+        renderModal();
+        load();
+        if (okMsg) toast(okMsg);
+        return true;
+      } catch (e) { toast(e.message, true); return false; }
+    }
+
+    // Status goes to both places: SharePoint (existing update-ticket flow —
+    // which also clears the booking on Resolved/Closed and emails HR) and
+    // this request's own record.
+    async function saveRequest() {
+      const r = open.record, status = $('m-status').value, itNotes = $('m-notes').value;
+      const sp = spTickets && spTickets[r.ticketID];
+      if (sp && status !== (sp.Status || r.status)) {
+        const ok = await updateTicket({ Status: status, oldStatus: sp.Status || r.status });
+        if (!ok) return;
+        sp.Status = status;
+      }
+      await patch({ status, itNotes }, sp || status === r.status ? 'Saved ✓' : 'Saved ✓ (SharePoint not reachable — status saved here only)');
+    }
+
+    async function updateTicket(extra) {
+      const r = open.record, sp = spTickets[r.ticketID];
+      try {
+        const res = await fetch('/api/admin/update-ticket', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          id: sp.id, Status: sp.Status || r.status, Priority: sp.Priority, AssignedTo: sp.AssignedTo, PublicUpdate: sp.PublicUpdate, Notes: sp.Notes,
+          oldStatus: sp.Status || r.status, ticketID: r.ticketID, category: sp.Category, description: sp.Description,
+          submitterEmail: r.requesterEmail, submitterName: r.requesterName, estimatedMinutes: r.estimatedMinutes, ...extra
+        }) });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'SharePoint update failed'); }
+        return true;
+      } catch (e) { toast(e.message, true); return false; }
+    }
+
+    async function calendar(action, exact) {
+      const r = open.record;
+      let manualStart = '';
+      if (exact) {
+        const raw = $('m-when').value;
+        if (!raw) return toast('Pick a date and time first', true);
+        manualStart = new Date(raw + ':00+02:00').toISOString();
+      }
+      if (action === 'cancel' && !confirm('Cancel the calendar booking and close this request? HR will be emailed.')) return;
+      const ok = await updateTicket({ calendarAction: action, manualStart, Status: action === 'cancel' ? 'Closed' : (spTickets[r.ticketID].Status || r.status) });
+      if (!ok) return;
+      if (action === 'cancel') { spTickets[r.ticketID].Status = 'Closed'; await patch({ status: 'Closed' }, 'Booking cancelled, request closed ✓'); }
+      else toast(exact ? 'Moved to that time ✓' : 'Rebooked into the next free slot ✓');
+    }
+
+    // ── Exports ─────────────────────────────────────────────────────────────
+    const csvCell = v => /[",\r\n]/.test(String(v ?? '')) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? '');
+    function download(name, lines) {
+      const blob = new Blob(['﻿' + lines.map(l => l.map(csvCell).join(',')).join('\r\n') + '\r\n'], { type: 'text/csv' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    }
+    function exportCsv(kind) {
+      const r = open.record;
+      if (kind === 'ms') {
+        // Microsoft 365 admin centre → Users → Add multiple users → CSV template columns.
+        const people = r.people.filter(p => p.needsMicrosoft);
+        if (!people.length) return toast('Nobody in this request needs Microsoft 365', true);
+        download(`${r.ticketID}-microsoft365.csv`, [
+          ['User name', 'First name', 'Last name', 'Display name', 'Job title', 'Department', 'Office number', 'Office phone', 'Mobile phone', 'Fax', 'Alternate email address', 'Address', 'City', 'State or province', 'ZIP or postal code', 'Country or region'],
+          ...people.map(p => [upnFor(p), p.firstName, p.lastName, `${p.firstName} ${p.lastName}`, p.jobTitle, p.department, p.region, '', p.cellphone, '', p.personalEmail, '', '', p.region, '', COUNTRY])
+        ]);
+      } else {
+        const people = r.people.filter(p => p.needsPerigee);
+        if (!people.length) return toast('Nobody in this request needs Perigee', true);
+        const head = perigeeFields(people[0]).map(([k]) => k);
+        download(`${r.ticketID}-perigee.csv`, [head, ...people.map(p => perigeeFields(p).map(([, v]) => v))]);
+      }
+    }
+    function copyAll() {
+      const r = open.record;
+      const text = r.people.map((p, i) => {
+        const parts = [`${i + 1}. ${nameFor(p)}`];
+        if (p.needsMicrosoft) parts.push('  Microsoft 365:', ...msFields(p).filter(([, v]) => v).map(([k, v]) => `    ${k}: ${v}`));
+        if (p.needsPerigee) parts.push('  Perigee:', ...perigeeFields(p).filter(([, v]) => v).map(([k, v]) => `    ${k}: ${v}`));
+        if (p.needsDext) parts.push('  Dext:', ...dextFields(p).filter(([, v]) => v).map(([k, v]) => `    ${k}: ${v}`));
+        return parts.join('\n');
+      }).join('\n\n');
+      copy(`${r.ticketID} — requested by ${r.requesterName || r.requestedBy}\n\n${text}`);
+    }
+  </script>
+</body>
+</html>
