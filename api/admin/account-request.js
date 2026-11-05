@@ -493,7 +493,9 @@ function defaultSettings() {
     itManagerEmails:   [],    // the IT tech's line manager(s)
     dextEmails:        [],    // who creates Dext accounts — blank = Perigee admin(s) + HR
     includeSubmitter:  true,  // the HR person who logged the request
-    includeSupervisor: true   // the new starter's supervisor (from the request)
+    includeSupervisor: true,  // the new starter's supervisor (from the request)
+    remindersEnabled:  true,  // weekday-morning reminders to each tech (api/admin/reminders.js)
+    reminderFallbackEmails: [] // who gets UNASSIGNED open items — blank = IT manager(s), then IT_EMAIL
   };
 }
 
@@ -505,7 +507,7 @@ async function loadSettings() {
 async function handleSaveSettings(req, res, session) {
   const b = req.body || {};
   const next = defaultSettings();
-  for (const k of ['hrEmails', 'perigeeAdminEmails', 'itManagerEmails', 'dextEmails']) {
+  for (const k of ['hrEmails', 'perigeeAdminEmails', 'itManagerEmails', 'dextEmails', 'reminderFallbackEmails']) {
     const list = listOf(b[k]);
     const bad = list.find(e => !isEmail(e));
     if (bad) return res.status(400).json({ error: `"${bad}" isn't a valid email address.` });
@@ -513,6 +515,9 @@ async function handleSaveSettings(req, res, session) {
   }
   next.includeSubmitter  = b.includeSubmitter !== false;
   next.includeSupervisor = b.includeSupervisor !== false;
+  next.remindersEnabled  = b.remindersEnabled !== false;
+  const prev = await blob.getJson(SETTINGS_PATH).catch(() => null);
+  if (prev && prev.lastReminderRun) next.lastReminderRun = prev.lastReminderRun;
   next.updatedAt = new Date().toISOString();
   next.updatedBy = session.username;
   await blob.putJson(SETTINGS_PATH, next);

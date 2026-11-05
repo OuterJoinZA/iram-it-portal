@@ -130,7 +130,7 @@
       <select id="f-region"><option value="">All regions</option></select>
       <select id="f-svc"><option value="">All accounts</option><option value="microsoft">Microsoft 365</option><option value="perigee">Perigee</option><option value="dext">Dext</option></select>
       <button class="b b-grey" onclick="load()">↻ Refresh</button>
-      <button class="b b-grey" onclick="toggleSettings()">⚙ Email settings</button>
+      <button class="b b-grey" onclick="toggleSettings()">⚙ Email &amp; reminder settings</button>
     </div>
 
     <div class="settings" id="settings">
@@ -146,10 +146,19 @@
         <label class="chk"><input type="checkbox" id="st-includeSubmitter"> Also send to the HR person who logged the request</label>
         <label class="chk"><input type="checkbox" id="st-includeSupervisor"> Also send to the new starter's supervisor (from the request)</label>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+      <h3 style="font-size:14px;font-weight:800;margin-top:18px">⏰ Reminders of open requests</h3>
+      <p class="hint" style="margin-bottom:6px">Every weekday at 07:00, each IT tech is emailed the open tickets and new-starter requests assigned to them (Open or In Progress). Techs need an email in Settings → IT Staff. Anything unassigned goes to the address(es) below.</p>
+      <div class="grid2">
+        <div><label class="chk" style="margin-top:14px"><input type="checkbox" id="st-remindersEnabled"> Send the daily reminders</label></div>
+        <div><label>Unassigned items go to <span class="hint">(blank = IT manager(s))</span></label><input type="text" id="st-reminderFallbackEmails"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
         <button class="b b-green" id="st-save" onclick="saveSettings()">Save settings</button>
+        <button class="b b-grey" id="rm-preview" onclick="runReminders(true)">👁 Preview reminders</button>
+        <button class="b b-grey" id="rm-send" onclick="runReminders(false)">⏰ Send reminders now</button>
         <span class="hint" id="st-note"></span>
       </div>
+      <div class="hint" id="rm-result" style="margin-top:8px"></div>
     </div>
 
     <div class="table-card">
@@ -513,7 +522,7 @@
     }
 
     // ── Email settings ───────────────────────────────────────────────────────
-    const ST_LISTS = ['hrEmails', 'perigeeAdminEmails', 'itManagerEmails', 'dextEmails'];
+    const ST_LISTS = ['hrEmails', 'perigeeAdminEmails', 'itManagerEmails', 'dextEmails', 'reminderFallbackEmails'];
     async function loadSettings() {
       try {
         const r = await fetch('/api/admin/account-request?settings=1', { cache: 'no-store' });
@@ -523,17 +532,39 @@
         ST_LISTS.forEach(k => { $('st-' + k).value = (settings[k] || []).join(', '); $('st-' + k).disabled = !settingsCanEdit; });
         $('st-includeSubmitter').checked = settings.includeSubmitter !== false;
         $('st-includeSupervisor').checked = settings.includeSupervisor !== false;
-        ['st-includeSubmitter', 'st-includeSupervisor', 'st-save'].forEach(id => $(id).disabled = !settingsCanEdit);
+        $('st-remindersEnabled').checked = settings.remindersEnabled !== false;
+        ['st-includeSubmitter', 'st-includeSupervisor', 'st-remindersEnabled', 'st-save'].forEach(id => $(id).disabled = !settingsCanEdit);
+        $('rm-send').style.display = $('rm-preview').style.display = isIT ? '' : 'none';
+        const lr = settings.lastReminderRun;
+        $('rm-result').textContent = lr ? `Last sent ${fmt(lr.at)} (${lr.trigger === 'schedule' ? 'daily schedule' : 'by ' + lr.by}) — ${lr.sent} email${lr.sent === 1 ? '' : 's'}.` : '';
         $('st-note').textContent = settingsCanEdit ? (settings.updatedBy ? `Last changed by ${settings.updatedBy}, ${fmt(settings.updatedAt)}` : '') : 'Only Admins / Super Admins can change these.';
         if (open) renderModal();
       } catch (_) {}
     }
+    async function runReminders(dryRun) {
+      if (!dryRun && !confirm('Email every IT tech their open tickets and new-starter requests now?')) return;
+      const out = $('rm-result');
+      out.textContent = dryRun ? 'Working out who would get what…' : 'Sending…';
+      try {
+        const r = await fetch('/api/admin/reminders', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dryRun }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || d.message || 'Failed');
+        const lines = (d.summary || []).map(s => `• ${s.name} → ${s.to.join(', ') || '(no address!)'}: ${s.tickets} ticket${s.tickets === 1 ? '' : 's'}, ${s.requests} request${s.requests === 1 ? '' : 's'}`);
+        out.innerHTML = esc(dryRun ? (lines.length ? 'Would send:' : 'Nothing open — no reminders would go out.') : `Sent ${d.sent} email${d.sent === 1 ? '' : 's'}.`) + '<br>' +
+          lines.map(esc).join('<br>') +
+          ((d.warnings || []).length ? '<br>⚠️ ' + d.warnings.map(esc).join('<br>⚠️ ') : '') +
+          ((d.failures || []).length ? '<br>❌ ' + d.failures.map(esc).join('<br>❌ ') : '');
+        if (!dryRun) toast(`Reminders sent (${d.sent}) ✓`);
+      } catch (e) { out.textContent = '❌ ' + e.message; }
+    }
+
     function toggleSettings() { $('settings').classList.toggle('show'); }
     async function saveSettings() {
       const body = {};
       ST_LISTS.forEach(k => body[k] = $('st-' + k).value);
       body.includeSubmitter = $('st-includeSubmitter').checked;
       body.includeSupervisor = $('st-includeSupervisor').checked;
+      body.remindersEnabled = $('st-remindersEnabled').checked;
       const r = await fetch('/api/admin/account-request?action=settings', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) return toast(d.error || 'Could not save', true);
