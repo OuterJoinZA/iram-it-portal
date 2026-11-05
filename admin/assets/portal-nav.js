@@ -25,7 +25,7 @@
   const PAGES = [
     { key: 'dashboard',   href: '/admin/index.html',             label: '🎫 IT Dashboard',      perm: 'manageTickets' },
     { key: 'newstarters', href: '/admin/new-starters.html',      label: '🧑‍💻 New Starter Queue', perm: ['manageTickets', 'updateAccounts'] },
-    { key: 'summary',     href: '/admin/hr-dashboard.html',      label: '📊 Ticket Summary',    perm: 'viewTicketStats', hideIf: 'manageTickets' },
+    { key: 'summary',     href: '/admin/hr-dashboard.html',      label: '📊 Ticket Summary',    perm: 'viewTicketStats' },
     { key: 'request',     href: '/admin/account-request.html',   label: '👤 Request Accounts',  perm: 'requestAccounts' },
     { key: 'hredit',      href: '/admin/site-edit.html',         label: '✏️ Edit HR Page',      perm: 'editHR' },
     { key: 'users',       href: '/admin/users.html',             label: '👥 Users',             perm: 'manageUsers' },

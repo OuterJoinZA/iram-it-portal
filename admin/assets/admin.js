@@ -64,6 +64,19 @@ document.addEventListener('DOMContentLoaded', () => {
     link.after(a);
   }
 });
+// Read-only ticket analytics (filters, breakdowns, weekly trend).
+if (MY_PERMS.includes('viewTicketStats')) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const link = document.getElementById('nav-links-section');
+    if (link) {
+      const a = document.createElement('a');
+      a.className = 'nav-item';
+      a.href = '/admin/hr-dashboard';
+      a.innerHTML = '<span class="icon">📊</span> Ticket Summary';
+      link.after(a);
+    }
+  });
+}
 // HR-verified new-starter account requests (verify + register) — IT side.
 document.addEventListener('DOMContentLoaded', () => {
   const link = document.getElementById('nav-links-section');
