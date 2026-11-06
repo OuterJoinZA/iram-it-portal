@@ -145,6 +145,10 @@ module.exports = async function handler(req, res) {
       if (!hasPermission(session.role, 'editIT') || session.preview) return res.status(403).json({ error: 'Only Admins can change these email settings.' });
       return await handleSaveSettings(req, res, session);
     }
+    if (req.method === 'POST' && action === 'dext-request') {
+      if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
+      return await handleDextRequest(req, res, session, isIT);
+    }
     if (req.method === 'POST' && action === 'handover') {
       if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
       return await handleHandover(req, res, session, isIT);
@@ -501,7 +505,19 @@ function defaultSettings() {
 
 async function loadSettings() {
   const saved = await blob.getJson(SETTINGS_PATH).catch(() => null);
-  return Object.assign(defaultSettings(), saved || {});
+  const s = Object.assign(defaultSettings(), saved || {});
+  // Not saved here: everyone ticked "Perigee" in Settings -> IT Staff is also
+  // treated as Perigee support, so they get the same emails as the admin(s).
+  try {
+    const { config } = await loadConfig();
+    s.perigeeStaffEmails = (config.itStaff || []).filter(x => x.isPerigee).map(x => String(x.email || '').toLowerCase()).filter(isEmail);
+  } catch (_) { s.perigeeStaffEmails = []; }
+  return s;
+}
+
+/** Perigee support people: the admin(s) in Email settings + IT Staff ticked Perigee. */
+function perigeePeople(settings) {
+  return [...new Set([...(settings.perigeeAdminEmails || []), ...(settings.perigeeStaffEmails || [])].filter(isEmail))];
 }
 
 async function handleSaveSettings(req, res, session) {
@@ -529,14 +545,68 @@ function handoverRecipients(settings, record, p) {
   return [...new Set([
     ...(settings.includeSubmitter ? [record.requesterEmail] : []),
     ...settings.hrEmails,
-    ...settings.perigeeAdminEmails,   // always kept in the loop
+    ...perigeePeople(settings),       // always kept in the loop
     ...(settings.includeSupervisor ? [p.managerEmail] : []),
     ...settings.itManagerEmails
   ].map(e => String(e || '').toLowerCase()).filter(e => e && isEmail(e)))];
 }
 function dextRecipients(settings) {
-  const list = settings.dextEmails && settings.dextEmails.length ? settings.dextEmails : [...settings.perigeeAdminEmails, ...settings.hrEmails];
+  const list = settings.dextEmails && settings.dextEmails.length ? settings.dextEmails : [...perigeePeople(settings), ...settings.hrEmails];
   return [...new Set(list.filter(isEmail))];
+}
+/** TEST requests: the tester plus the Perigee support people (marked TEST) —
+ *  never HR, the submitter or the supervisor. */
+function testRecipients(settings, actorEmail) {
+  return [...new Set([actorEmail, ...perigeePeople(settings)].filter(isEmail))];
+}
+
+/** Emails the "Dext account needed" request for person `p`; returns who it went to. */
+async function sendDextRequest(record, p, settings, actorEmail, msUser, pgUser) {
+  const to = record.test ? testRecipients(settings, actorEmail) : dextRecipients(settings);
+  if (!to.length) return [];
+  const name = fullName(p);
+  const rows = [
+    ['Name', name], ['Job / department', `${p.jobTitle} · ${p.department}`], ['Region', p.region],
+    ['Cell', p.cellphone], ['Personal email', p.personalEmail], ['Start date', p.startDate],
+    ['Supervisor', [p.managerName, p.managerEmail].filter(Boolean).join(' · ')],
+    ['Microsoft 365 email', msUser || p.createdEmail || ''],
+    ['Perigee username', pgUser || p.perigeeUsername || '']
+  ].filter(([, v]) => v);
+  await sendEmail({
+    to, subject: `${record.test ? '[TEST] ' : ''}Dext account needed: ${name} (${record.ticketID})`,
+    html: emailHtml({ heading: 'Dext Account Needed', ticketID: record.ticketID, code: record.verificationCode, test: record.test,
+      intro: `Please create a <strong>Dext</strong> account for <strong>${esc(name)}</strong> and record the Dext username in the New Starter Queue when it's done. Final details below.`,
+      table: kvTable(rows), buttonUrl: `https://iram-it-portal.vercel.app/admin/new-starters?id=${encodeURIComponent(record.ticketID)}`, buttonLabel: 'Open in New Starter Queue' })
+  });
+  return to;
+}
+
+// ── Manual "Send Dext request" (first time or resend) ───────────────────────
+async function handleDextRequest(req, res, session, isIT) {
+  const b  = req.body || {};
+  const id = clean(b.ticketID, 40).toUpperCase();
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'bad_id' });
+  const record = await blob.getJson(recordPath(id)).catch(() => null);
+  if (!record || record.deleted) return res.status(404).json({ error: 'not_found' });
+  if (session.preview && !record.test) return res.status(403).json({ error: PREVIEW_MESSAGE, message: 'In preview test mode you can only work on TEST requests.' });
+  if (!isIT && ['Resolved', 'Closed'].includes(record.status)) return res.status(403).json({ error: 'This request is completed — ask IT to reopen it if something needs changing.' });
+  const p = record.people[Number(b.index)];
+  if (!p) return res.status(400).json({ error: 'Unknown person.' });
+  if (!p.needsDext) return res.status(400).json({ error: 'This person doesn\'t need Dext.' });
+
+  const settings = await loadSettings();
+  const actorUser = await getUser(session.preview ? session.preview.actor : session.username).catch(() => null);
+  let to;
+  try { to = await sendDextRequest(record, p, settings, actorUser && actorUser.email); }
+  catch (err) { console.error('dext email failed:', err.message); return res.status(502).json({ error: 'The Dext email could not be sent. Try again.' }); }
+  if (!to.length) return res.status(400).json({ error: 'Nobody to send the Dext request to — add the Perigee support admin in ⚙ Email settings.' });
+
+  const now = new Date().toISOString();
+  p.dextRequestedAt = now; p.dextRequestedTo = to;
+  (p.dextRequestLog = p.dextRequestLog || []).push({ at: now, by: session.preview ? session.preview.actor : session.username, to });
+  record.updatedAt = now;
+  await blob.putJson(recordPath(id), record);
+  return res.status(200).json({ ok: true, record, dextTo: to });
 }
 
 // ── Handover: email the finished account details ────────────────────────────
@@ -569,8 +639,8 @@ async function handleHandover(req, res, session, isIT) {
   const settings = await loadSettings();
   const actorUser = await getUser(session.preview ? session.preview.actor : session.username).catch(() => null);
   const actorEmail = actorUser && actorUser.email;
-  // TEST requests: only the person doing the test gets these emails.
-  let to = record.test ? [actorEmail].filter(Boolean) : handoverRecipients(settings, record, p);
+  // TEST requests: the tester + Perigee support people, marked TEST.
+  let to = record.test ? testRecipients(settings, actorEmail) : handoverRecipients(settings, record, p);
   if (!to.length) return res.status(400).json({ error: 'Nobody to email — add recipients in ⚙ Email settings.' });
   const tag = record.test ? '[TEST] ' : '';
   const name = fullName(p);
@@ -620,22 +690,8 @@ async function handleHandover(req, res, session, isIT) {
   let dextTo = [];
   // Only ask for Dext if it isn't being handed over now and wasn't already done/requested.
   if (p.needsDext && !dxInfo && !(p.done || {}).dext && !p.dextRequestedAt) {
-    dextTo = record.test ? [actorEmail].filter(Boolean) : dextRecipients(settings);
-    if (dextTo.length) {
-      const dextRows = [
-        ...personRows,
-        ['Microsoft 365 email', msInfo ? msInfo.username : (p.createdEmail || '')],
-        ['Perigee username', pgInfo ? pgInfo.username : (p.perigeeUsername || '')]
-      ].filter(([, v]) => v);
-      try {
-        await sendEmail({
-          to: dextTo, subject: `${tag}Dext account needed: ${name} (${id})`,
-          html: emailHtml({ heading: 'Dext Account Needed', ticketID: id, code: record.verificationCode, test: record.test,
-            intro: `Please create a <strong>Dext</strong> account for <strong>${esc(name)}</strong>. Their Microsoft 365 and Perigee accounts are ready — final details below.`,
-            table: kvTable(dextRows) })
-        });
-      } catch (err) { console.error('dext email failed:', err.message); dextTo = []; }
-    }
+    try { dextTo = await sendDextRequest(record, p, settings, actorEmail, msInfo && msInfo.username, pgInfo && pgInfo.username); }
+    catch (err) { console.error('dext email failed:', err.message); dextTo = []; }
   }
 
   // Save what's safe to keep (usernames, who was told) — never passwords.
@@ -645,7 +701,10 @@ async function handleHandover(req, res, session, isIT) {
   if (dxInfo) { p.dextUsername = dxInfo.username; p.done.dext = true; }
   // Requesting Dext isn't the same as Dext existing — it stays open until
   // whoever creates it records the username / ticks it (or sends its login).
-  if (dextTo.length) { p.dextRequestedAt = now; p.dextRequestedTo = dextTo; }
+  if (dextTo.length) {
+    p.dextRequestedAt = now; p.dextRequestedTo = dextTo;
+    (p.dextRequestLog = p.dextRequestLog || []).push({ at: now, by: session.preview ? session.preview.actor : session.username, to: dextTo });
+  }
   p.handover = { sentAt: now, by: session.preview ? session.preview.actor : session.username, to,
     accounts: [msInfo && 'Microsoft 365', pgInfo && 'Perigee', dxInfo && 'Dext'].filter(Boolean) };
   (p.handoverLog = p.handoverLog || []).push(p.handover);

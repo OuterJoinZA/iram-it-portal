@@ -138,7 +138,8 @@
       <p class="hint" style="margin-bottom:6px">When IT (or the Perigee support admin) clicks <strong>Send account details</strong>, the logins are emailed to everyone below. The Perigee support admin is also copied on every new request. To let her record account info in this queue herself, give her a login with the <strong>Perigee Support Admin</strong> role. Separate several addresses with commas.</p>
       <div class="grid2">
         <div><label>HR inbox(es)</label><input type="text" id="st-hrEmails" placeholder="hr@iram.co.za"></div>
-        <div><label>Perigee support admin(s)</label><input type="text" id="st-perigeeAdminEmails" placeholder="perigee.admin@iram.co.za"></div>
+        <div><label>Perigee support admin(s)</label><input type="text" id="st-perigeeAdminEmails" placeholder="perigee.admin@iram.co.za">
+          <div class="hint" id="st-pgStaff"></div></div>
         <div><label>IT tech's line manager(s)</label><input type="text" id="st-itManagerEmails" placeholder="it.manager@iram.co.za"></div>
         <div><label>Dext account creators <span class="hint">(blank = Perigee admin(s) + HR)</span></label><input type="text" id="st-dextEmails"></div>
       </div>
@@ -415,12 +416,27 @@
           ${p.needsMicrosoft ? `<div><label>Microsoft email created</label><input type="email" id="ai-ms-${i}" value="${esc(p.createdEmail || '')}" placeholder="${esc(upnFor(p))}" ${dis}></div>` : ''}
           ${p.needsPerigee ? `<div><label>Perigee username</label><input type="text" id="ai-pg-${i}" value="${esc(p.perigeeUsername || '')}" ${dis}></div>` : ''}
           ${p.needsDext ? `<div><label>Dext username</label><input type="text" id="ai-dx-${i}" value="${esc(p.dextUsername || '')}" ${dis}>
-            ${p.dextRequestedAt ? `<div class="hint">Dext requested ${esc(fmt(p.dextRequestedAt))}</div>` : ''}</div>` : ''}
+            <div class="hint">${p.dextRequestedAt ? `Dext request sent ${esc(fmt(p.dextRequestedAt))} to ${esc((p.dextRequestedTo || []).join(', '))}` : 'No Dext request sent yet'}</div>
+            ${locked ? '' : `<button class="b b-grey b-sm" style="margin-top:6px" onclick="sendDext(${i})">📧 ${p.dextRequestedAt ? 'Resend' : 'Send'} Dext request</button>`}</div>` : ''}
         </div>
         ${locked ? '' : `<button class="b b-grey" style="margin-top:10px" data-save-info="${i}">💾 Save account info</button>
         <span class="hint" style="margin-left:8px">Saving a username also ticks that account as created.</span>`}
       </div>`;
     }
+    async function sendDext(i) {
+      const r = open.record, p = r.people[i];
+      const to = r.test ? ['you (TEST)', ...new Set([...(settings.perigeeAdminEmails || []), ...(settings.perigeeStaffEmails || [])])] : dextRecipients();
+      if (!to.length) return toast('Add the Perigee support admin in ⚙ Email settings first', true);
+      if (!confirm(`Email the Dext request for ${nameFor(p)} to:\n\n${to.join('\n')}`)) return;
+      try {
+        const res = await fetch('/api/admin/account-request?action=dext-request', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketID: r.ticketID, index: i }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || 'Sending failed');
+        open.record = d.record; renderModal(); load();
+        toast(`Dext request sent to ${d.dextTo.join(', ')} ✓`);
+      } catch (e) { toast(e.message, true); }
+    }
+
     async function saveAccountInfo(i) {
       const p = open.record.people[i];
       const v = id => ($(id) ? $(id).value.trim() : undefined);
@@ -435,18 +451,19 @@
     let settings = null, settingsCanEdit = false;
     function handoverRecipients(r, p) {
       if (!settings) return [];
-      if (r.test) return ['(TEST — only you)'];
+      const pgPeople = [...new Set([...(settings.perigeeAdminEmails || []), ...(settings.perigeeStaffEmails || [])])];
+      if (r.test) return ['you (TEST)', ...pgPeople];
       return [...new Set([
         ...(settings.includeSubmitter ? [r.requesterEmail] : []),
         ...settings.hrEmails,
-        ...settings.perigeeAdminEmails,
+        ...pgPeople,
         ...(settings.includeSupervisor ? [p.managerEmail] : []),
         ...settings.itManagerEmails
       ].filter(Boolean))];
     }
     function dextRecipients() {
       if (!settings) return [];
-      return settings.dextEmails.length ? settings.dextEmails : [...new Set([...settings.perigeeAdminEmails, ...settings.hrEmails])];
+      return settings.dextEmails.length ? settings.dextEmails : [...new Set([...(settings.perigeeAdminEmails || []), ...(settings.perigeeStaffEmails || []), ...settings.hrEmails])];
     }
 
     function handoverHtml(r, p, i) {
@@ -533,6 +550,8 @@
         $('st-includeSubmitter').checked = settings.includeSubmitter !== false;
         $('st-includeSupervisor').checked = settings.includeSupervisor !== false;
         $('st-remindersEnabled').checked = settings.remindersEnabled !== false;
+        const pgs = settings.perigeeStaffEmails || [];
+        $('st-pgStaff').textContent = pgs.length ? `Also included automatically (ticked Perigee in Settings → IT Staff): ${pgs.join(', ')}` : 'Tip: anyone ticked "Perigee" in Settings → IT Staff is also included automatically.';
         ['st-includeSubmitter', 'st-includeSupervisor', 'st-remindersEnabled', 'st-save'].forEach(id => $(id).disabled = !settingsCanEdit);
         $('rm-send').style.display = $('rm-preview').style.display = isIT ? '' : 'none';
         const lr = settings.lastReminderRun;
