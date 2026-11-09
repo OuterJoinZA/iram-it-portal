@@ -92,7 +92,7 @@
     <div class="card" id="form-card">
       <div id="form-view">
         <h2>Who needs accounts?</h2>
-        <p class="sub">Add one person or many. IT gets a verified request with your name on it, and you get a confirmation email.
+        <p class="sub">Add one person or many. IT gets a verified request with your name on it, and you get a confirmation email. Someone leaving? Use <a href="/admin/leaver-request.html" style="color:#a4262c;font-weight:700">🚪 Leavers</a>.
           <strong>*</strong> = required.</p>
 
         <div class="toolbar">
@@ -446,7 +446,7 @@
     // ── My requests (active only) ────────────────────────────────────────────
     async function loadList() {
       try {
-        const r = await fetch('/api/admin/account-request?active=1', { cache: 'no-store' });
+        const r = await fetch('/api/admin/account-request?active=1&type=starter', { cache: 'no-store' });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.message || 'Could not load your requests.');
         const rows = (data.requests || []).filter(x => !data.seesAll || true);

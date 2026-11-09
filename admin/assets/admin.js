@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const a = document.createElement('a');
     a.className = 'nav-item';
     a.href = '/admin/new-starters';
-    a.innerHTML = '<span class="icon">🧑‍💻</span> New Starter Queue';
+    a.innerHTML = '<span class="icon">🧑‍💻</span> Starter / Leaver Queue';
     link.after(a);
   }
 });
@@ -314,8 +314,10 @@ function normalizeTicket(t) {
 // calendar booking and SharePoint row), but they're worked from their own
 // queue page — /admin/new-starters — so they're kept out of this table.
 const ACCOUNT_REQUEST_MARKER = '[NEW STARTER ACCOUNT REQUEST]';
+const LEAVER_REQUEST_MARKER  = '[LEAVER ACCESS REMOVAL]';
 function isAccountRequestTicket(t) {
-  return String(t.Description || '').startsWith(ACCOUNT_REQUEST_MARKER);
+  const d = String(t.Description || '');
+  return d.startsWith(ACCOUNT_REQUEST_MARKER) || d.startsWith(LEAVER_REQUEST_MARKER);
 }
 
 function renderAll() {

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam — Remove Access (Leavers)</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚪</text></svg>">
+  <script src="/admin/assets/portal-nav.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D2D2D; background: #f4f6f8; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; gap: 12px; background: #2D2D2D; color: #fff; padding: 10px 20px; flex-wrap: wrap; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .topbar .who { font-size: 12px; color: #aaa; }
+
+    .wrap { max-width: 900px; margin: 0 auto; padding: 26px 20px 60px; }
+    .card { background: #fff; border-radius: 10px; padding: 22px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card h2 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+    .sub { font-size: 13px; color: #888; line-height: 1.6; }
+
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 4px; }
+    button { border: none; cursor: pointer; border-radius: 7px; padding: 9px 15px; font-size: 13px; font-weight: 700; font-family: inherit; }
+    .btn-red { background: #a4262c; color: #fff; } .btn-red:hover { background: #861e23; }
+    .btn-red:disabled { background: #d29a9d; cursor: wait; }
+    .btn-grey { background: #eef0f2; color: #444; } .btn-grey:hover { background: #e2e5e8; }
+    .btn-link { background: none; color: #a4262c; padding: 4px 6px; font-size: 12px; }
+    .btn-big { padding: 12px 24px; font-size: 14.5px; }
+
+    .person { border: 1.5px solid #e4e7ea; border-left: 4px solid #a4262c; border-radius: 10px; padding: 14px 16px 16px; margin-top: 14px; }
+    .person.err { border-color: #e7a3a3; background: #fffafa; }
+    .p-head { display: flex; align-items: center; gap: 10px; }
+    .p-num { width: 26px; height: 26px; border-radius: 50%; background: #a4262c; color: #fff; font-weight: 800; font-size: 12.5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .p-title { font-weight: 800; font-size: 14px; margin-right: auto; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 12px; }
+    label { display: block; font-size: 10.5px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 5px; }
+    label .req { color: #a4262c; } label .opt { color: #aaa; font-weight: 600; text-transform: none; letter-spacing: 0; }
+    input[type=text], input[type=email], input[type=date], input[type=tel], select, textarea { width: 100%; padding: 8px 10px; border: 1.5px solid #dcdfe3; border-radius: 7px; font-size: 13.5px; font-family: inherit; background: #fff; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #a4262c; }
+    textarea { resize: vertical; min-height: 64px; }
+
+    .accts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+    .accts .lbl { font-size: 10.5px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin-right: 4px; }
+    label.chip { text-transform: none; letter-spacing: 0; margin: 0; color: #333; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; border: 1.5px solid #dcdfe3; border-radius: 20px; padding: 6px 13px; font-size: 13px; font-weight: 700; cursor: pointer; user-select: none; }
+    .chip input { width: 15px; height: 15px; accent-color: #a4262c; margin: 0; }
+    .chip.on { border-color: #a4262c; background: #fdf0f0; color: #861e23; }
+    .mailbox { display: none; margin-top: 4px; padding: 2px 0 0 12px; border-left: 3px solid #1d5fa8; }
+    .mailbox.show { display: block; }
+    .found { display: none; margin-top: 10px; padding: 9px 12px; border-radius: 8px; font-size: 12.5px; line-height: 1.6; }
+    .found.ok { display: block; background: #edf7e8; border: 1px solid #b3dea8; color: #2f6b1a; }
+    .found.warn { display: block; background: #fff8e6; border: 1px solid #f0c48a; color: #8a5a00; }
+    .found a { color: inherit; font-weight: 700; }
+
+    .paste { display: none; margin-top: 14px; background: #fdf7f7; border: 1.5px dashed #e7a3a3; border-radius: 10px; padding: 14px 16px; }
+    .paste.show { display: block; }
+    .paste code { background: #fff; border: 1px solid #e4e7ea; border-radius: 4px; padding: 1px 5px; font-size: 11.5px; }
+
+    .field-err { border-color: #d9534f !important; background: #fffafa; }
+    .ferr { font-size: 11px; color: #a4262c; margin-top: 3px; }
+    .fok { font-size: 11px; color: #2f6b1a; margin-top: 3px; }
+    .msg { display: none; font-size: 13px; padding: 10px 14px; border-radius: 8px; margin-top: 14px; line-height: 1.5; }
+    .msg.ok { background: #edf7e8; color: #2f6b1a; border: 1px solid #b3dea8; display: block; }
+    .msg.err { background: #fdf0f0; color: #a4262c; border: 1px solid #f0c0c0; display: block; }
+    .submit-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+    .count { font-size: 13px; color: #666; }
+
+    .done { text-align: center; padding: 8px 0; }
+    .done .big { font-size: 30px; font-weight: 800; color: #a4262c; letter-spacing: 2px; margin: 8px 0; }
+    .code { font-family: monospace; font-size: 15px; background: #edf7e8; color: #2f6b1a; padding: 3px 9px; border-radius: 6px; }
+
+    .list { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .list th { text-align: left; font-size: 11px; text-transform: uppercase; color: #888; padding: 8px; border-bottom: 2px solid #eee; }
+    .list td { padding: 10px 8px; border-bottom: 1px solid #f2f2f2; vertical-align: top; }
+    .tid { color: #a4262c; font-weight: 800; white-space: nowrap; }
+    .hint { font-size: 11.5px; color: #999; margin-top: 2px; }
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+    .pill.Open { background: #e8f1fb; color: #1d5fa8; }
+    .pill.inprog { background: #fff4e0; color: #9a5b00; }
+    .pill.done { background: #edf7e8; color: #2f6b1a; }
+    .empty { color: #aaa; font-size: 13px; padding: 8px 0; }
+    .bar { height: 6px; background: #eef0f2; border-radius: 4px; overflow: hidden; margin-top: 5px; width: 90px; }
+    .bar > i { display: block; height: 100%; background: #4e9938; }
+    .now { background: #a4262c; color: #fff; border-radius: 5px; padding: 1px 6px; font-size: 10.5px; font-weight: 800; }
+
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } .list .hide-sm { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🚪 Remove Access — Leavers</h1>
+    <span class="who" id="whoami"></span>
+    <span class="pn-links" id="pn-links"></span>
+  </div>
+
+  <div class="wrap">
+    <div class="card" id="form-card">
+      <div id="form-view">
+        <h2>Who is leaving?</h2>
+        <p class="sub">Add one person or many. IT removes their access at the end of their last day (or straight away if you choose <b>Immediately</b>), then emails you a confirmation. <strong>*</strong> = required.</p>
+
+        <div class="toolbar">
+          <button class="btn-grey" onclick="addPerson()">＋ Add person</button>
+          <button class="btn-grey" onclick="addPerson(true)" title="New row with the same last day, region, supervisor and access as the last person">⧉ Add another like the last</button>
+          <button class="btn-grey" onclick="togglePaste()">📋 Paste many from Excel</button>
+        </div>
+
+        <div class="paste" id="paste-box">
+          <p class="sub" style="margin-bottom:8px">Copy rows from Excel (or a CSV) and paste them below. Columns in this order —
+            <a href="#" onclick="downloadTemplate();return false" style="color:#a4262c;font-weight:700">download the template</a>:</p>
+          <p class="sub" style="margin-bottom:10px"><code>First name</code> <code>Surname</code> <code>Work email</code> <code>Cell</code> <code>Region</code> <code>Job title</code> <code>Department</code> <code>Last day</code> <code>Immediately (Y/N)</code> <code>Reason</code> <code>Supervisor</code> <code>Supervisor email</code> <code>Microsoft (Y/N)</code> <code>Perigee (Y/N)</code> <code>Dext (Y/N)</code> <code>iRam Hub (Y/N)</code></p>
+          <textarea id="paste-input" rows="5" placeholder="Paste rows here…"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn-red" onclick="importPaste()">Add these people</button>
+            <button class="btn-grey" onclick="togglePaste()">Cancel</button>
+          </div>
+        </div>
+
+        <div id="people"></div>
+
+        <label for="batch-notes" style="margin-top:18px">Anything else IT should know? <span class="opt">(optional — e.g. laptop / phone to collect)</span></label>
+        <textarea id="batch-notes"></textarea>
+
+        <div class="submit-row">
+          <button class="btn-red btn-big" id="submit-btn" onclick="submitRequest()">Send to IT</button>
+          <span class="count" id="count"></span>
+        </div>
+        <div id="form-msg" class="msg"></div>
+      </div>
+
+      <div id="done-view" class="done" style="display:none">
+        <div style="font-size:38px">✅</div>
+        <h2 id="done-title">Leaver request sent to IT</h2>
+        <div class="big" id="done-ticket"></div>
+        <p class="sub">Verification code <span class="code" id="done-code"></span></p>
+        <p class="sub" style="margin-top:10px">A confirmation email is on its way to you. IT emails you again once the access is removed.</p>
+        <button class="btn-grey" style="margin-top:16px" onclick="resetForm()">Log more leavers</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>My leaver requests</h2>
+      <p class="sub" style="margin-bottom:10px">Still being worked on. Completed ones drop off this list.</p>
+      <div id="list"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <template id="person-tpl">
+    <div class="person">
+      <div class="p-head">
+        <div class="p-num"></div>
+        <div class="p-title">Leaver</div>
+        <button class="btn-link" data-act="remove">✕ Remove</button>
+      </div>
+      <div class="grid">
+        <div><label>First name <span class="req">*</span></label><input type="text" data-f="firstName" autocomplete="off"></div>
+        <div><label>Surname <span class="req">*</span></label><input type="text" data-f="lastName" autocomplete="off"></div>
+        <div><label>Work email <span class="opt">(@iram.co.za, if known)</span></label><input type="email" data-f="workEmail" autocomplete="off"><div class="ferr" data-err="workEmail"></div></div>
+        <div><label>Last working day <span class="req">*</span></label><input type="date" data-f="lastDay"></div>
+        <div><label>Remove access <span class="req">*</span></label>
+          <select data-f="cutOff"><option value="end_of_day">At the end of their last day</option><option value="immediately">⚠️ Immediately</option></select></div>
+        <div><label>Reason <span class="opt">(optional)</span></label>
+          <select data-f="reason"><option value="">— Choose —</option><option>Resigned</option><option>Dismissed</option><option>Contract ended</option><option>Retrenched</option><option>Retired</option><option>Absconded</option><option>Other</option></select></div>
+        <div><label>Region <span class="req">*</span></label><select data-f="region"></select></div>
+        <div><label>Job title <span class="opt">(optional)</span></label><input type="text" data-f="jobTitle" list="job-list" autocomplete="off"></div>
+        <div><label>Department <span class="opt">(optional)</span></label><input type="text" data-f="department" list="dept-list" autocomplete="off"></div>
+        <div><label>Cell number <span class="opt">(optional)</span></label><input type="tel" data-f="cellphone" placeholder="082 123 4567" autocomplete="off"><div class="ferr" data-err="cellphone"></div></div>
+        <div><label>Supervisor <span class="opt">(optional)</span></label><input type="text" data-f="managerName" autocomplete="off"></div>
+        <div><label>Supervisor email <span class="opt">(gets the confirmation)</span></label><input type="email" data-f="managerEmail" autocomplete="off"><div class="ferr" data-err="managerEmail"></div></div>
+      </div>
+      <div class="accts">
+        <span class="lbl">Remove access to <span style="color:#a4262c">*</span></span>
+        <label class="chip"><input type="checkbox" data-f="needsMicrosoft" checked> ✉️ Microsoft 365 email</label>
+        <label class="chip"><input type="checkbox" data-f="needsPerigee"> 📱 Perigee / FieldGoose</label>
+        <label class="chip"><input type="checkbox" data-f="needsDext"> 🧾 Dext</label>
+        <label class="chip"><input type="checkbox" data-f="needsHub"> 🌐 iRam Hub &amp; linked sites</label>
+      </div>
+      <div class="found"></div>
+      <div class="mailbox">
+        <div class="grid">
+          <div style="grid-column:span 2"><label>Their mailbox &amp; files</label>
+            <select data-f="mailbox">
+              <option value="shared">Keep it — the supervisor can open it (shared mailbox)</option>
+              <option value="forward">Forward new email to the supervisor</option>
+              <option value="none">Nobody needs it — just block</option>
+            </select></div>
+          <div><label>Give it to <span class="opt">(blank = supervisor)</span></label><input type="email" data-f="mailboxTo" autocomplete="off"><div class="ferr" data-err="mailboxTo"></div></div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <datalist id="dept-list"><option>Field / Merchandising</option><option>Sales</option><option>Operations</option><option>Finance</option><option>HR</option><option>IT</option><option>Management</option></datalist>
+  <datalist id="job-list"><option>Merchandiser</option><option>Sales Rep</option><option>Team Leader</option><option>Supervisor</option><option>Area Sales Manager</option><option>Regional Manager</option><option>Administrator</option></datalist>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const REGIONS = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Head Office', 'National'];
+    const FIELDS = ['firstName', 'lastName', 'workEmail', 'cellphone', 'region', 'jobTitle', 'department', 'lastDay', 'cutOff', 'reason', 'managerName', 'managerEmail', 'mailbox', 'mailboxTo'];
+    const CHECKS = ['needsMicrosoft', 'needsPerigee', 'needsDext', 'needsHub'];
+    const COPY_ON_REPEAT = ['region', 'department', 'lastDay', 'cutOff', 'reason', 'managerName', 'managerEmail', 'mailbox', ...CHECKS];
+
+    IRAM_NAV.requireSession('requestAccounts').then(me => {
+      $('whoami').textContent = me.fullName || me.username;
+      IRAM_NAV.renderLinks('pn-links', me.role, 'leavers');
+      loadList();
+    });
+
+    // Same clean-up rules as the server (api/admin/account-request.js).
+    const nameCase = v => String(v || '').toLowerCase().replace(/(^|[\s'-])([a-zà-ÿ])/g, (m, sep, ch) => sep + ch.toUpperCase());
+    const isEmail = v => /^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(v) && !/\.\./.test(v) && !/^\.|\.@/.test(v);
+    function normaliseSaMobile(v) {
+      let d = String(v || '').replace(/[\s()\-.]/g, '');
+      if (/^00/.test(d)) d = '+' + d.slice(2);
+      if (/^0\d{9}$/.test(d)) d = '+27' + d.slice(1);
+      else if (/^27\d{9}$/.test(d)) d = '+' + d;
+      return /^\+27(6\d|7\d|8[1-5])\d{7}$/.test(d) ? d : null;
+    }
+    const prettyCell = e164 => e164.replace(/^\+27(\d{2})(\d{3})(\d{4})$/, '+27 $1 $2 $3');
+
+    function setErr(node, k, text) {
+      const el = node.querySelector(`[data-f=${k}]`), box = node.querySelector(`[data-err=${k}]`);
+      if (el) el.classList.toggle('field-err', !!text);
+      if (box) box.textContent = text || '';
+    }
+    function tidy(node) {
+      const get = k => node.querySelector(`[data-f=${k}]`);
+      ['firstName', 'lastName'].forEach(k => { const el = get(k); el.value = nameCase(el.value.replace(/\s+/g, ' ').trim()); });
+      ['workEmail', 'managerEmail', 'mailboxTo'].forEach(k => {
+        const el = get(k); el.value = el.value.trim().toLowerCase();
+        setErr(node, k, el.value && !isEmail(el.value) ? 'Not a valid email — fix it or leave it blank' : '');
+      });
+      const cell = get('cellphone');
+      if (cell.value.trim()) {
+        const n = normaliseSaMobile(cell.value);
+        if (n) { cell.value = prettyCell(n); setErr(node, 'cellphone', ''); } else setErr(node, 'cellphone', 'Must be a SA mobile, e.g. 083 123 4567 — or leave blank');
+      } else setErr(node, 'cellphone', '');
+      syncPerson(node);
+    }
+
+    // ── Find their Microsoft account (if Microsoft 365 is connected) ────────
+    async function lookup(node) {
+      const p = readPerson(node), box = node.querySelector('.found');
+      if (!p.firstName || !p.lastName) { box.className = 'found'; return; }
+      try {
+        const r = await fetch('/api/admin/directory?action=check', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'leaver', people: [{ firstName: p.firstName, lastName: p.lastName, workEmail: p.workEmail, personalEmail: p.workEmail, cellphone: normaliseSaMobile(p.cellphone) || p.cellphone }] }) });
+        if (!r.ok) return;
+        const c = (await r.json()).results[0];
+        const lines = c.duplicates.map(x => `⛔ <b>${esc(x.name)}</b> is already in an open leaver request (${esc(x.ticketID)}). Check before sending again.`);
+        let cls = lines.length ? 'warn' : '';
+        if (c.directory && p.needsMicrosoft) {
+          if (!c.accounts.length) { lines.push(`⚠️ No Microsoft account found for <b>${esc(p.firstName)} ${esc(p.lastName)}</b>${p.workEmail ? ' / ' + esc(p.workEmail) : ''}. Check the spelling, or add the work email.`); cls = 'warn'; }
+          else c.accounts.slice(0, 3).forEach(u => {
+            lines.push(`${u.enabled ? '✔ Found' : '🔒 Already blocked:'} <b>${esc(u.name)}</b> — ${esc(u.upn)} <span style="opacity:.75">(matched on ${esc(u.why.join(', '))})</span>${!p.workEmail && u.enabled ? ` · <a href="#" data-use="${esc(u.upn)}">use this email</a>` : ''}`);
+            cls = cls || 'ok';
+          });
+        }
+        box.innerHTML = lines.join('<br>');
+        box.className = 'found ' + (lines.length ? cls || 'ok' : '');
+        box.querySelectorAll('[data-use]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); setField(node, 'workEmail', a.dataset.use); lookup(node); }));
+      } catch (_) {}
+    }
+
+    // ── People rows ─────────────────────────────────────────────────────────
+    function personEls() { return [...document.querySelectorAll('#people .person')]; }
+    function addPerson(copyLast, values) {
+      const node = $('person-tpl').content.firstElementChild.cloneNode(true);
+      node.querySelector('[data-f=region]').innerHTML = '<option value="">— Choose —</option>' + REGIONS.map(r => `<option>${r}</option>`).join('');
+      const last = personEls().slice(-1)[0];
+      $('people').appendChild(node);
+      if (copyLast && last) { const v = readPerson(last); COPY_ON_REPEAT.forEach(k => setField(node, k, v[k])); }
+      if (values) { Object.keys(values).forEach(k => setField(node, k, values[k])); tidy(node); }
+      node.querySelector('[data-act=remove]').addEventListener('click', () => { node.remove(); renumber(); });
+      node.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => { node.classList.remove('err'); syncPerson(node); }));
+      node.querySelectorAll('input[type=checkbox]').forEach(el => el.addEventListener('change', () => syncPerson(node)));
+      node.querySelector('[data-f=reason]').addEventListener('change', e => {
+        if (['Dismissed', 'Absconded'].includes(e.target.value)) setField(node, 'cutOff', 'immediately');
+      });
+      ['firstName', 'lastName', 'workEmail', 'cellphone', 'managerEmail', 'mailboxTo'].forEach(k =>
+        node.querySelector(`[data-f=${k}]`).addEventListener('blur', () => { tidy(node); if (['firstName', 'lastName', 'workEmail', 'cellphone'].includes(k)) lookup(node); }));
+      renumber();
+      if (!values) node.querySelector('[data-f=firstName]').focus();
+      else lookup(node);
+      return node;
+    }
+    function setField(node, k, v) {
+      const el = node.querySelector(`[data-f=${k}]`);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!v;
+      else if (el.tagName === 'SELECT') {
+        const m = [...el.options].find(o => o.value.toLowerCase() === String(v || '').toLowerCase() || o.text.toLowerCase() === String(v || '').toLowerCase());
+        if (m) el.value = m.value;
+      } else el.value = v == null ? '' : v;
+      syncPerson(node);
+    }
+    function readPerson(node) {
+      const p = {};
+      FIELDS.forEach(k => { const el = node.querySelector(`[data-f=${k}]`); p[k] = el ? el.value.trim() : ''; });
+      CHECKS.forEach(k => { p[k] = node.querySelector(`[data-f=${k}]`).checked; });
+      return p;
+    }
+    function syncPerson(node) {
+      node.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.querySelector('input').checked));
+      node.querySelector('.mailbox').classList.toggle('show', node.querySelector('[data-f=needsMicrosoft]').checked);
+      const p = readPerson(node);
+      node.querySelector('.p-title').innerHTML = esc([p.firstName, p.lastName].filter(Boolean).join(' ') || 'Leaver') + (p.cutOff === 'immediately' ? ' <span class="now">IMMEDIATELY</span>' : '');
+    }
+    function renumber() {
+      const els = personEls();
+      els.forEach((el, i) => { el.querySelector('.p-num').textContent = i + 1; el.querySelector('[data-act=remove]').style.visibility = els.length > 1 ? 'visible' : 'hidden'; });
+      $('count').textContent = els.length === 1 ? '1 person' : `${els.length} people`;
+    }
+
+    // ── Paste from Excel ────────────────────────────────────────────────────
+    function togglePaste() { $('paste-box').classList.toggle('show'); if ($('paste-box').classList.contains('show')) $('paste-input').focus(); }
+    const PASTE_COLS = ['firstName', 'lastName', 'workEmail', 'cellphone', 'region', 'jobTitle', 'department', 'lastDay', 'cutOff', 'reason', 'managerName', 'managerEmail', 'needsMicrosoft', 'needsPerigee', 'needsDext', 'needsHub'];
+    function parseRows(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const delim = lines.some(l => l.includes('\t')) ? '\t' : ',';
+      return lines.map(l => {
+        if (delim === '\t') return l.split('\t');
+        const out = []; let cur = '', q = false;
+        for (const ch of l) { if (ch === '"') q = !q; else if (ch === ',' && !q) { out.push(cur); cur = ''; } else cur += ch; }
+        out.push(cur); return out;
+      }).filter(cells => !/^first/i.test((cells[0] || '').trim()));
+    }
+    const yes = v => /^(y|yes|true|1|x|✓)$/i.test(String(v || '').trim());
+    function toIsoDate(v) {
+      v = String(v || '').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+      const m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(v);
+      return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+    }
+    function importPaste() {
+      const rows = parseRows($('paste-input').value);
+      if (!rows.length) return showMsg('Nothing to add — paste at least one row.');
+      const els = personEls();
+      if (els.length === 1 && !readPerson(els[0]).firstName && !readPerson(els[0]).lastName) els[0].remove();
+      rows.forEach(cells => {
+        const v = {};
+        PASTE_COLS.forEach((k, i) => { v[k] = (cells[i] || '').trim(); });
+        CHECKS.forEach(k => { v[k] = yes(v[k]); });
+        if (!CHECKS.some(k => v[k])) v.needsMicrosoft = true;
+        v.cutOff = yes(v.cutOff) ? 'immediately' : 'end_of_day';
+        v.lastDay = toIsoDate(v.lastDay);
+        addPerson(false, v);
+      });
+      $('paste-input').value = '';
+      togglePaste();
+      showMsg(`Added ${rows.length} ${rows.length === 1 ? 'person' : 'people'} — check them below, then Send to IT.`, true);
+    }
+    function downloadTemplate() {
+      const head = 'First name,Surname,Work email,Cell,Region,Job title,Department,Last day (YYYY-MM-DD),Immediately (Y/N),Reason,Supervisor,Supervisor email,Microsoft (Y/N),Perigee (Y/N),Dext (Y/N),iRam Hub (Y/N)';
+      const eg = 'Sipho,Ndlovu,sipho.ndlovu@iram.co.za,082 123 4567,Gauteng,Merchandiser,Field / Merchandising,2026-12-15,N,Resigned,Thandi Mokoena,thandi@iram.co.za,Y,Y,N,Y';
+      const b = new Blob([head + '\r\n' + eg + '\r\n'], { type: 'text/csv' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'leaver-template.csv'; a.click();
+    }
+
+    // ── Submit ──────────────────────────────────────────────────────────────
+    function showMsg(text, ok) { const el = $('form-msg'); el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); }
+    function validate(p, i) {
+      const who = [p.firstName, p.lastName].filter(Boolean).join(' ') || `Person ${i + 1}`;
+      const need = [['firstName', 'first name'], ['lastName', 'surname'], ['lastDay', 'last working day'], ['region', 'region']];
+      const miss = need.filter(([k]) => !p[k]);
+      if (miss.length) return { msg: `${who}: please fill in ${miss.map(x => x[1]).join(', ')}.`, field: miss[0][0] };
+      if (!CHECKS.some(k => p[k])) return { msg: `${who}: tick at least one thing to remove.` };
+      for (const [k, l] of [['workEmail', 'work email'], ['managerEmail', 'supervisor email'], ['mailboxTo', '"give it to" email']])
+        if (p[k] && !isEmail(p[k])) return { msg: `${who}: the ${l} isn't valid — fix it or leave it blank.`, field: k };
+      if (p.cellphone && !normaliseSaMobile(p.cellphone)) return { msg: `${who}: the cell number must be a valid South African mobile — or leave it blank.`, field: 'cellphone' };
+      if (p.needsMicrosoft && p.mailbox !== 'none' && !p.mailboxTo && !p.managerEmail) return { msg: `${who}: who should get their mailbox? Add the supervisor email, or choose "Nobody needs it".`, field: 'managerEmail' };
+      return null;
+    }
+    function flag(i, field) {
+      const node = personEls()[i];
+      if (!node) return;
+      node.classList.add('err');
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const el = field && node.querySelector(`[data-f=${field}]`);
+      if (el) setTimeout(() => el.focus(), 300);
+    }
+    async function submitRequest() {
+      personEls().forEach(n => tidy(n));
+      const people = personEls().map(readPerson);
+      people.forEach(p => { const n = normaliseSaMobile(p.cellphone); if (n) p.cellphone = n; });
+      for (let i = 0; i < people.length; i++) { const e = validate(people[i], i); if (e) { showMsg(e.msg); flag(i, e.field); return; } }
+      const urgent = people.filter(p => p.cutOff === 'immediately').length;
+      if (urgent && !confirm(`${urgent} ${urgent === 1 ? 'person is' : 'people are'} marked IMMEDIATELY — IT will cut their access as soon as they see this. Continue?`)) return;
+      const btn = $('submit-btn');
+      btn.disabled = true; btn.textContent = 'Sending…';
+      try {
+        const r = await fetch('/api/admin/account-request', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'leaver', people, notes: $('batch-notes').value.trim() }) });
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 401) { location.replace('/login.html'); return; }
+        if (!r.ok) { if (data.index !== undefined) flag(data.index); throw new Error(data.message || 'Something went wrong. Please try again.'); }
+        $('done-title').textContent = data.test
+          ? `🧪 TEST leaver request sent to IT and auto-completed (${data.count} ${data.count === 1 ? 'person' : 'people'})`
+          : (data.count === 1 ? 'Leaver request sent to IT' : `Leaver request for ${data.count} people sent to IT`);
+        $('done-ticket').textContent = data.ticketID;
+        $('done-code').textContent = data.verificationCode;
+        $('form-view').style.display = 'none';
+        $('done-view').style.display = '';
+        loadList();
+      } catch (err) { showMsg(err.message); }
+      finally { btn.disabled = false; btn.textContent = 'Send to IT'; }
+    }
+    function resetForm() {
+      $('people').innerHTML = ''; $('batch-notes').value = ''; $('form-msg').className = 'msg';
+      addPerson();
+      $('done-view').style.display = 'none'; $('form-view').style.display = '';
+      window.scrollTo(0, 0);
+    }
+
+    // ── My leaver requests (active only) ─────────────────────────────────────
+    async function loadList() {
+      try {
+        const r = await fetch('/api/admin/account-request?active=1&type=leaver', { cache: 'no-store' });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.message || 'Could not load your requests.');
+        const rows = data.requests || [];
+        if (!rows.length) { $('list').innerHTML = '<div class="empty">Nothing in progress. 🎉</div>'; return; }
+        $('list').innerHTML = `<table class="list"><thead><tr><th>Ticket</th><th>People</th><th>Removing</th><th class="hide-sm">Logged</th><th>Status</th></tr></thead><tbody>` +
+          rows.map(x => {
+            const s = x.services || {};
+            const what = [s.microsoft && `${s.microsoft}× Microsoft`, s.perigee && `${s.perigee}× Perigee`, s.dext && `${s.dext}× Dext`, s.hub && `${s.hub}× iRam Hub`].filter(Boolean).join('<br>');
+            const more = x.count > (x.names || []).length ? ` +${x.count - x.names.length} more` : '';
+            const pct = x.count ? Math.round(100 * (x.doneCount || 0) / x.count) : 0;
+            const st = x.status || 'Open';
+            return `<tr>
+              <td class="tid">${esc(x.ticketID)}${x.test ? ' <span class="pill" style="background:#f1ebfb;color:#5b2ea6">TEST</span>' : ''}</td>
+              <td>${esc((x.names || []).join(', '))}${esc(more)}<div class="hint">${x.earliestStart ? 'last day ' + esc(x.earliestStart) : ''}${x.immediate ? ' <span class="now">IMMEDIATELY</span>' : ''}</div></td>
+              <td style="font-size:12.5px">${what}</td>
+              <td class="hide-sm" style="white-space:nowrap">${esc(new Date(x.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }))}</td>
+              <td><span class="pill ${st === 'In Progress' ? 'inprog' : (st === 'Resolved' || st === 'Closed') ? 'done' : 'Open'}">${x.test && st === 'Resolved' ? 'Completed (test)' : esc(st)}</span>
+                <div class="bar"><i style="width:${pct}%"></i></div><div class="hint">${x.doneCount || 0} of ${x.count} done</div></td>
+            </tr>`;
+          }).join('') + '</tbody></table>';
+      } catch (err) { $('list').innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+    }
+
+    addPerson();
+  </script>
+</body>
+</html>

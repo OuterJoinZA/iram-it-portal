@@ -48,6 +48,15 @@
 //   for their own unfinished accounts. IT can reassign any account.
 // SETTINGS: GET ?settings=1 (IT) / POST ?action=settings (editIT) — who those
 //   handover emails go to (account-requests/settings.json).
+// LEAVERS (type:'leaver'): the same flow in reverse — HR asks IT to REMOVE a
+//   person's access (Microsoft 365, Perigee / FieldGoose, Dext, iRam Hub and
+//   its linked sites) by their last day, or immediately. Same verification
+//   code, queue, owners ("who does what", plus an iRam Hub owner), reminders
+//   and test mode. Ticking an account means "removed". POST
+//   ?action=leaver-confirm { ticketID, index } emails HR, the submitter, the
+//   supervisor, Perigee support and the IT manager what was removed (and what
+//   happened to the mailbox). The ticket description starts with
+//   LEAVER_MARKER so the IT dashboard keeps it out of its table too.
 //
 // POST  { people: [ {...person} ], notes }            requestAccounts → { ticketID, verificationCode, count }
 // GET                     list (HR: own; IT: all)    ?active=1 → only Open / In Progress
@@ -69,19 +78,28 @@ const blob                = require('../../lib/blob.js');
 const INDEX_PATH = 'account-requests/index.json';
 const SETTINGS_PATH = 'account-requests/settings.json';
 const OWNER_COUNTS_PATH = 'account-requests/owner-counts.json';
-const KINDS = ['microsoft', 'perigee', 'dext'];
-const NEEDS = { microsoft: 'needsMicrosoft', perigee: 'needsPerigee', dext: 'needsDext' };
+const KINDS = ['microsoft', 'perigee', 'dext', 'hub'];
+const NEEDS = { microsoft: 'needsMicrosoft', perigee: 'needsPerigee', dext: 'needsDext', hub: 'needsHub' };
 const recordPath = id => `account-requests/${id}.json`;
 const ID_RE      = /^(IT|TEST)-\d{4}-\d{5}$/;
 
 const MARKER   = '[NEW STARTER ACCOUNT REQUEST]';
+const LEAVER_MARKER = '[LEAVER ACCESS REMOVAL]';
 // Existing category (SharePoint may treat Category as a choice column).
 const CATEGORY = 'Access / Passwords / Permissions';
 const STATUSES = ['Open', 'In Progress', 'Resolved', 'Closed'];
 const ACTIVE   = new Set(['Open', 'In Progress']);
 const MAX_PEOPLE = 50;
 // Booking length per person, per account type — summed for the batch.
-const MINUTES = { microsoft: 15, perigee: 15, dext: 10 };
+const MINUTES = { microsoft: 15, perigee: 15, dext: 10, hub: 10 };
+const LEAVER_MINUTES = { microsoft: 15, perigee: 5, dext: 5, hub: 10 };
+const REASONS = ['Resigned', 'Dismissed', 'Contract ended', 'Retrenched', 'Retired', 'Absconded', 'Other'];
+const MAILBOX = {
+  shared:  'Convert to a shared mailbox and give the supervisor access',
+  forward: 'Forward new email to the supervisor',
+  none:    'Just block sign-in (no mailbox access needed)'
+};
+const CUTOFF = { end_of_day: 'End of their last day', immediately: 'IMMEDIATELY (as soon as possible)' };
 
 const REGIONS = ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Head Office', 'National'];
 
@@ -123,7 +141,8 @@ function normaliseSaMobile(v) {
 }
 const isDate  = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
 const fullName = p => [p.firstName, p.middleNames, p.lastName].filter(Boolean).join(' ');
-const services = p => [p.needsMicrosoft && 'Microsoft 365', p.needsPerigee && 'Perigee', p.needsDext && 'Dext'].filter(Boolean);
+const services = p => [p.needsMicrosoft && 'Microsoft 365', p.needsPerigee && 'Perigee', p.needsDext && 'Dext', p.needsHub && 'iRam Hub'].filter(Boolean);
+const isLeaver = r => r && r.type === 'leaver';
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -157,6 +176,10 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'dext-request') {
       if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
       return await handleDextRequest(req, res, session, isIT);
+    }
+    if (req.method === 'POST' && action === 'leaver-confirm') {
+      if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
+      return await handleLeaverConfirm(req, res, session, isIT);
     }
     if (req.method === 'POST' && action === 'handover') {
       if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
@@ -204,6 +227,8 @@ async function handleGet(req, res, session, isIT, seesTests) {
   // Active only — except test requests (auto-completed) stay listed while
   // testing, so the tester can see their test landed.
   if (q.active === '1') list = list.filter(r => ACTIVE.has(r.status || 'Open') || (session.preview && r.test));
+  if (q.type === 'leaver') list = list.filter(isLeaver);
+  else if (q.type === 'starter') list = list.filter(r => !isLeaver(r));
   return res.status(200).json({ requests: list.slice(0, 500), seesAll: isIT, regions: REGIONS });
 }
 
@@ -250,15 +275,62 @@ function cleanPerson(raw, i) {
   return { person: p };
 }
 
+function cleanLeaver(raw, i) {
+  const p = {
+    firstName:      nameCase(clean(raw.firstName, 60)),
+    middleNames:    nameCase(clean(raw.middleNames, 80)),
+    lastName:       nameCase(clean(raw.lastName, 60)),
+    workEmail:      clean(raw.workEmail, 120).toLowerCase(),
+    cellphone:      clean(raw.cellphone, 30),
+    region:         clean(raw.region, 60),
+    jobTitle:       clean(raw.jobTitle, 100),
+    department:     clean(raw.department, 100),
+    lastDay:        clean(raw.lastDay, 10),
+    cutOff:         raw.cutOff === 'immediately' ? 'immediately' : 'end_of_day',
+    reason:         REASONS.includes(raw.reason) ? raw.reason : '',
+    managerName:    clean(raw.managerName, 100),
+    managerEmail:   clean(raw.managerEmail, 120).toLowerCase(),
+    mailbox:        MAILBOX[raw.mailbox] ? raw.mailbox : 'shared',
+    mailboxTo:      clean(raw.mailboxTo, 120).toLowerCase(),
+    needsMicrosoft: !!raw.needsMicrosoft,
+    needsPerigee:   !!raw.needsPerigee,
+    needsDext:      !!raw.needsDext,
+    needsHub:       !!raw.needsHub,
+    notes:          clean(raw.notes, 500),
+    done:           { microsoft: false, perigee: false, dext: false, hub: false }
+  };
+  const who = p.firstName || p.lastName ? `${p.firstName} ${p.lastName}`.trim() : `Person ${i + 1}`;
+  const missing = [];
+  if (!p.firstName) missing.push('first name');
+  if (!p.lastName)  missing.push('surname');
+  if (!p.region)    missing.push('region');
+  if (!p.lastDay)   missing.push('last working day');
+  if (missing.length) return { error: `${who}: please fill in ${missing.join(', ')}.` };
+  if (!isDate(p.lastDay)) return { error: `${who}: the last working day isn't a valid date.` };
+  if (!p.needsMicrosoft && !p.needsPerigee && !p.needsDext && !p.needsHub) return { error: `${who}: tick at least one thing to remove (Microsoft 365, Perigee, Dext or iRam Hub).` };
+  if (p.workEmail && !isEmail(p.workEmail)) return { error: `${who}: the work email isn't a valid address — fix it or leave it blank.` };
+  if (p.managerEmail && !isEmail(p.managerEmail)) return { error: `${who}: the supervisor email isn't a valid address — fix it or leave it blank.` };
+  if (p.mailboxTo && !isEmail(p.mailboxTo)) return { error: `${who}: the "mailbox goes to" email isn't a valid address.` };
+  if (p.needsMicrosoft && p.mailbox !== 'none' && !p.mailboxTo && !p.managerEmail) return { error: `${who}: say who should get the mailbox (supervisor email), or choose "Just block sign-in".` };
+  if (!p.mailboxTo && p.mailbox !== 'none') p.mailboxTo = p.managerEmail;
+  if (p.cellphone) {
+    const cell = normaliseSaMobile(p.cellphone);
+    if (!cell) return { error: `${who}: the cell number must be a valid South African mobile — or leave it blank.` };
+    p.cellphone = cell;
+  }
+  return { person: p };
+}
+
 async function handlePost(req, res, session) {
   const b = req.body || {};
   const rawPeople = Array.isArray(b.people) ? b.people : [];
   if (!rawPeople.length) return res.status(400).json({ error: 'empty', message: 'Add at least one person.' });
   if (rawPeople.length > MAX_PEOPLE) return res.status(400).json({ error: 'too_many', message: `Up to ${MAX_PEOPLE} people per request — split it into two.` });
 
+  const leaver = b.type === 'leaver';
   const people = [];
   for (let i = 0; i < rawPeople.length; i++) {
-    const r = cleanPerson(rawPeople[i] || {}, i);
+    const r = (leaver ? cleanLeaver : cleanPerson)(rawPeople[i] || {}, i);
     if (r.error) return res.status(400).json({ error: 'invalid', message: r.error, index: i });
     people.push(r.person);
   }
@@ -281,16 +353,19 @@ async function handlePost(req, res, session) {
   const origin    = `https://${req.headers.host || 'iram-it-portal.vercel.app'}`;
   const queueUrl  = `${origin}/admin/new-starters?id=${encodeURIComponent(ticketID)}`;
 
-  // Earliest start date decides urgency: within 3 days → High.
-  const starts   = people.map(p => p.startDate).filter(Boolean).sort();
+  // Earliest start date (leavers: last day) decides urgency. Starters within
+  // 3 days → High; leavers within 1 day, or "cut access immediately" → High.
+  const starts   = people.map(p => leaver ? p.lastDay : p.startDate).filter(Boolean).sort();
   const earliest = starts[0] || '';
   const daysToStart = earliest ? Math.ceil((Date.parse(earliest + 'T00:00:00+02:00') - Date.now()) / 86400000) : 99;
-  const priority = daysToStart <= 3 ? 'High' : 'Medium';
-  const minutes  = Math.min(480, Math.max(15, people.reduce((m, p) =>
-    m + (p.needsMicrosoft ? MINUTES.microsoft : 0) + (p.needsPerigee ? MINUTES.perigee : 0) + (p.needsDext ? MINUTES.dext : 0), 0)));
+  const urgentNow = leaver && people.some(p => p.cutOff === 'immediately');
+  const priority = urgentNow || daysToStart <= (leaver ? 1 : 3) ? 'High' : 'Medium';
+  const mins = leaver ? LEAVER_MINUTES : MINUTES;
+  const minutes  = Math.min(480, Math.max(15, people.reduce((m, p) => m + KINDS.reduce((n, k) => n + (p[NEEDS[k]] ? mins[k] : 0), 0), 0)));
 
   const count = (k) => people.filter(p => p[k]).length;
-  const summary = [count('needsMicrosoft') && `${count('needsMicrosoft')} Microsoft 365`, count('needsPerigee') && `${count('needsPerigee')} Perigee`, count('needsDext') && `${count('needsDext')} Dext`].filter(Boolean).join(', ');
+  const summary = (leaver ? 'remove ' : '') + [count('needsMicrosoft') && `${count('needsMicrosoft')} Microsoft 365`, count('needsPerigee') && `${count('needsPerigee')} Perigee`, count('needsDext') && `${count('needsDext')} Dext`, count('needsHub') && `${count('needsHub')} iRam Hub`].filter(Boolean).join(', ');
+  const noun = people.length === 1 ? 'person' : 'people';
 
   const { config } = await loadConfig();
   const itPool      = (config.itStaff || []).filter(s => s.isIT);
@@ -309,6 +384,7 @@ async function handlePost(req, res, session) {
     hasAccount: !!record, mfaEnabled: mfaOn,
     ip: String(req.headers['x-forwarded-for'] || '').split(',')[0].trim(),
     userAgent: clean(req.headers['user-agent'], 300),
+    type: leaver ? 'leaver' : 'starter',
     status: 'Open', statusHistory: [{ status: 'Open', at: createdAt, by: session.username }],
     priority, estimatedMinutes: minutes, assignedTo, earliestStart: earliest,
     notes: batchNotes, itNotes: '', people
@@ -320,7 +396,7 @@ async function handlePost(req, res, session) {
     // Auto-completed: a test proves the request reached IT; there's nothing to set up.
     auditRecord.status = 'Resolved';
     auditRecord.statusHistory.push({ status: 'Resolved', at: createdAt, by: 'system (test request — auto-completed)' });
-    auditRecord.itNotes = 'TEST request — auto-completed. No accounts to create.';
+    auditRecord.itNotes = leaver ? 'TEST request — auto-completed. No access to remove.' : 'TEST request — auto-completed. No accounts to create.';
   }
 
   // Audit record first: if it can't be stored, IT couldn't verify the request,
@@ -332,10 +408,12 @@ async function handlePost(req, res, session) {
 
   // Normal ticket flow → SharePoint row + the existing calendar booking.
   const description = [
-    `${MARKER} ${people.length} ${people.length === 1 ? 'person' : 'people'} — ${summary}`,
+    `${leaver ? LEAVER_MARKER : MARKER} ${people.length} ${noun} — ${summary}`,
     `Verification code: ${code}`,
     `Requested by: ${requesterName} (${requesterRole})${requesterEmail ? ' <' + requesterEmail + '>' : ''}, signed in with 2FA`,
-    ...people.map((p, i) => `${i + 1}. ${fullName(p)} — ${p.jobTitle}, ${p.department}, ${p.region}${p.startDate ? ', starts ' + p.startDate : ''} — ${services(p).join(' + ')}`),
+    ...people.map((p, i) => leaver
+      ? `${i + 1}. ${fullName(p)}${p.workEmail ? ' <' + p.workEmail + '>' : ''} — ${[p.jobTitle, p.department, p.region].filter(Boolean).join(', ')} — last day ${p.lastDay}${p.cutOff === 'immediately' ? ' — CUT ACCESS IMMEDIATELY' : ''} — remove ${services(p).join(' + ')}`
+      : `${i + 1}. ${fullName(p)} — ${p.jobTitle}, ${p.department}, ${p.region}${p.startDate ? ', starts ' + p.startDate : ''} — ${services(p).join(' + ')}`),
     batchNotes ? `Notes: ${batchNotes}` : '',
     `Open in New Starter Queue: ${queueUrl}`
   ].filter(Boolean).join('\n');
@@ -360,7 +438,7 @@ async function handlePost(req, res, session) {
           submittedAt:    createdAt,
           ticketID, estimatedMinutes: minutes, estimatedLabel: formatDuration(minutes),
           attachmentUrl:  '', assignedTo,
-          requestType:    'New Starter Accounts', hrVerified: true, verificationCode: code
+          requestType:    leaver ? 'Leaver Access Removal' : 'New Starter Accounts', hrVerified: true, verificationCode: code
         })
       });
     } catch (err) {
@@ -376,10 +454,11 @@ async function handlePost(req, res, session) {
     ...(count('needsPerigee') ? perigeePool.map(s => s.email) : []),
     ...notifySettings.perigeeAdminEmails  // Perigee support admin is kept in the loop on every request
   ].filter(Boolean))];
-  const table = peopleTable(people);
+  const table = leaver ? leaverTable(people) : peopleTable(people);
+  const kindLabel = leaver ? 'Leaver — remove access' : 'New Starter Account Request';
   if (test) {
     const who = `<strong>${esc(session.preview.actor)}</strong> while testing as <strong>${esc(session.username)}</strong> (${esc(requesterRole)})`;
-    const subj = `[TEST — auto-completed] New starter request ${ticketID} — ${people.length} ${people.length === 1 ? 'person' : 'people'}`;
+    const subj = `[TEST — auto-completed] ${leaver ? 'Leaver access removal' : 'New starter request'} ${ticketID} — ${people.length} ${noun}`;
     const actorEmail = actor && actor.email;
     try {
       // IT gets it like a real request, so the path is proven end to end —
@@ -387,21 +466,29 @@ async function handlePost(req, res, session) {
       const toIT = [...new Set([...itEmails, actorEmail].filter(Boolean))];
       if (toIT.length) await sendEmail({
         to: toIT, subject: subj,
-        html: emailHtml({ heading: '🧪 TEST — New Starter Account Request', ticketID, code, table, buttonUrl: queueUrl, buttonLabel: 'Open in New Starter Queue', test: true,
-          intro: `🧪 <strong>THIS IS A TEST.</strong> Submitted by ${who}. It has been <strong>marked completed automatically</strong> — no accounts need to be created, and nothing was booked on the calendar.`,
+        html: emailHtml({ heading: `🧪 TEST — ${kindLabel}`, ticketID, code, table, buttonUrl: queueUrl, buttonLabel: 'Open in the queue', test: true,
+          intro: `🧪 <strong>THIS IS A TEST.</strong> Submitted by ${who}. It has been <strong>marked completed automatically</strong> — ${leaver ? 'no access needs to be removed' : 'no accounts need to be created'}, and nothing was booked on the calendar.`,
           footer: 'Test requests show a TEST badge in the New Starter Queue (Completed tab) and are never shown to HR.' })
       });
       // The HR confirmation goes only to the person testing, not the real HR inbox.
       if (actorEmail) await sendEmail({
         to: actorEmail, subject: `[TEST] HR confirmation preview — ${ticketID}`,
-        html: emailHtml({ heading: '🧪 TEST — Account Request Logged', ticketID, code, table, test: true,
+        html: emailHtml({ heading: leaver ? '🧪 TEST — Leaver Request Logged' : '🧪 TEST — Account Request Logged', ticketID, code, table, test: true,
           intro: `🧪 This is the confirmation HR would receive. It was sent only to you because you were testing as ${esc(session.username)}.` })
       });
     } catch (err) { console.error('account-request: test email error', err.message); }
     return res.status(200).json({ ticketID, verificationCode: code, count: people.length, test: true, status: 'Resolved' });
   }
   try {
-    if (itEmails.length) {
+    if (itEmails.length && leaver) {
+      await sendEmail({
+        to: itEmails,
+        subject: `[${priority}] ⛔ HR-verified leaver — remove access ${ticketID} — ${people.length} ${noun}${urgentNow ? ' — IMMEDIATELY' : earliest ? ' by ' + earliest : ''}`,
+        html: emailHtml({ heading: 'Leaver — Remove Access', ticketID, code, table, buttonUrl: queueUrl, buttonLabel: 'Open in the queue',
+          intro: `<strong>${esc(requesterName)}</strong> (${esc(requesterRole)}) logged this while signed in with two-factor login. Please remove the access below ${urgentNow ? '<strong style="color:#a4262c">IMMEDIATELY</strong> for anyone marked so, otherwise ' : ''}at the end of each person's last working day, then tick each one off in the queue and send HR the confirmation.${batchNotes ? `<br><br><strong>Notes:</strong> ${esc(batchNotes)}` : ''}`,
+          footer: 'Only act on leaver requests that show as verified in the queue. Requests by plain email or the public form are not HR-verified.' })
+      });
+    } else if (itEmails.length) {
       await sendEmail({
         to: itEmails,
         subject: `[${priority}] ✅ HR-verified new starter request ${ticketID} — ${people.length} ${people.length === 1 ? 'person' : 'people'} (${summary})`,
@@ -413,9 +500,9 @@ async function handlePost(req, res, session) {
     await sendEmail({
       to: requesterEmail || hrInbox,
       bcc: requesterEmail && hrInbox.toLowerCase() !== requesterEmail.toLowerCase() ? hrInbox : undefined,
-      subject: `Account request ${ticketID} logged — ${people.length} ${people.length === 1 ? 'person' : 'people'}`,
-      html: emailHtml({ heading: 'Account Request Logged', ticketID, code, table,
-        buttonUrl: `${origin}/admin/account-request`, buttonLabel: 'View my requests',
+      subject: `${leaver ? 'Leaver request' : 'Account request'} ${ticketID} logged — ${people.length} ${noun}`,
+      html: emailHtml({ heading: leaver ? 'Leaver Request Logged' : 'Account Request Logged', ticketID, code, table,
+        buttonUrl: `${origin}/admin/${leaver ? 'leaver-request' : 'account-request'}`, buttonLabel: 'View my requests',
         intro: `Your request has been sent to IT. You'll see it under <strong>My requests</strong> until it's completed.<br><br>⚠️ <strong>Didn't log this?</strong> Tell IT immediately — someone may be using your login.` })
     });
   } catch (err) {
@@ -427,12 +514,12 @@ async function handlePost(req, res, session) {
 
 function isPersonDone(p) {
   const d = p.done || {};
-  return (!p.needsMicrosoft || d.microsoft) && (!p.needsPerigee || d.perigee) && (!p.needsDext || d.dext);
+  return KINDS.every(k => !p[NEEDS[k]] || d[k]);
 }
 
 function indexEntry(r) {
   return {
-    ticketID: r.ticketID, createdAt: r.createdAt, status: r.status || 'Open',
+    ticketID: r.ticketID, createdAt: r.createdAt, status: r.status || 'Open', type: r.type || 'starter',
     requestedBy: r.requestedBy, requesterName: r.requesterName, requesterRole: r.requesterRole,
     count: r.people.length,
     names: r.people.slice(0, 3).map(p => `${p.firstName} ${p.lastName}`),
@@ -440,8 +527,10 @@ function indexEntry(r) {
     services: {
       microsoft: r.people.filter(p => p.needsMicrosoft).length,
       perigee:   r.people.filter(p => p.needsPerigee).length,
-      dext:      r.people.filter(p => p.needsDext).length
+      dext:      r.people.filter(p => p.needsDext).length,
+      hub:       r.people.filter(p => p.needsHub).length
     },
+    immediate: r.people.some(p => p.cutOff === 'immediately'),
     doneCount: r.people.filter(isPersonDone).length,
     earliestStart: r.earliestStart || '', priority: r.priority, assignedTo: r.assignedTo || '',
     owners: requestOwners(r), ownerTasks: ownerTasks(r),
@@ -449,7 +538,7 @@ function indexEntry(r) {
   };
 }
 
-const KIND_LABEL = { microsoft: 'Microsoft 365', perigee: 'Perigee', dext: 'Dext' };
+const KIND_LABEL = { microsoft: 'Microsoft 365', perigee: 'Perigee', dext: 'Dext', hub: 'iRam Hub' };
 /** Everyone who owns at least one account in the request. */
 function requestOwners(r) {
   const set = new Set();
@@ -466,7 +555,8 @@ function ownerTasks(r) {
     tally[o][k] = (tally[o][k] || 0) + 1;
   }));
   const out = {};
-  Object.keys(tally).forEach(o => { out[o] = KINDS.filter(k => tally[o][k]).map(k => `${KIND_LABEL[k]} ×${tally[o][k]}`); });
+  const verb = isLeaver(r) ? 'Remove ' : '';
+  Object.keys(tally).forEach(o => { out[o] = KINDS.filter(k => tally[o][k]).map(k => `${verb}${KIND_LABEL[k]} ×${tally[o][k]}`); });
   return out;
 }
 
@@ -488,7 +578,8 @@ async function assignOwners(people, settings, pools, test) {
   const fallback = {
     microsoft: pools.itPool,
     perigee:   pools.perigeePool.length ? pools.perigeePool : pools.itPool,
-    dext:      pools.perigeePool.length ? pools.perigeePool : pools.itPool
+    dext:      pools.perigeePool.length ? pools.perigeePool : pools.itPool,
+    hub:       pools.itPool
   };
   const pick = kind => {
     let list = parseOwners(owners[kind]);
@@ -550,9 +641,10 @@ async function handlePatch(req, res, session, isIT) {
       if (!p) continue;
       if (u.done && typeof u.done === 'object') {
         p.done = p.done || {};
-        ['microsoft', 'perigee', 'dext'].forEach(k => { if (u.done[k] !== undefined) p.done[k] = !!u.done[k]; });
+        KINDS.forEach(k => { if (u.done[k] !== undefined) p.done[k] = !!u.done[k]; });
       }
       if (u.createdEmail !== undefined) p.createdEmail = clean(u.createdEmail, 120).toLowerCase();
+      if (u.workEmail !== undefined && isLeaver(record)) p.workEmail = clean(u.workEmail, 120).toLowerCase();
       if (u.msDisplayName !== undefined) p.msDisplayName = clean(u.msDisplayName, 120);
       if (u.perigeeUsername !== undefined) p.perigeeUsername = clean(u.perigeeUsername, 120);
       if (u.dextUsername !== undefined) p.dextUsername = clean(u.dextUsername, 120);
@@ -588,7 +680,9 @@ function defaultSettings() {
     dextEmails:        [],    // who creates Dext accounts — blank = Perigee admin(s) + HR
     includeSubmitter:  true,  // the HR person who logged the request
     includeSupervisor: true,  // the new starter's supervisor (from the request)
-    owners: { microsoft: [], perigee: [], dext: [] }, // "Who does what" — see parseOwners
+    owners: { microsoft: [], perigee: [], dext: [], hub: [] }, // "Who does what" — see parseOwners
+    // Leavers: the iRam Hub and the sites linked to it, removed by the hub owner.
+    hubSites: [{ name: 'iRam Hub', url: 'https://iram-hub.vercel.app/dashboard' }],
     remindersEnabled:  true,  // weekday-morning reminders to each tech (api/admin/reminders.js)
     reminderFallbackEmails: [] // who gets UNASSIGNED open items — blank = IT manager(s), then IT_EMAIL
   };
@@ -630,6 +724,22 @@ async function handleSaveSettings(req, res, session) {
     const unknown = staffNames.length && list.find(o => !staffNames.includes(o.name.toLowerCase()));
     if (unknown) return res.status(400).json({ error: `"${unknown.name}" isn't in Settings → IT Staff — add them there first (or check the spelling).` });
     next.owners[k] = list;
+  }
+  if (b.hubSites !== undefined) {
+    const lines = Array.isArray(b.hubSites) ? b.hubSites : String(b.hubSites || '').split(/\r?\n/);
+    next.hubSites = [];
+    for (const raw of lines) {
+      const line = typeof raw === 'object' && raw ? `${raw.name || ''} | ${raw.url || ''}` : String(raw);
+      if (!line.replace(/\|/g, '').trim()) continue;
+      const [a, c] = line.includes('|') ? line.split('|') : [line, ''];
+      let name = a.trim(), url = String(c || '').trim();
+      if (!url && /^https?:\/\//i.test(name)) { url = name; name = name.replace(/^https?:\/\//i, '').split('/')[0]; }
+      if (url && !/^https?:\/\/[^\s]+$/i.test(url)) return res.status(400).json({ error: `"${url}" isn't a valid web address (start it with https://).` });
+      next.hubSites.push({ name: clean(name, 80), url: clean(url, 300) });
+    }
+  } else {
+    const prevSites = await blob.getJson(SETTINGS_PATH).catch(() => null);
+    if (prevSites && prevSites.hubSites) next.hubSites = prevSites.hubSites;
   }
   next.includeSubmitter  = b.includeSubmitter !== false;
   next.includeSupervisor = b.includeSupervisor !== false;
@@ -675,6 +785,20 @@ async function sendDextRequest(record, p, settings, actorEmail, msUser, pgUser) 
     ['Microsoft 365 email', msUser || p.createdEmail || ''],
     ['Perigee username', pgUser || p.perigeeUsername || '']
   ].filter(([, v]) => v);
+  if (isLeaver(record)) {
+    const lrows = [
+      ['Name', name], ['Work email', p.workEmail], ['Job / department', [p.jobTitle, p.department].filter(Boolean).join(' · ')],
+      ['Region', p.region], ['Last working day', p.lastDay], ['Remove access', CUTOFF[p.cutOff] || CUTOFF.end_of_day],
+      ['Dext username', p.dextUsername || ''], ['Supervisor', [p.managerName, p.managerEmail].filter(Boolean).join(' · ')]
+    ].filter(([, v]) => v);
+    await sendEmail({
+      to, subject: `${record.test ? '[TEST] ' : ''}${p.cutOff === 'immediately' ? 'URGENT — ' : ''}Remove Dext access: ${name} (${record.ticketID})`,
+      html: emailHtml({ heading: 'Leaver — Remove Dext Access', ticketID: record.ticketID, code: record.verificationCode, test: record.test,
+        intro: `Please <strong>remove / deactivate the Dext account</strong> for <strong>${esc(name)}</strong> ${p.cutOff === 'immediately' ? '<strong style="color:#a4262c">immediately</strong>' : `at the end of their last day (${esc(p.lastDay)})`}, then tick Dext as removed in the queue.`,
+        table: kvTable(lrows), buttonUrl: `https://iram-it-portal.vercel.app/admin/new-starters?id=${encodeURIComponent(record.ticketID)}`, buttonLabel: 'Open in the queue' })
+    });
+    return to;
+  }
   await sendEmail({
     to, subject: `${record.test ? '[TEST] ' : ''}Dext account needed: ${name} (${record.ticketID})`,
     html: emailHtml({ heading: 'Dext Account Needed', ticketID: record.ticketID, code: record.verificationCode, test: record.test,
@@ -710,6 +834,68 @@ async function handleDextRequest(req, res, session, isIT) {
   record.updatedAt = now;
   await blob.putJson(recordPath(id), record);
   return res.status(200).json({ ok: true, record, dextTo: to });
+}
+
+// ── Leavers: confirm to HR what was removed ─────────────────────────────────
+async function handleLeaverConfirm(req, res, session, isIT) {
+  const b  = req.body || {};
+  const id = clean(b.ticketID, 40).toUpperCase();
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'bad_id' });
+  const record = await blob.getJson(recordPath(id)).catch(() => null);
+  if (!record || record.deleted) return res.status(404).json({ error: 'not_found' });
+  if (!isLeaver(record)) return res.status(400).json({ error: 'Not a leaver request.' });
+  if (session.preview && !record.test) return res.status(403).json({ error: PREVIEW_MESSAGE, message: 'In preview test mode you can only work on TEST requests.' });
+  if (!isIT && ['Resolved', 'Closed'].includes(record.status)) return res.status(403).json({ error: 'This request is completed — ask IT to reopen it if something needs changing.' });
+  const p = record.people[Number(b.index)];
+  if (!p) return res.status(400).json({ error: 'Unknown person.' });
+  const d = p.done || {};
+  const removed = KINDS.filter(k => p[NEEDS[k]] && d[k]);
+  const pending = KINDS.filter(k => p[NEEDS[k]] && !d[k]);
+  if (!removed.length) return res.status(400).json({ error: 'Tick at least one account as removed first.' });
+
+  const settings = await loadSettings();
+  const actor = session.preview ? session.preview.actor : session.username;
+  const actorUser = await getUser(actor).catch(() => null);
+  const to = record.test ? testRecipients(settings, actorUser && actorUser.email) : handoverRecipients(settings, record, p);
+  if (!to.length) return res.status(400).json({ error: 'Nobody to email — add recipients in ⚙ Settings.' });
+  const name = fullName(p);
+  const sites = (settings.hubSites || []).map(x => x.name).filter(Boolean).join(', ');
+  const label = k => k === 'hub' && sites ? `iRam Hub & linked sites (${sites})` : k === 'perigee' ? 'Perigee / FieldGoose' : KIND_LABEL[k];
+  const rows = [
+    ['Name', name], ['Work email', p.workEmail], ['Job / department', [p.jobTitle, p.department].filter(Boolean).join(' · ')],
+    ['Region', p.region], ['Last working day', p.lastDay],
+    ...removed.map(k => [`✔ ${label(k)}`, 'Access removed']),
+    ...pending.map(k => [`⏳ ${label(k)}`, 'Still to be removed']),
+    ...(p.needsMicrosoft && d.microsoft ? [['Mailbox', MAILBOX[p.mailbox] + (p.mailbox !== 'none' && p.mailboxTo ? ` (${p.mailboxTo})` : '')]] : [])
+  ].filter(([, v]) => v);
+  try {
+    await sendEmail({
+      to, subject: `${record.test ? '[TEST] ' : ''}Access removed: ${name}${pending.length ? ' (partly — ' + pending.length + ' still to do)' : ''} (${id})`,
+      html: emailHtml({ heading: 'Leaver — Access Removed', ticketID: id, code: record.verificationCode, test: record.test,
+        intro: pending.length
+          ? `Access for <strong>${esc(name)}</strong> has been <strong>partly</strong> removed. The rest will follow — you'll get another confirmation.`
+          : `All the access HR asked for has been <strong>removed</strong> for <strong>${esc(name)}</strong>.${p.needsMicrosoft && p.mailbox === 'shared' && p.mailboxTo ? ` Their mailbox is now a shared mailbox that <strong>${esc(p.mailboxTo)}</strong> can open in Outlook.` : ''}`,
+        table: kvTable(rows),
+        footer: 'Laptops, phones, SIM cards and access cards still need to be collected by the supervisor / HR.' })
+    });
+  } catch (err) {
+    console.error('leaver confirm email failed:', err.message);
+    return res.status(502).json({ error: 'The email could not be sent. Try again.' });
+  }
+  const now = new Date().toISOString();
+  p.handover = { sentAt: now, by: actor, to, accounts: removed.map(k => KIND_LABEL[k]), pending: pending.map(k => KIND_LABEL[k]) };
+  (p.handoverLog = p.handoverLog || []).push(p.handover);
+  if (record.status === 'Open') {
+    record.status = 'In Progress';
+    (record.statusHistory = record.statusHistory || []).push({ status: 'In Progress', at: now, by: actor });
+  }
+  record.updatedAt = now; record.updatedBy = actor;
+  await blob.putJson(recordPath(id), record);
+  const index = (await blob.getJson(INDEX_PATH).catch(() => null)) || [];
+  const k = index.findIndex(r => r.ticketID === id);
+  if (k !== -1) { index[k] = indexEntry(record); await blob.putJson(INDEX_PATH, index); }
+  const allDone = record.people.every(isPersonDone) && record.people.every(x => x.handover && !(x.handover.pending || []).length);
+  return res.status(200).json({ ok: true, record, sentTo: to, allDone });
 }
 
 // ── Handover: email the finished account details ────────────────────────────
@@ -858,6 +1044,18 @@ function peopleTable(people) {
       <td style="padding:8px 10px;white-space:nowrap">${esc(p.cellphone)}</td>
       <td style="padding:8px 10px">${esc(services(p).join(', '))}</td></tr>`;
   }).join('');
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden;font-size:12.5px;border-collapse:collapse"><tr>${head}</tr>${rows}</table>`;
+}
+
+function leaverTable(people) {
+  const head = ['Name', 'Job / Dept', 'Last day', 'Remove', 'Mailbox'].map(h =>
+    `<th style="text-align:left;padding:8px 10px;background:#f4f6f8;font-size:11px;color:#666;text-transform:uppercase">${h}</th>`).join('');
+  const rows = people.map((p, i) => `<tr style="background:${i % 2 ? '#ffffff' : '#fafafa'}">
+      <td style="padding:8px 10px"><strong>${esc(fullName(p))}</strong>${p.workEmail ? `<br><span style="color:#888;font-size:11px">${esc(p.workEmail)}</span>` : ''}${p.reason ? `<br><span style="color:#888;font-size:11px">${esc(p.reason)}</span>` : ''}</td>
+      <td style="padding:8px 10px">${esc(p.jobTitle || '—')}<br><span style="color:#888;font-size:11px">${esc([p.department, p.region].filter(Boolean).join(' · '))}</span></td>
+      <td style="padding:8px 10px;white-space:nowrap">${esc(p.lastDay)}${p.cutOff === 'immediately' ? '<br><strong style="color:#a4262c;font-size:11px">CUT OFF NOW</strong>' : ''}</td>
+      <td style="padding:8px 10px">${esc(services(p).join(', '))}</td>
+      <td style="padding:8px 10px;font-size:11.5px">${p.needsMicrosoft ? esc(p.mailbox === 'none' ? 'Block only' : `${p.mailbox === 'forward' ? 'Forward' : 'Shared'} → ${p.mailboxTo || '—'}`) : '—'}</td></tr>`).join('');
   return `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden;font-size:12.5px;border-collapse:collapse"><tr>${head}</tr>${rows}</table>`;
 }
 

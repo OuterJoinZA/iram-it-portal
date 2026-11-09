@@ -24,9 +24,10 @@
   // Order = order in the top bar. `perm` null → everyone signed in.
   const PAGES = [
     { key: 'dashboard',   href: '/admin/index.html',             label: '🎫 IT Dashboard',      perm: 'manageTickets' },
-    { key: 'newstarters', href: '/admin/new-starters.html',      label: '🧑‍💻 New Starter Queue', perm: ['manageTickets', 'updateAccounts'] },
+    { key: 'newstarters', href: '/admin/new-starters.html',      label: '🧑‍💻 Starter / Leaver Queue', perm: ['manageTickets', 'updateAccounts'] },
     { key: 'summary',     href: '/admin/hr-dashboard.html',      label: '📊 Ticket Summary',    perm: 'viewTicketStats' },
-    { key: 'request',     href: '/admin/account-request.html',   label: '👤 Request Accounts',  perm: 'requestAccounts' },
+    { key: 'request',     href: '/admin/account-request.html',   label: '👤 New Starters',      perm: 'requestAccounts' },
+    { key: 'leavers',     href: '/admin/leaver-request.html',    label: '🚪 Leavers',           perm: 'requestAccounts' },
     { key: 'hredit',      href: '/admin/site-edit.html',         label: '✏️ Edit HR Page',      perm: 'editHR' },
     { key: 'users',       href: '/admin/users.html',             label: '👥 Users',             perm: 'manageUsers' },
     { key: 'account',     href: '/admin/account.html',           label: '🔑 My Account',        perm: null }
@@ -105,7 +106,7 @@
     const label = me.role.replace(/_/g, ' ');
     const bar = document.createElement('div');
     bar.id = 'pn-preview';
-    bar.innerHTML = `<span>🧪 <b>Test mode</b> — previewing as <b></b> (${label}). Account requests you submit go to IT marked <b>TEST</b> and are auto-completed (no booking; HR's copy comes only to you). Other changes are blocked. Signed in as <b></b>.</span>
+    bar.innerHTML = `<span>🧪 <b>Test mode</b> — previewing as <b></b> (${label}). Starter / leaver requests you submit go to IT marked <b>TEST</b> and are auto-completed (no booking; HR's copy comes only to you). Other changes are blocked. Signed in as <b></b>.</span>
       <button type="button">Exit preview</button>`;
     const bs = bar.querySelectorAll('b');
     bs[1].textContent = me.username;
@@ -117,10 +118,10 @@
     window.fetch = (url, opts = {}) => {
       const method = String((opts && opts.method) || 'GET').toUpperCase();
       const u = String(url && url.url ? url.url : url);
-      // account-request is the one feature that runs for real in test mode.
+      // account-request (starters + leavers) is the one feature that runs for real in test mode.
       if (method !== 'GET' && /\/api\/admin\//.test(u) && !/\/api\/admin\/(preview|logout|account-request)\b/.test(u)) {
-        toast("Not available in test mode — only account requests can be tested.");
-        const text = "That change isn't available in preview test mode — only new-starter account requests can be tested. Exit preview to make real changes.";
+        toast("Not available in test mode — only starter / leaver requests can be tested.");
+        const text = "That change isn't available in preview test mode — only new-starter and leaver requests can be tested. Exit preview to make real changes.";
         const msg = { error: text, message: text };
         return Promise.resolve(new Response(JSON.stringify(msg), { status: 403, headers: { 'Content-Type': 'application/json' } }));
       }

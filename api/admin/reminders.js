@@ -20,6 +20,7 @@ const msDir = require('../../lib/ms-directory.js');
 const INDEX_PATH    = 'account-requests/index.json';
 const SETTINGS_PATH = 'account-requests/settings.json';
 const MARKER        = '[NEW STARTER ACCOUNT REQUEST]';
+const LEAVER_MARKER = '[LEAVER ACCESS REMOVAL]';
 const ACTIVE        = new Set(['Open', 'In Progress']);
 const PRIO          = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
@@ -76,7 +77,7 @@ module.exports = async function handler(req, res) {
         status: spVal(t.Status) || 'Open', priority: spVal(t.Priority) || spVal(t.SuggestedPriority) || 'Medium',
         assignedTo: spVal(t.AssignedTo), submitter: spVal(t.SubmitterName), category: spVal(t.Category),
         description: String(t.Description || ''), created: t.Created || t.created || ''
-      })).filter(t => ACTIVE.has(t.status) && !t.description.startsWith(MARKER)); // account requests are listed separately below
+      })).filter(t => ACTIVE.has(t.status) && !t.description.startsWith(MARKER) && !t.description.startsWith(LEAVER_MARKER)); // account requests are listed separately below
     } catch (err) {
       warnings.push('Ticket list timed out — only new-starter requests included.');
     }
@@ -117,13 +118,9 @@ module.exports = async function handler(req, res) {
 
   // Out of sight, out of mind: if the Microsoft 365 directory sync is failing
   // or stale, every reminder says so until it's fixed.
+  // Also warns ~30 days before the Azure app secret expires.
   let dirWarning = '';
-  try {
-    const st = await msDir.status();
-    if (st.stale) dirWarning = st.lastSuccess
-      ? `The Microsoft 365 user list hasn't synced for ${Math.round(st.ageHours / 24) || 1} day(s)${st.error ? ` (${st.error})` : ''} — new-starter email checks can't be trusted until it's fixed.`
-      : `The Microsoft 365 user list has never synced${st.error ? ` (${st.error})` : ''} — new-starter email checks are off.`;
-  } catch (_) {}
+  try { dirWarning = msDir.warningText(await msDir.status()); } catch (_) {}
   if (dirWarning) warnings.push(dirWarning);
   plan.forEach(p => { p.dirWarning = dirWarning; });
 
@@ -161,10 +158,10 @@ function reminderHtml(p, origin) {
     </table>
     <p style="margin:8px 0 0"><a href="${origin}/admin/index.html" style="color:#4e9938;font-weight:700">Open the IT dashboard →</a></p>` : '';
   const reqTable = p.requests.length ? `
-    <p style="margin:22px 0 8px;font-size:15px;font-weight:800">🧑‍💻 New starter account requests (${p.requests.length})</p>
+    <p style="margin:22px 0 8px;font-size:15px;font-weight:800">🧑‍💻 Starter &amp; leaver requests (${p.requests.length})</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;border-collapse:collapse;font-size:12.5px">
-      <tr>${th('Request')}${th('People')}${th(p.fallback ? 'Still to do' : 'Your part')}${th('Starts')}${th('Status')}${th('From')}${p.fallback ? th('Assigned') : ''}</tr>
-      ${p.requests.map(r => `<tr>${td(`<a href="${origin}/admin/new-starters?id=${encodeURIComponent(r.ticketID)}" style="color:#4e9938;font-weight:800">${esc(r.ticketID)}</a>`)}${td(esc((r.names || []).join(', ') + (r.count > (r.names || []).length ? ` +${r.count - r.names.length}` : '')))}${td(esc((r.tasks || []).join(', ') || `${r.count - (r.doneCount || 0)} of ${r.count} people`))}${td(esc(r.earliestStart || '—'))}${td(esc(r.status || 'Open'))}${td(esc(r.requesterName || r.requestedBy))}${p.fallback ? td(esc(r.assignee || '—')) : ''}</tr>`).join('')}
+      <tr>${th('Request')}${th('People')}${th(p.fallback ? 'Still to do' : 'Your part')}${th('Date')}${th('Status')}${th('From')}${p.fallback ? th('Assigned') : ''}</tr>
+      ${p.requests.map(r => `<tr>${td(`<a href="${origin}/admin/new-starters?id=${encodeURIComponent(r.ticketID)}" style="color:#4e9938;font-weight:800">${esc(r.ticketID)}</a>`)}${td((r.type === 'leaver' ? '<strong style="color:#a4262c">LEAVER</strong> ' : '') + esc((r.names || []).join(', ') + (r.count > (r.names || []).length ? ` +${r.count - r.names.length}` : '')))}${td(esc((r.tasks || []).join(', ') || `${r.count - (r.doneCount || 0)} of ${r.count} people`))}${td(esc(r.earliestStart ? (r.type === 'leaver' ? 'Last day ' : 'Starts ') + r.earliestStart : '—'))}${td(esc(r.status || 'Open'))}${td(esc(r.requesterName || r.requestedBy))}${p.fallback ? td(esc(r.assignee || '—')) : ''}</tr>`).join('')}
     </table>` : '';
   const intro = p.fallback
     ? 'These open items have <strong>nobody assigned</strong>, or are assigned to someone with no email in Settings → IT Staff. Please assign them.'

@@ -128,6 +128,7 @@
     const $ = id => document.getElementById(id);
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const NEW_STARTER = '[NEW STARTER ACCOUNT REQUEST]';
+    const LEAVER = '[LEAVER ACCESS REMOVAL]';
     const STATUS_ORDER = ['Open', 'In Progress', 'Resolved', 'Closed'];
     const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3 };
     let all = [], days = 30, sortKey = 'Created', sortDir = -1, pg = 0;
@@ -145,10 +146,10 @@
         TicketID: t.TicketID ?? t.Title ?? t.ticketID ?? '',
         SubmitterName: spVal(t.SubmitterName), Department: spVal(t.Department) || '—',
         // New-starter account requests are logged as tickets; label them plainly.
-        Category: desc.startsWith(NEW_STARTER) ? 'New Starter Accounts' : (spVal(t.Category) || 'Other'),
+        Category: desc.startsWith(NEW_STARTER) ? 'New Starter Accounts' : desc.startsWith(LEAVER) ? 'Leaver Access Removal' : (spVal(t.Category) || 'Other'),
         Priority: spVal(t.Priority) || spVal(t.SuggestedPriority) || 'Medium',
         Status: spVal(t.Status) || 'Open', AssignedTo: spVal(t.AssignedTo) || 'Unassigned',
-        Description: desc.startsWith(NEW_STARTER) ? desc.split('\n')[0].replace(NEW_STARTER, 'New starter accounts:') : desc,
+        Description: desc.startsWith(NEW_STARTER) ? desc.split('\n')[0].replace(NEW_STARTER, 'New starter accounts:') : desc.startsWith(LEAVER) ? desc.split('\n')[0].replace(LEAVER, 'Leaver — remove access:') : desc,
         PublicUpdate: t.PublicUpdate || '', Created: t.Created || t.created || '', Modified: t.Modified || t.modified || ''
       };
     }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>iRam IT — New Starter Queue</title>
+  <title>iRam IT — Starter &amp; Leaver Queue</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧑‍💻</text></svg>">
   <script src="/admin/assets/portal-nav.js"></script>
   <style>
@@ -35,6 +35,12 @@
     .settings-head { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
     .settings-head h3 { margin-right: auto; }
     .owner-pick { font-size: 11.5px; padding: 3px 6px; width: auto; margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; }
+    .b-leaver { background: #fdf0f0; color: #a4262c; } .b-starter { background: #edf7e8; color: #2f6b1a; }
+    .svc.hb { background: #e6f6f4; color: #0b6b5e; } .svc.rm { text-decoration: line-through; text-decoration-color: rgba(164,38,44,.55); }
+    .steps { margin: 6px 0 0 18px; font-size: 12.5px; line-height: 1.65; color: #444; }
+    .steps b { color: #2D2D2D; }
+    .now { background: #a4262c; color: #fff; border-radius: 5px; padding: 2px 7px; font-size: 11px; font-weight: 800; }
+    .p-cols.four { grid-template-columns: repeat(4, 1fr); }
     .owner-tag { margin-left: auto; font-size: 11px; font-weight: 700; color: #555; background: #eef0f2; border-radius: 5px; padding: 2px 7px; text-transform: none; letter-spacing: 0; }
 
     .table-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow-x: auto; }
@@ -59,7 +65,7 @@
     /* modal */
     .overlay { position: fixed; inset: 0; background: rgba(20,24,28,.5); display: none; align-items: flex-start; justify-content: center; padding: 30px 14px; overflow-y: auto; z-index: 20; }
     .overlay.show { display: flex; }
-    .modal { background: #f4f6f8; border-radius: 12px; width: 100%; max-width: 1000px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+    .modal { background: #f4f6f8; border-radius: 12px; width: 100%; max-width: 1160px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
     .m-head { background: #2D2D2D; color: #fff; padding: 16px 22px; border-radius: 12px 12px 0 0; display: flex; align-items: center; gap: 12px; }
     .m-head h2 { font-size: 18px; margin-right: auto; }
     .m-close { background: #4a4a4a; color: #fff; border: none; border-radius: 7px; padding: 7px 12px; cursor: pointer; font-weight: 700; }
@@ -116,7 +122,7 @@
 </head>
 <body>
   <div class="topbar">
-    <h1>🧑‍💻 New Starter Queue</h1>
+    <h1>🧑‍💻 Starter &amp; Leaver Queue</h1>
     <span class="pn-links" id="pn-links"></span>
   </div>
 
@@ -126,7 +132,7 @@
       <div class="stat blue"><div class="l">Open requests</div><div class="v" id="s-open">—</div><div class="s">Not started yet</div></div>
       <div class="stat amber"><div class="l">In progress</div><div class="v" id="s-prog">—</div><div class="s">Being set up</div></div>
       <div class="stat"><div class="l">People waiting</div><div class="v" id="s-people">—</div><div class="s">Across active requests</div></div>
-      <div class="stat red"><div class="l">Starting ≤ 7 days</div><div class="v" id="s-soon">—</div><div class="s">Active, start date soon</div></div>
+      <div class="stat red"><div class="l">Due ≤ 7 days</div><div class="v" id="s-soon">—</div><div class="s">Start dates / last days coming up</div></div>
     </div>
 
     <div class="filters">
@@ -138,8 +144,9 @@
         <button class="tab" data-tab="all">All</button>
       </div>
       <input type="text" id="q" placeholder="Search ticket, name, HR person…">
+      <select id="f-type"><option value="">Starters &amp; leavers</option><option value="starter">➕ New starters</option><option value="leaver">➖ Leavers</option></select>
       <select id="f-region"><option value="">All regions</option></select>
-      <select id="f-svc"><option value="">All accounts</option><option value="microsoft">Microsoft 365</option><option value="perigee">Perigee</option><option value="dext">Dext</option></select>
+      <select id="f-svc"><option value="">All accounts</option><option value="microsoft">Microsoft 365</option><option value="perigee">Perigee</option><option value="dext">Dext</option><option value="hub">iRam Hub</option></select>
       <button class="b b-grey" onclick="load()">↻ Refresh</button>
     </div>
 
@@ -151,11 +158,14 @@
     <div id="settings" style="display:none;margin-top:12px">
       <h3 style="font-size:14px;font-weight:800">👥 Who does what</h3>
       <p class="hint" style="margin-bottom:6px">Each account type has its owner. New requests are assigned per person, per account, using these. To split work, add a share, e.g. <b>Sean 70, Laurette 30</b>. Names must match <b>Settings → IT Staff</b><span id="st-staffNames"></span>.</p>
-      <div class="grid2" style="grid-template-columns:repeat(3,1fr)">
+      <div class="grid2" style="grid-template-columns:repeat(4,1fr)">
         <div><label>✉️ Microsoft 365</label><input type="text" id="st-own-microsoft" placeholder="Sean"></div>
         <div><label>📱 Perigee</label><input type="text" id="st-own-perigee" placeholder="Sean 70, Laurette 30"></div>
         <div><label>🧾 Dext</label><input type="text" id="st-own-dext" placeholder="Laurette"></div>
+        <div><label>🌐 iRam Hub <span class="hint">(leavers)</span></label><input type="text" id="st-own-hub" placeholder="Sean"></div>
       </div>
+      <label style="margin-top:12px">🌐 iRam Hub &amp; linked sites to remove leavers from <span class="hint">(one per line: Name | https://address)</span></label>
+      <textarea id="st-hubSites" rows="3" placeholder="iRam Hub | https://iram-hub.vercel.app/dashboard"></textarea>
       <h3 style="font-size:14px;font-weight:800;margin-top:18px">📧 Who gets the account details</h3>
       <p class="hint" style="margin-bottom:6px">When IT (or the Perigee support admin) clicks <strong>Send account details</strong>, the logins are emailed to everyone below. The Perigee support admin is also copied on every new request. To let her record account info in this queue herself, give her a login with the <strong>Perigee Support Admin</strong> role. Separate several addresses with commas.</p>
       <div class="grid2">
@@ -183,7 +193,7 @@
       </div>
       <div class="hint" id="rm-result" style="margin-top:8px"></div>
       <h3 style="font-size:14px;font-weight:800;margin-top:18px">🔄 Microsoft 365 user list (for cross-checks)</h3>
-      <p class="hint" style="margin-bottom:6px">Synced from Microsoft every night at 03:00, so requests can be checked for taken emails, existing accounts and duplicates.</p>
+      <p class="hint" style="margin-bottom:6px">Synced from Microsoft every night at 03:00, so starters are checked for taken emails, existing accounts and duplicates, and leavers are matched to their Microsoft account. <b>To connect it:</b> IT Dashboard → ⚙️ Settings → 🔗 Microsoft 365.</p>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <span id="dir-status" style="font-size:13px">Checking…</span>
         <button class="b b-grey" id="dir-sync" onclick="syncDirectory()">🔄 Sync now</button>
@@ -193,7 +203,7 @@
 
     <div class="table-card">
       <table class="t">
-        <thead><tr><th>Ticket</th><th>People</th><th>Accounts</th><th>Region</th><th>Starts</th><th>Requested by</th><th>Priority</th><th>Status</th><th>Assigned</th><th>Logged</th></tr></thead>
+        <thead><tr><th>Ticket</th><th>People</th><th>Accounts</th><th>Region</th><th>Date</th><th>Requested by</th><th>Priority</th><th>Status</th><th>Assigned</th><th>Logged</th></tr></thead>
         <tbody id="tbody"><tr><td colspan="10" class="empty">Loading…</td></tr></tbody>
       </table>
     </div>
@@ -264,7 +274,7 @@
     }
 
     function render() {
-      const q = $('q').value.trim().toLowerCase(), reg = $('f-region').value, svc = $('f-svc').value;
+      const q = $('q').value.trim().toLowerCase(), reg = $('f-region').value, svc = $('f-svc').value, typ = $('f-type').value;
       const active = rows.filter(x => isActive(x.status));
       $('s-open').textContent = rows.filter(x => (x.status || 'Open') === 'Open').length;
       $('s-prog').textContent = rows.filter(x => x.status === 'In Progress').length;
@@ -278,6 +288,7 @@
         if ((tab === 'Open' || tab === 'In Progress') && st !== tab) return false;
         if (reg && !(x.regions || []).includes(reg)) return false;
         if (svc && !(x.services || {})[svc]) return false;
+        if (typ && (x.type || 'starter') !== typ) return false;
         if (q && ![x.ticketID, x.requesterName, x.requestedBy, ...(x.names || [])].join(' ').toLowerCase().includes(q)) return false;
         return true;
       });
@@ -287,12 +298,13 @@
         const d = daysTo(x.earliestStart);
         const more = x.count > (x.names || []).length ? ` +${x.count - x.names.length}` : '';
         const pct = x.count ? Math.round(100 * (x.doneCount || 0) / x.count) : 0;
+        const lv = x.type === 'leaver', rm = lv ? ' rm' : '';
         return `<tr onclick="openRequest('${esc(x.ticketID)}')">
-          <td class="tid">${esc(x.ticketID)}${x.test ? '<div><span class="badge b-test">🧪 TEST</span></div>' : ''}</td>
+          <td class="tid">${esc(x.ticketID)}<div>${lv ? '<span class="badge b-leaver">➖ LEAVER</span>' : '<span class="badge b-starter">➕ STARTER</span>'}${x.test ? ' <span class="badge b-test">🧪 TEST</span>' : ''}</div></td>
           <td><strong>${x.count}</strong> — ${esc((x.names || []).join(', '))}${esc(more)}<div class="bar"><i style="width:${pct}%"></i></div><div class="hint">${x.doneCount || 0}/${x.count} done</div></td>
-          <td>${s.microsoft ? `<span class="svc ms">${s.microsoft} MS365</span>` : ''}${s.perigee ? `<span class="svc pg">${s.perigee} Perigee</span>` : ''}${s.dext ? `<span class="svc dx">${s.dext} Dext</span>` : ''}</td>
+          <td>${s.microsoft ? `<span class="svc ms${rm}">${s.microsoft} MS365</span>` : ''}${s.perigee ? `<span class="svc pg${rm}">${s.perigee} Perigee</span>` : ''}${s.dext ? `<span class="svc dx${rm}">${s.dext} Dext</span>` : ''}${s.hub ? `<span class="svc hb${rm}">${s.hub} iRam Hub</span>` : ''}</td>
           <td>${esc((x.regions || []).join(', '))}</td>
-          <td style="white-space:nowrap" class="${d !== null && d <= 3 && isActive(st) ? 'soon' : ''}">${esc(x.earliestStart || '—')}</td>
+          <td style="white-space:nowrap" class="${d !== null && d <= 3 && isActive(st) ? 'soon' : ''}">${x.earliestStart ? `<span class="hint" style="display:block">${lv ? 'Last day' : 'Starts'}</span>${esc(x.earliestStart)}` : '—'}${lv && x.immediate && isActive(st) ? '<div><span class="now">CUT OFF NOW</span></div>' : ''}</td>
           <td>${esc(x.requesterName || x.requestedBy)}<div class="hint">${esc(x.requesterRole || '')}</div></td>
           <td><span class="badge b-${esc(x.priority || 'Medium')}">${esc(x.priority || 'Medium')}</span></td>
           <td><span class="badge b-${esc(st.replace(' ', '-'))}">${esc(st)}</span></td>
@@ -305,7 +317,7 @@
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === b));
       tab = b.dataset.tab; render();
     });
-    ['q', 'f-region', 'f-svc'].forEach(id => $(id).addEventListener('input', render));
+    ['q', 'f-region', 'f-svc', 'f-type'].forEach(id => $(id).addEventListener('input', render));
 
     // ── Detail ──────────────────────────────────────────────────────────────
     async function openRequest(id) {
@@ -367,7 +379,7 @@
       if (!open) return;
       const r = open.record, st = r.status || 'Open';
       const sp = spTickets && spTickets[r.ticketID];
-      $('m-title').textContent = `${r.ticketID} · ${r.people.length} ${r.people.length === 1 ? 'person' : 'people'}`;
+      $('m-title').textContent = `${r.ticketID} · ${r.type === 'leaver' ? 'LEAVER — remove access · ' : ''}${r.people.length} ${r.people.length === 1 ? 'person' : 'people'}`;
       $('m-status-badge').innerHTML = (r.test ? '<span class="badge b-test" style="margin-right:6px">🧪 TEST</span>' : '') + `<span class="badge b-${esc(st.replace(' ', '-'))}">${esc(st)}</span>`;
 
       const verify = open.verified
@@ -398,15 +410,15 @@
         </div>
         <div class="row" style="margin-top:12px">
           <div style="flex:0;white-space:nowrap"><label>Export everyone</label>
-            <button class="b b-grey" onclick="exportCsv('ms')">⬇ Microsoft 365 bulk CSV</button>
-            <button class="b b-grey" onclick="exportCsv('perigee')">⬇ Perigee CSV</button>
+            ${r.type === 'leaver' ? '' : `<button class="b b-grey" onclick="exportCsv('ms')">⬇ Microsoft 365 bulk CSV</button>
+            <button class="b b-grey" onclick="exportCsv('perigee')">⬇ Perigee CSV</button>`}
             <button class="b b-grey" onclick="copyAll()">⧉ Copy all as text</button></div>
         </div>
-        ${isIT ? `<p class="hint" style="margin-top:8px">Marking Resolved/Closed also clears the calendar booking and emails ${esc(r.requesterName || 'HR')} the status change. Tick each account below as you create it.</p>` : ''}
+        ${isIT ? `<p class="hint" style="margin-top:8px">Marking Resolved/Closed also clears the calendar booking and emails ${esc(r.requesterName || 'HR')} the status change. Tick each account below as you ${r.type === 'leaver' ? 'remove' : 'create'} it.</p>` : ''}
       </div>`;
 
       if (lastChecks && lastChecks.id === r.ticketID) r.people.forEach((p, i) => { if (!p._check) { p._check = lastChecks.results[i]; p._checkStale = lastChecks.stale; } });
-      const people = r.people.map((p, i) => {
+      const people = r.type === 'leaver' ? r.people.map((p, i) => leaverCard(r, p, i, locked)).join('') : r.people.map((p, i) => {
         const d = p.done || {};
         const allDone = (!p.needsMicrosoft || d.microsoft) && (!p.needsPerigee || d.perigee) && (!p.needsDext || d.dext);
         const ownerCtl = key => {
@@ -436,7 +448,7 @@
       }).join('');
 
       const testBox = r.test ? `<div class="box" style="border-left:4px solid #5b2ea6;background:#faf7ff"><h3>🧪 Test request</h3>
-          <p style="font-size:13px">Submitted by <strong>${esc(r.testBy)}</strong> while testing as ${esc(r.requesterName || r.requestedBy)}. It was <strong>auto-completed</strong> — no accounts to create. There's no SharePoint ticket or calendar booking, and HR never sees test requests.</p>
+          <p style="font-size:13px">Submitted by <strong>${esc(r.testBy)}</strong> while testing as ${esc(r.requesterName || r.requestedBy)}. It was <strong>auto-completed</strong> — ${r.type === 'leaver' ? 'no access to remove' : 'no accounts to create'}. There's no SharePoint ticket or calendar booking, and HR never sees test requests.</p>
           <button class="b b-red" style="margin-top:10px" onclick="deleteTest()">🗑 Delete this test request</button></div>` : '';
       $('m-body').innerHTML = testBox + verify + manage + people;
       $('m-body').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copy(b.dataset.copy)));
@@ -444,6 +456,103 @@
         patch({ people: [{ index: +cb.dataset.i, done: { [cb.dataset.done]: cb.checked } }] }, cb.checked ? 'Ticked ✓' : 'Unticked')));
       $('m-body').querySelectorAll('[data-save-info]').forEach(b => b.addEventListener('click', () => saveAccountInfo(+b.dataset.saveInfo)));
       $('m-body').querySelectorAll('[data-paste]').forEach(ta => ta.addEventListener('input', () => applyMsPaste(+ta.dataset.paste, ta.value)));
+      $('m-body').querySelectorAll('[data-save-leaver]').forEach(b => b.addEventListener('click', () => saveLeaverInfo(+b.dataset.saveLeaver)));
+    }
+
+    // ── Leavers: one card per person, a column per platform to remove ──────
+    const MAILBOX_TEXT = { shared: 'Convert to a <b>shared mailbox</b> and give <b>{to}</b> Full Access', forward: 'Forward new email to <b>{to}</b>', none: 'No mailbox access needed — just block' };
+    function leaverCard(r, p, i, locked) {
+      const d = p.done || {};
+      const allDone = ['microsoft', 'perigee', 'dext', 'hub'].every(k => !p[NEED[k]] || d[k]);
+      const found = (p._check && p._check.accounts) || [];
+      const work = p.workEmail || (found[0] && found[0].exact ? found[0].upn : '') || '';
+      const ownerTag = key => { const cur = (p.owners || {})[key] || ''; if (!isIT || locked) return cur ? `<span class="owner-tag">👤 ${esc(cur)}</span>` : '';
+        const names = [...new Set([...(settings && settings.staffNames || []), cur].filter(Boolean))];
+        return `<select class="owner-pick" title="Who removes this" onchange="reassign(${i}, '${key}', this.value)">${cur ? '' : '<option value="">— owner —</option>'}${names.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`; };
+      const col = (key, title, body) => { const on = !!p[NEED[key]]; return `<div class="p-col ${on ? '' : 'off'}">
+          <h4>${title}${on ? ownerTag(key) : ' — keep'}</h4>
+          ${on ? body + `<label class="tick"><input type="checkbox" data-i="${i}" data-done="${key}" ${d[key] ? 'checked' : ''} ${locked ? 'disabled' : ''}> Removed</label>` : ''}</div>`; };
+      const mbTo = p.mailboxTo || p.managerEmail || '—';
+      const ms = fieldList([['Work email', work || '— not given —'], ['Display name', nameFor(p)]]) + `<ol class="steps">
+          <li><b>Block sign-in</b> + reset the password</li><li>Sign out of all sessions</li>
+          <li>${(MAILBOX_TEXT[p.mailbox] || MAILBOX_TEXT.shared).replace('{to}', esc(mbTo))}</li>
+          <li>Remove from groups / Teams${p.mailbox === 'shared' ? ', then remove the licence' : ' and remove the licence'}</li>
+          <li>Remove / wipe their phone in Intune (if enrolled)</li></ol>`;
+      const pg = fieldList([['Username', p.perigeeUsername || work || '—'], ['Region', p.region]]) + '<ol class="steps"><li><b>Deactivate</b> the user in Perigee / FieldGoose</li><li>Remove them from their team / route</li></ol>';
+      const dx = fieldList([['Username', p.dextUsername || work || '—']]) + `<ol class="steps"><li><b>Remove / deactivate</b> in Dext</li></ol>
+          <div class="hint" style="margin-top:4px">${p.dextRequestedAt ? `Removal request sent ${esc(fmt(p.dextRequestedAt))} to ${esc((p.dextRequestedTo || []).join(', '))}` : 'No Dext removal request sent yet'}</div>
+          ${locked ? '' : `<button class="b b-grey b-sm" style="margin-top:6px" onclick="sendDext(${i})">📧 ${p.dextRequestedAt ? 'Resend' : 'Send'} Dext removal request</button>`}`;
+      const sites = (settings && settings.hubSites || []);
+      const hb = `<ol class="steps">${sites.length ? sites.map(x => `<li>Remove from <b>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name || x.url)}</a>` : esc(x.name)}</b></li>`).join('') : '<li>Add the iRam Hub &amp; linked sites in ⚙ Settings</li>'}</ol>`;
+      const when = p.cutOff === 'immediately' ? '<span class="now">CUT OFF NOW</span>' : `<span class="hint">remove at end of ${esc(p.lastDay)}</span>`;
+      return `<div class="person" style="border-left:4px solid #a4262c">
+          <div class="p-top"><span class="nm">${i + 1}. ${esc(nameFor(p))}</span>
+            <span class="hint">${esc([p.jobTitle, p.department, p.region].filter(Boolean).join(' · '))} · last day <b>${esc(p.lastDay)}</b>${p.reason ? ' · ' + esc(p.reason) : ''}</span>
+            ${when}${allDone ? '<span class="done-all">✔ All removed</span>' : ''}</div>
+          ${leaverChecksHtml(p)}
+          <div class="p-cols four">
+            ${col('microsoft', '✉️ Microsoft 365', ms)}
+            ${col('perigee', '📱 Perigee / FieldGoose', pg)}
+            ${col('dext', '🧾 Dext', dx)}
+            ${col('hub', '🌐 iRam Hub &amp; sites', hb)}
+          </div>
+          ${p.notes ? `<div style="padding:0 16px 12px" class="hint">Note: ${esc(p.notes)}</div>` : ''}
+          ${p.managerName || p.managerEmail ? `<div style="padding:0 16px 12px" class="hint">Supervisor: ${esc([p.managerName, p.managerEmail].filter(Boolean).join(' · '))}${p.cellphone ? ' · Cell ' + esc(p.cellphone) : ''}</div>` : ''}
+          ${locked ? '' : `<div class="handover" style="background:#fff"><h4>🗂 Account details ${p.accountInfoUpdatedBy ? `<span class="hint">Last updated by ${esc(p.accountInfoUpdatedBy)}, ${esc(fmt(p.accountInfoUpdatedAt))}</span>` : ''}</h4>
+            <div class="ho-grid">
+              <div><label>Work email (Microsoft)</label><input type="email" id="lv-ms-${i}" value="${esc(p.workEmail || '')}" placeholder="${esc(work)}"></div>
+              ${p.needsPerigee ? `<div><label>Perigee username</label><input type="text" id="lv-pg-${i}" value="${esc(p.perigeeUsername || '')}"></div>` : '<div></div>'}
+              ${p.needsDext ? `<div><label>Dext username</label><input type="text" id="lv-dx-${i}" value="${esc(p.dextUsername || '')}"></div>` : '<div></div>'}
+            </div>
+            <button class="b b-grey" style="margin-top:10px" data-save-leaver="${i}">💾 Save</button></div>
+          ${leaverConfirmHtml(r, p, i)}`}
+        </div>`;
+    }
+    const NEED = { microsoft: 'needsMicrosoft', perigee: 'needsPerigee', dext: 'needsDext', hub: 'needsHub' };
+    function leaverChecksHtml(p) {
+      const c = p._check;
+      if (!c) return '';
+      const lines = [];
+      if (p.needsMicrosoft) {
+        if (!c.directory || p._checkStale) lines.push(`<span class="chk-na">❔ Can't look up their Microsoft account — the Microsoft list ${c.directory ? 'is out of date' : "isn't connected"}.</span>`);
+        else if (!c.accounts.length) lines.push(`<span class="chk-warn">⚠️ No Microsoft account found for ${esc(nameFor(p))}${p.workEmail ? ' / ' + esc(p.workEmail) : ''} — check the spelling or the work email.</span>`);
+        else c.accounts.forEach(u => lines.push(u.enabled
+          ? `<span class="chk-warn">🔓 Microsoft account <b>${esc(u.upn)}</b> (${esc(u.name)}) is still <b>active</b> · matched on ${esc(u.why.join(', '))}</span>`
+          : `<span class="chk-ok">🔒 Microsoft account <b>${esc(u.upn)}</b> is <b>blocked</b> (as of the last sync) ✓</span>`));
+      }
+      c.duplicates.forEach(x => lines.push(`<span class="chk-bad">⛔ Also in another open leaver request: <a href="?id=${encodeURIComponent(x.ticketID)}" onclick="event.preventDefault();openRequest('${esc(x.ticketID)}')">${esc(x.ticketID)}</a> · ${esc(x.why.join(', '))}</span>`));
+      return lines.length ? `<div class="checks">${lines.join('')}</div>` : '';
+    }
+    function leaverConfirmHtml(r, p, i) {
+      const h = p.handover, to = handoverRecipients(r, p);
+      return `<div class="handover"><h4>📧 Tell HR it's done ${h ? '<span class="badge b-Resolved" style="margin-left:6px">Sent</span>' : ''}</h4>
+        ${h ? `<div class="ho-sent">✔ Sent ${esc(fmt(h.sentAt))} by ${esc(h.by)} — removed: ${esc((h.accounts || []).join(', '))}${(h.pending || []).length ? ' · still to do: ' + esc(h.pending.join(', ')) : ''}</div>` : ''}
+        <div class="ho-to">Emails what was removed (and where the mailbox went) to: <b>${to.length ? esc(to.join(', ')) : '— nobody yet, set up ⚙ Settings —'}</b></div>
+        <button class="b b-green" style="margin-top:10px" onclick="sendLeaverConfirm(${i})">📧 ${h ? 'Send again' : 'Send "access removed" confirmation'}</button></div>`;
+    }
+    async function saveLeaverInfo(i) {
+      const p = open.record.people[i], v = id => ($(id) ? $(id).value.trim() : undefined);
+      const u = { index: i, workEmail: v('lv-ms-' + i) };
+      if (p.needsPerigee) u.perigeeUsername = v('lv-pg-' + i);
+      if (p.needsDext) u.dextUsername = v('lv-dx-' + i);
+      if (await patch({ people: [u] }, 'Saved ✓')) runChecks();
+    }
+    async function sendLeaverConfirm(i) {
+      const r = open.record, p = r.people[i];
+      const to = handoverRecipients(r, p);
+      if (!confirm(`Email "access removed" for ${nameFor(p)} to:\n\n${to.join('\n')}`)) return;
+      try {
+        const res = await fetch('/api/admin/account-request?action=leaver-confirm', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketID: r.ticketID, index: i }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.message || d.error || 'Sending failed');
+        open.record = d.record; renderModal(); load();
+        toast(`Confirmation sent to ${d.sentTo.length} ${d.sentTo.length === 1 ? 'person' : 'people'} ✓`);
+        const st = $('m-status');
+        if (isIT && d.allDone && st && st.value !== 'Resolved' && st.value !== 'Closed' &&
+            confirm('All access in this request is removed and HR has been told. Mark the request as Resolved? (This also clears the calendar booking.)')) {
+          st.value = 'Resolved'; saveRequest();
+        }
+      } catch (e) { toast(e.message, true); }
     }
 
     // ── Real account info (IT or the Perigee support admin records it) ──────
@@ -467,7 +576,7 @@
       const r = open.record, p = r.people[i];
       const to = r.test ? ['you (TEST)', ...new Set([...(settings.perigeeAdminEmails || []), ...(settings.perigeeStaffEmails || [])])] : dextRecipients();
       if (!to.length) return toast('Add the Perigee support admin in ⚙ Email settings first', true);
-      if (!confirm(`Email the Dext request for ${nameFor(p)} to:\n\n${to.join('\n')}`)) return;
+      if (!confirm(`Email the Dext ${r.type === 'leaver' ? 'removal ' : ''}request for ${nameFor(p)} to:\n\n${to.join('\n')}`)) return;
       try {
         const res = await fetch('/api/admin/account-request?action=dext-request', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketID: r.ticketID, index: i }) });
         const d = await res.json().catch(() => ({}));
@@ -494,12 +603,15 @@
       if (!st) return;
       if (!st.configured) {
         b.className = 'dir-banner info';
-        b.innerHTML = '🔌 <strong>Microsoft 365 cross-check isn\'t connected yet.</strong> Once the Azure app is set up (MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET in Vercel), each request is checked for taken emails, existing accounts and duplicates.';
+        b.innerHTML = '🔌 <strong>Microsoft 365 cross-check isn\'t connected yet.</strong> A Super Admin can connect it in <a href="/admin/index.html#ms365" style="color:#1d5fa8;font-weight:700">IT Dashboard → ⚙️ Settings → 🔗 Microsoft 365</a> (step-by-step guide there). Then starters are checked for taken emails and duplicates, and leavers are matched to their account.';
         line.textContent = 'Not connected.';
-      } else if (st.stale) {
+      } else if (st.stale || st.expiring) {
         b.className = 'dir-banner bad';
-        b.innerHTML = `⚠️ <strong>Action needed: the Microsoft 365 user list ${st.lastSuccess ? `last synced ${esc(ago(st.lastSuccess))}` : 'has never synced'}.</strong> Email-availability checks can't be trusted until it's fixed.${st.error ? `<br>Error: ${esc(st.error)}` : ''}${isIT ? ' <a href="#" onclick="syncDirectory();return false" style="color:#a4262c;font-weight:800">Try Sync now →</a>' : ''}`;
-        line.innerHTML = `<span class="chk-bad">⚠️ Not up to date</span>${st.error ? ' — ' + esc(st.error) : ''}`;
+        const parts = [];
+        if (st.stale) parts.push(`<strong>Action needed: the Microsoft 365 user list ${st.lastSuccess ? `last synced ${esc(ago(st.lastSuccess))}` : 'has never synced'}.</strong> Email checks can't be trusted until it's fixed.${st.error ? `<br>Error: ${esc(st.error)}` : ''}${isIT ? ' <a href="#" onclick="syncDirectory();return false" style="color:#a4262c;font-weight:800">Try Sync now →</a>' : ''}`);
+        if (st.expiring) parts.push(`<strong>The Microsoft 365 app secret ${st.secretDaysLeft <= 0 ? 'has EXPIRED' : `expires in ${st.secretDaysLeft} day${st.secretDaysLeft === 1 ? '' : 's'}`} (${esc(st.secretExpires)}).</strong> Create a new secret in Azure and paste it in <a href="/admin/index.html#ms365" style="color:#a4262c;font-weight:800">⚙️ Settings → 🔗 Microsoft 365 →</a>`);
+        b.innerHTML = '⚠️ ' + parts.join('<br>⚠️ ');
+        line.innerHTML = st.stale ? `<span class="chk-bad">⚠️ Not up to date</span>${st.error ? ' — ' + esc(st.error) : ''}` : `<span class="chk-warn">✔ ${st.count} users · secret expires ${esc(st.secretExpires)}</span>`;
       } else {
         b.className = 'dir-banner';
         line.innerHTML = `<span class="chk-ok">✔ ${st.count} users · synced ${esc(ago(st.lastSuccess))}</span>`;
@@ -521,7 +633,7 @@
       const r0 = open.record;
       try {
         const r = await fetch('/api/admin/directory?action=check', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ excludeTicketID: r0.ticketID, people: r0.people.map(p => ({ firstName: p.firstName, middleNames: p.middleNames, lastName: p.lastName, cellphone: p.cellphone, personalEmail: p.personalEmail, wantedEmail: p.createdEmail || '' })) }) });
+          body: JSON.stringify({ excludeTicketID: r0.ticketID, type: r0.type || 'starter', people: r0.people.map(p => ({ firstName: p.firstName, middleNames: p.middleNames, lastName: p.lastName, cellphone: p.cellphone, personalEmail: p.personalEmail || p.workEmail, workEmail: p.workEmail, wantedEmail: p.createdEmail || '' })) }) });
         if (!r.ok || !open || open.record !== r0) return;
         const d = await r.json();
         dirStatus = d.status || dirStatus; renderDirStatus();
@@ -659,7 +771,9 @@
         settings = d.settings; settingsCanEdit = d.canEdit;
         ST_LISTS.forEach(k => { $('st-' + k).value = (settings[k] || []).join(', '); $('st-' + k).disabled = !settingsCanEdit; });
         const fmtOwners = list => (list || []).map(o => (list.length > 1 || o.weight !== 1) && o.weight ? `${o.name} ${o.weight}` : o.name).join(', ');
-        ['microsoft', 'perigee', 'dext'].forEach(k => { $('st-own-' + k).value = fmtOwners((settings.owners || {})[k]); $('st-own-' + k).disabled = !settingsCanEdit; });
+        ['microsoft', 'perigee', 'dext', 'hub'].forEach(k => { $('st-own-' + k).value = fmtOwners((settings.owners || {})[k]); $('st-own-' + k).disabled = !settingsCanEdit; });
+        $('st-hubSites').value = (settings.hubSites || []).map(x => x.url ? `${x.name} | ${x.url}` : x.name).join('\n');
+        $('st-hubSites').disabled = !settingsCanEdit;
         $('st-staffNames').textContent = (settings.staffNames || []).length ? ` (${settings.staffNames.join(', ')})` : '';
         $('st-includeSubmitter').checked = settings.includeSubmitter !== false;
         $('st-includeSupervisor').checked = settings.includeSupervisor !== false;
@@ -701,7 +815,8 @@
     async function saveSettings() {
       const body = {};
       ST_LISTS.forEach(k => body[k] = $('st-' + k).value);
-      body.owners = { microsoft: $('st-own-microsoft').value, perigee: $('st-own-perigee').value, dext: $('st-own-dext').value };
+      body.owners = { microsoft: $('st-own-microsoft').value, perigee: $('st-own-perigee').value, dext: $('st-own-dext').value, hub: $('st-own-hub').value };
+      body.hubSites = $('st-hubSites').value;
       body.includeSubmitter = $('st-includeSubmitter').checked;
       body.includeSupervisor = $('st-includeSupervisor').checked;
       body.remindersEnabled = $('st-remindersEnabled').checked;
@@ -805,6 +920,10 @@
     }
     function copyAll() {
       const r = open.record;
+      if (r.type === 'leaver') {
+        const lines = r.people.map((p, i) => `${i + 1}. ${nameFor(p)}${p.workEmail ? ' <' + p.workEmail + '>' : ''} — last day ${p.lastDay}${p.cutOff === 'immediately' ? ' (CUT OFF NOW)' : ''}\n   Remove: ${Object.keys(NEED).filter(k => p[NEED[k]]).map(k => ({ microsoft: 'Microsoft 365', perigee: 'Perigee', dext: 'Dext', hub: 'iRam Hub' })[k]).join(', ')}${p.needsMicrosoft ? `\n   Mailbox: ${p.mailbox === 'none' ? 'block only' : (p.mailbox === 'forward' ? 'forward to ' : 'shared, access for ') + (p.mailboxTo || p.managerEmail || '?')}` : ''}`);
+        return copy(`${r.ticketID} — LEAVERS — requested by ${r.requesterName || r.requestedBy}\n\n${lines.join('\n\n')}`);
+      }
       const text = r.people.map((p, i) => {
         const parts = [`${i + 1}. ${nameFor(p)}`];
         if (p.needsMicrosoft) parts.push('  Microsoft 365:', ...msFields(p).filter(([, v]) => v).map(([k, v]) => `    ${k}: ${v}`));
