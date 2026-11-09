@@ -167,6 +167,7 @@
         <label class="chip"><input type="checkbox" data-f="needsPerigee"> 📱 Perigee</label>
         <label class="chip"><input type="checkbox" data-f="needsDext"> 🧾 Dext</label>
       </div>
+      <div class="dup-warn" style="display:none;margin-top:10px;padding:9px 12px;border-radius:8px;background:#fff8e6;border:1px solid #f0c48a;color:#8a5a00;font-size:12.5px;line-height:1.6"></div>
       <div class="perigee-extra">
         <div class="grid">
           <div><label>Perigee user type <span class="opt">(optional)</span></label>
@@ -249,6 +250,24 @@
       return err;
     }
 
+    // ── Duplicate check (against open requests + Microsoft 365, if connected) ──
+    async function checkDuplicate(node) {
+      const p = readPerson(node), box = node.querySelector('.dup-warn');
+      if (!p.firstName || !p.lastName) { box.style.display = 'none'; return; }
+      try {
+        const r = await fetch('/api/admin/directory?action=check', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ people: [{ firstName: p.firstName, middleNames: p.middleNames, lastName: p.lastName, cellphone: normaliseSaMobile(p.cellphone) || p.cellphone, personalEmail: p.personalEmail }] }) });
+        if (!r.ok) return;
+        const c = (await r.json()).results[0];
+        const lines = [
+          ...c.duplicates.map(x => `⛔ <b>${esc(x.name)}</b> is already in an open request (${esc(x.ticketID)}) — ${esc(x.why.join(', '))}. Check before sending this again.`),
+          ...c.existing.map(u => `⚠️ <b>${esc(u.name)}</b> may already have a Microsoft account (${esc(u.upn)}${u.enabled ? '' : ', disabled'}) — ${esc(u.why.join(', '))}. Is this a rehire or a different person? Add a note for IT.`)
+        ];
+        box.innerHTML = lines.join('<br>');
+        box.style.display = lines.length ? '' : 'none';
+      } catch (_) {}
+    }
+
     // ── People rows ─────────────────────────────────────────────────────────
     function personEls() { return [...document.querySelectorAll('#people .person')]; }
 
@@ -267,7 +286,7 @@
       node.querySelectorAll('input[type=checkbox]').forEach(el => el.addEventListener('change', () => syncPerson(node)));
       // Tidy names / cell / email as soon as someone leaves the field.
       ['firstName', 'middleNames', 'lastName', 'cellphone', 'personalEmail', 'managerEmail'].forEach(k =>
-        node.querySelector(`[data-f=${k}]`).addEventListener('blur', () => tidy(node)));
+        node.querySelector(`[data-f=${k}]`).addEventListener('blur', () => { tidy(node); checkDuplicate(node); }));
       renumber();
       if (!values) node.querySelector('[data-f=firstName]').focus();
       return node;

@@ -27,6 +27,11 @@
     .filters input, .filters select { padding: 8px 10px; border: 1.5px solid #dcdfe3; border-radius: 7px; font: 13px inherit; font-family: inherit; background: #fff; }
     .filters input { min-width: 240px; flex: 1; }
     .filters select { width: auto; min-width: 150px; }
+    .dir-banner { display: none; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.6; }
+    .dir-banner.bad { display: block; background: #fdf0f0; border: 1.5px solid #e7a3a3; color: #a4262c; }
+    .dir-banner.info { display: block; background: #f4f6f8; border: 1.5px dashed #cfd3d7; color: #555; }
+    .checks { padding: 8px 16px 10px; border-bottom: 1px solid #f0f1f3; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+    .chk-ok { color: #2f6b1a; } .chk-warn { color: #9a5b00; } .chk-bad { color: #a4262c; font-weight: 600; } .chk-na { color: #999; }
     .settings-head { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
     .settings-head h3 { margin-right: auto; }
     .owner-pick { font-size: 11.5px; padding: 3px 6px; width: auto; margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; }
@@ -116,6 +121,7 @@
   </div>
 
   <div class="wrap">
+    <div class="dir-banner" id="dir-banner"></div>
     <div class="stats">
       <div class="stat blue"><div class="l">Open requests</div><div class="v" id="s-open">—</div><div class="s">Not started yet</div></div>
       <div class="stat amber"><div class="l">In progress</div><div class="v" id="s-prog">—</div><div class="s">Being set up</div></div>
@@ -176,6 +182,12 @@
         <span class="hint" id="st-note"></span>
       </div>
       <div class="hint" id="rm-result" style="margin-top:8px"></div>
+      <h3 style="font-size:14px;font-weight:800;margin-top:18px">🔄 Microsoft 365 user list (for cross-checks)</h3>
+      <p class="hint" style="margin-bottom:6px">Synced from Microsoft every night at 03:00, so requests can be checked for taken emails, existing accounts and duplicates.</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span id="dir-status" style="font-size:13px">Checking…</span>
+        <button class="b b-grey" id="dir-sync" onclick="syncDirectory()">🔄 Sync now</button>
+      </div>
     </div>
     </div>
 
@@ -209,6 +221,7 @@
       load();
       loadSharePoint();
       loadSettings();
+      loadDirStatus();
       const id = new URLSearchParams(location.search).get('id') || new URLSearchParams(location.search).get('verify');
       if (id) openRequest(id.toUpperCase());
     });
@@ -312,6 +325,7 @@
         open = d;
         history.replaceState(null, '', '?id=' + encodeURIComponent(id));
         renderModal();
+        runChecks();
       } catch (e) {
         $('m-body').innerHTML = `<div class="box verify-bad">${esc(e.message)}</div>`;
       }
@@ -322,7 +336,7 @@
 
     // Suggested Microsoft sign-in: firstname.surname@domain (accents/spaces stripped).
     const slug = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
-    const upnFor = p => p.createdEmail || `${slug(p.firstName)}.${slug(p.lastName)}@${DOMAIN}`;
+    const upnFor = p => p.createdEmail || (p._check && p._check.email && p._check.email.suggestion) || `${slug(p.firstName)}.${slug(p.lastName)}@${DOMAIN}`;
     const nameFor = p => [p.firstName, p.middleNames, p.lastName].filter(Boolean).join(' ');
     function msFields(p) {
       return [
@@ -391,6 +405,7 @@
         ${isIT ? `<p class="hint" style="margin-top:8px">Marking Resolved/Closed also clears the calendar booking and emails ${esc(r.requesterName || 'HR')} the status change. Tick each account below as you create it.</p>` : ''}
       </div>`;
 
+      if (lastChecks && lastChecks.id === r.ticketID) r.people.forEach((p, i) => { if (!p._check) { p._check = lastChecks.results[i]; p._checkStale = lastChecks.stale; } });
       const people = r.people.map((p, i) => {
         const d = p.done || {};
         const allDone = (!p.needsMicrosoft || d.microsoft) && (!p.needsPerigee || d.perigee) && (!p.needsDext || d.dext);
@@ -408,6 +423,7 @@
           <div class="p-top"><span class="nm">${i + 1}. ${esc(nameFor(p))}</span>
             <span class="hint">${esc(p.jobTitle)} · ${esc(p.department)} · ${esc(p.region)}${p.startDate ? ' · starts ' + esc(p.startDate) : ''}</span>
             ${allDone ? '<span class="done-all">✔ All done</span>' : ''}</div>
+          ${checksHtml(p)}
           <div class="p-cols">
             ${col('microsoft', '✉️ Microsoft 365', p.needsMicrosoft, msFields(p))}
             ${col('perigee', '📱 Perigee', p.needsPerigee, perigeeFields(p))}
@@ -459,6 +475,73 @@
         open.record = d.record; renderModal(); load();
         toast(`Dext request sent to ${d.dextTo.join(', ')} ✓`);
       } catch (e) { toast(e.message, true); }
+    }
+
+    // ── Microsoft 365 cross-checks ──────────────────────────────────────────
+    let dirStatus = null, lastChecks = null;
+    const ago = iso => { const h = (Date.now() - new Date(iso)) / 3600000; return h < 1 ? 'under an hour ago' : h < 48 ? `${Math.round(h)} h ago` : `${Math.round(h / 24)} days ago`; };
+    async function loadDirStatus() {
+      try {
+        const r = await fetch('/api/admin/directory?status=1', { cache: 'no-store' });
+        if (!r.ok) return;
+        dirStatus = await r.json();
+        renderDirStatus();
+      } catch (_) {}
+    }
+    function renderDirStatus() {
+      const st = dirStatus, b = $('dir-banner'), line = $('dir-status');
+      $('dir-sync').style.display = isIT && st && st.configured ? '' : 'none';
+      if (!st) return;
+      if (!st.configured) {
+        b.className = 'dir-banner info';
+        b.innerHTML = '🔌 <strong>Microsoft 365 cross-check isn\'t connected yet.</strong> Once the Azure app is set up (MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET in Vercel), each request is checked for taken emails, existing accounts and duplicates.';
+        line.textContent = 'Not connected.';
+      } else if (st.stale) {
+        b.className = 'dir-banner bad';
+        b.innerHTML = `⚠️ <strong>Action needed: the Microsoft 365 user list ${st.lastSuccess ? `last synced ${esc(ago(st.lastSuccess))}` : 'has never synced'}.</strong> Email-availability checks can't be trusted until it's fixed.${st.error ? `<br>Error: ${esc(st.error)}` : ''}${isIT ? ' <a href="#" onclick="syncDirectory();return false" style="color:#a4262c;font-weight:800">Try Sync now →</a>' : ''}`;
+        line.innerHTML = `<span class="chk-bad">⚠️ Not up to date</span>${st.error ? ' — ' + esc(st.error) : ''}`;
+      } else {
+        b.className = 'dir-banner';
+        line.innerHTML = `<span class="chk-ok">✔ ${st.count} users · synced ${esc(ago(st.lastSuccess))}</span>`;
+      }
+    }
+    async function syncDirectory() {
+      $('dir-status').textContent = 'Syncing with Microsoft…';
+      try {
+        const r = await fetch('/api/admin/directory?action=sync', { method: 'POST', cache: 'no-store' });
+        const d = await r.json().catch(() => ({}));
+        dirStatus = d.configured !== undefined ? d : dirStatus;
+        renderDirStatus();
+        toast(r.ok ? `Synced ${d.count} Microsoft 365 users ✓` : (d.error || (d.result && d.result.error) || 'Sync failed'), !r.ok);
+        if (open) runChecks();
+      } catch (e) { toast(e.message, true); }
+    }
+    async function runChecks() {
+      if (!open) return;
+      const r0 = open.record;
+      try {
+        const r = await fetch('/api/admin/directory?action=check', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ excludeTicketID: r0.ticketID, people: r0.people.map(p => ({ firstName: p.firstName, middleNames: p.middleNames, lastName: p.lastName, cellphone: p.cellphone, personalEmail: p.personalEmail, wantedEmail: p.createdEmail || '' })) }) });
+        if (!r.ok || !open || open.record !== r0) return;
+        const d = await r.json();
+        dirStatus = d.status || dirStatus; renderDirStatus();
+        lastChecks = { id: r0.ticketID, results: d.results, stale: d.status && d.status.stale };
+        r0.people.forEach((p, i) => { p._check = d.results[i]; p._checkStale = lastChecks.stale; });
+        renderModal();
+      } catch (_) {}
+    }
+    function checksHtml(p) {
+      const c = p._check;
+      if (!c) return '';
+      const lines = [];
+      if (p.needsMicrosoft && c.email) {
+        if (!c.directory || p._checkStale) lines.push(`<span class="chk-na">❔ Can't confirm ${esc(c.email.wanted)} is free — the Microsoft list ${c.directory ? 'is out of date' : "isn't synced"}.</span>`);
+        else if (c.email.taken) lines.push(`<span class="chk-bad">⛔ ${esc(c.email.wanted)} is taken by ${esc(c.email.takenBy.name)}${c.email.takenBy.enabled ? '' : ' (disabled account)'} → ${c.email.suggestion ? `use <b>${esc(c.email.suggestion)}</b> (free)` : 'pick another address'}.</span>`);
+        else if (!p.createdEmail) lines.push(`<span class="chk-ok">✅ ${esc(c.email.wanted)} is free.</span>`);
+      }
+      c.existing.forEach(u => lines.push(`<span class="chk-warn">⚠️ May already have an account: <b>${esc(u.name)}</b> — ${esc(u.upn)}${u.enabled ? '' : ' (disabled — rehire?)'} · ${esc(u.why.join(', '))}</span>`));
+      c.duplicates.forEach(x => lines.push(`<span class="chk-bad">⛔ Possible duplicate request: ${esc(x.name)} is also in <a href="?id=${encodeURIComponent(x.ticketID)}" onclick="event.preventDefault();openRequest('${esc(x.ticketID)}')">${esc(x.ticketID)}</a> · ${esc(x.why.join(', '))}</span>`));
+      return lines.length ? `<div class="checks">${lines.join('')}</div>` : '';
     }
 
     async function reassign(i, kind, name) {

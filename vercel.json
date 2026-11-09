@@ -30,6 +30,10 @@
     {
       "path": "/api/admin/reminders",
       "schedule": "0 5 * * 1-5"
+    },
+    {
+      "path": "/api/admin/directory",
+      "schedule": "0 1 * * *"
     }
   ]
 }

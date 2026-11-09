@@ -15,6 +15,7 @@
 const { requireRole, rejectIfPreview } = require('../../lib/require-role');
 const { load: loadConfig } = require('../../lib/portal-config.js');
 const blob = require('../../lib/blob.js');
+const msDir = require('../../lib/ms-directory.js');
 
 const INDEX_PATH    = 'account-requests/index.json';
 const SETTINGS_PATH = 'account-requests/settings.json';
@@ -114,6 +115,18 @@ module.exports = async function handler(req, res) {
     requests: g.requests.sort((a, b) => String(a.earliestStart || '9999').localeCompare(String(b.earliestStart || '9999')))
   }));
 
+  // Out of sight, out of mind: if the Microsoft 365 directory sync is failing
+  // or stale, every reminder says so until it's fixed.
+  let dirWarning = '';
+  try {
+    const st = await msDir.status();
+    if (st.stale) dirWarning = st.lastSuccess
+      ? `The Microsoft 365 user list hasn't synced for ${Math.round(st.ageHours / 24) || 1} day(s)${st.error ? ` (${st.error})` : ''} — new-starter email checks can't be trusted until it's fixed.`
+      : `The Microsoft 365 user list has never synced${st.error ? ` (${st.error})` : ''} — new-starter email checks are off.`;
+  } catch (_) {}
+  if (dirWarning) warnings.push(dirWarning);
+  plan.forEach(p => { p.dirWarning = dirWarning; });
+
   const summary = plan.map(p => ({ name: p.name, to: p.to, tickets: p.tickets.length, requests: p.requests.length }));
   if (dryRun) return res.status(200).json({ dryRun: true, summary, warnings, fallbackTo });
 
@@ -165,6 +178,7 @@ function reminderHtml(p, origin) {
     <p style="margin:8px 0 0;color:#6BBF4E;font-size:12px;text-transform:uppercase;letter-spacing:1.5px">⏰ Open items reminder</p>
   </td></tr>
   <tr><td style="padding:24px 32px">
+    ${p.dirWarning ? `<p style="margin:0 0 16px;padding:12px 14px;background:#fdf0f0;border:1px solid #f0c0c0;border-radius:8px;color:#a4262c;font-size:13px;line-height:1.6">⚠️ <strong>Action needed:</strong> ${esc(p.dirWarning)} <a href="${origin}/admin/new-starters" style="color:#a4262c;font-weight:700">Open the New Starter Queue →</a></p>` : ''}
     <p style="margin:0;font-size:14px;color:#555;line-height:1.7">${intro}</p>
     ${ticketTable}${reqTable}
   </td></tr>
