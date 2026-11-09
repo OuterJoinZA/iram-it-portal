@@ -26,6 +26,11 @@
     .tab.active { background: #4e9938; color: #fff; }
     .filters input, .filters select { padding: 8px 10px; border: 1.5px solid #dcdfe3; border-radius: 7px; font: 13px inherit; font-family: inherit; background: #fff; }
     .filters input { min-width: 240px; flex: 1; }
+    .filters select { width: auto; min-width: 150px; }
+    .settings-head { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+    .settings-head h3 { margin-right: auto; }
+    .owner-pick { font-size: 11.5px; padding: 3px 6px; width: auto; margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; }
+    .owner-tag { margin-left: auto; font-size: 11px; font-weight: 700; color: #555; background: #eef0f2; border-radius: 5px; padding: 2px 7px; text-transform: none; letter-spacing: 0; }
 
     .table-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow-x: auto; }
     table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -130,11 +135,22 @@
       <select id="f-region"><option value="">All regions</option></select>
       <select id="f-svc"><option value="">All accounts</option><option value="microsoft">Microsoft 365</option><option value="perigee">Perigee</option><option value="dext">Dext</option></select>
       <button class="b b-grey" onclick="load()">↻ Refresh</button>
-      <button class="b b-grey" onclick="toggleSettings()">⚙ Email &amp; reminder settings</button>
     </div>
 
-    <div class="settings" id="settings">
-      <h3 style="font-size:14px;font-weight:800">⚙ Who gets the account details</h3>
+    <div class="settings show" id="settings-card" style="padding:12px 18px">
+      <div class="settings-head" onclick="toggleSettings()">
+        <h3 style="font-size:14px;font-weight:800">⚙ Settings — who does what, emails &amp; reminders</h3>
+        <span class="hint" id="st-toggle-label">Show ▾</span>
+      </div>
+    <div id="settings" style="display:none;margin-top:12px">
+      <h3 style="font-size:14px;font-weight:800">👥 Who does what</h3>
+      <p class="hint" style="margin-bottom:6px">Each account type has its owner. New requests are assigned per person, per account, using these. To split work, add a share, e.g. <b>Sean 70, Laurette 30</b>. Names must match <b>Settings → IT Staff</b><span id="st-staffNames"></span>.</p>
+      <div class="grid2" style="grid-template-columns:repeat(3,1fr)">
+        <div><label>✉️ Microsoft 365</label><input type="text" id="st-own-microsoft" placeholder="Sean"></div>
+        <div><label>📱 Perigee</label><input type="text" id="st-own-perigee" placeholder="Sean 70, Laurette 30"></div>
+        <div><label>🧾 Dext</label><input type="text" id="st-own-dext" placeholder="Laurette"></div>
+      </div>
+      <h3 style="font-size:14px;font-weight:800;margin-top:18px">📧 Who gets the account details</h3>
       <p class="hint" style="margin-bottom:6px">When IT (or the Perigee support admin) clicks <strong>Send account details</strong>, the logins are emailed to everyone below. The Perigee support admin is also copied on every new request. To let her record account info in this queue herself, give her a login with the <strong>Perigee Support Admin</strong> role. Separate several addresses with commas.</p>
       <div class="grid2">
         <div><label>HR inbox(es)</label><input type="text" id="st-hrEmails" placeholder="hr@iram.co.za"></div>
@@ -160,6 +176,7 @@
         <span class="hint" id="st-note"></span>
       </div>
       <div class="hint" id="rm-result" style="margin-top:8px"></div>
+    </div>
     </div>
 
     <div class="table-card">
@@ -266,7 +283,7 @@
           <td>${esc(x.requesterName || x.requestedBy)}<div class="hint">${esc(x.requesterRole || '')}</div></td>
           <td><span class="badge b-${esc(x.priority || 'Medium')}">${esc(x.priority || 'Medium')}</span></td>
           <td><span class="badge b-${esc(st.replace(' ', '-'))}">${esc(st)}</span></td>
-          <td>${esc(x.assignedTo || '—')}</td>
+          <td>${esc((x.owners && x.owners.length ? x.owners : [x.assignedTo]).filter(Boolean).join(', ') || '—')}</td>
           <td style="white-space:nowrap;color:#888">${esc(fmt(x.createdAt))}</td></tr>`;
       }).join('');
     }
@@ -377,8 +394,15 @@
       const people = r.people.map((p, i) => {
         const d = p.done || {};
         const allDone = (!p.needsMicrosoft || d.microsoft) && (!p.needsPerigee || d.perigee) && (!p.needsDext || d.dext);
+        const ownerCtl = key => {
+          const cur = (p.owners || {})[key] || '';
+          if (!isIT || locked) return cur ? `<span class="owner-tag">👤 ${esc(cur)}</span>` : '';
+          const names = [...new Set([...(settings && settings.staffNames || []), cur].filter(Boolean))];
+          return `<select class="owner-pick" title="Who does this account" onchange="reassign(${i}, '${key}', this.value)">
+            ${cur ? '' : '<option value="">— owner —</option>'}${names.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+        };
         const col = (key, title, on, fields, extra = '') => `<div class="p-col ${on ? '' : 'off'}">
-          <h4>${title}${on ? '' : ' — not needed'}</h4>
+          <h4>${title}${on ? '' : ' — not needed'}${on ? ownerCtl(key) : ''}</h4>
           ${on ? fieldList(fields) + extra + `<label class="tick"><input type="checkbox" data-i="${i}" data-done="${key}" ${d[key] ? 'checked' : ''} ${locked ? 'disabled' : ''}> Created</label>` : ''}</div>`;
         return `<div class="person">
           <div class="p-top"><span class="nm">${i + 1}. ${esc(nameFor(p))}</span>
@@ -435,6 +459,10 @@
         open.record = d.record; renderModal(); load();
         toast(`Dext request sent to ${d.dextTo.join(', ')} ✓`);
       } catch (e) { toast(e.message, true); }
+    }
+
+    async function reassign(i, kind, name) {
+      await patch({ people: [{ index: i, owners: { [kind]: name } }] }, `Reassigned to ${name} ✓`);
     }
 
     async function saveAccountInfo(i) {
@@ -547,6 +575,9 @@
         const d = await r.json();
         settings = d.settings; settingsCanEdit = d.canEdit;
         ST_LISTS.forEach(k => { $('st-' + k).value = (settings[k] || []).join(', '); $('st-' + k).disabled = !settingsCanEdit; });
+        const fmtOwners = list => (list || []).map(o => (list.length > 1 || o.weight !== 1) && o.weight ? `${o.name} ${o.weight}` : o.name).join(', ');
+        ['microsoft', 'perigee', 'dext'].forEach(k => { $('st-own-' + k).value = fmtOwners((settings.owners || {})[k]); $('st-own-' + k).disabled = !settingsCanEdit; });
+        $('st-staffNames').textContent = (settings.staffNames || []).length ? ` (${settings.staffNames.join(', ')})` : '';
         $('st-includeSubmitter').checked = settings.includeSubmitter !== false;
         $('st-includeSupervisor').checked = settings.includeSupervisor !== false;
         $('st-remindersEnabled').checked = settings.remindersEnabled !== false;
@@ -577,10 +608,17 @@
       } catch (e) { out.textContent = '❌ ' + e.message; }
     }
 
-    function toggleSettings() { $('settings').classList.toggle('show'); }
+    function toggleSettings() {
+      const el = $('settings'), open = el.style.display === 'none';
+      el.style.display = open ? '' : 'none';
+      $('st-toggle-label').textContent = open ? 'Hide ▴' : 'Show ▾';
+      try { localStorage.setItem('ns_settings_open', open ? '1' : ''); } catch (_) {}
+    }
+    try { if (localStorage.getItem('ns_settings_open')) setTimeout(toggleSettings, 0); } catch (_) {}
     async function saveSettings() {
       const body = {};
       ST_LISTS.forEach(k => body[k] = $('st-' + k).value);
+      body.owners = { microsoft: $('st-own-microsoft').value, perigee: $('st-own-perigee').value, dext: $('st-own-dext').value };
       body.includeSubmitter = $('st-includeSubmitter').checked;
       body.includeSupervisor = $('st-includeSupervisor').checked;
       body.remindersEnabled = $('st-remindersEnabled').checked;

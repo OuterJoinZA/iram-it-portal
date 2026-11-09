@@ -40,6 +40,12 @@
 //   copied on new requests and every handover, and can record real usernames /
 //   tick accounts / send logins — until the request is Resolved or Closed. She
 //   can't change status, IT notes or bookings (that stays with IT).
+// OWNERS ("who does what", in Email settings): each account type has its own
+//   owner(s) — e.g. Microsoft 365 "Sean", Perigee "Sean 70, Laurette 30",
+//   Dext "Laurette". Every person in a request gets an owner per account they
+//   need (Perigee split by weight over time); those owners are the request's
+//   Assigned, get its Dext requests (Dext owner) and get the daily reminders
+//   for their own unfinished accounts. IT can reassign any account.
 // SETTINGS: GET ?settings=1 (IT) / POST ?action=settings (editIT) — who those
 //   handover emails go to (account-requests/settings.json).
 //
@@ -62,6 +68,9 @@ const blob                = require('../../lib/blob.js');
 
 const INDEX_PATH = 'account-requests/index.json';
 const SETTINGS_PATH = 'account-requests/settings.json';
+const OWNER_COUNTS_PATH = 'account-requests/owner-counts.json';
+const KINDS = ['microsoft', 'perigee', 'dext'];
+const NEEDS = { microsoft: 'needsMicrosoft', perigee: 'needsPerigee', dext: 'needsDext' };
 const recordPath = id => `account-requests/${id}.json`;
 const ID_RE      = /^(IT|TEST)-\d{4}-\d{5}$/;
 
@@ -286,9 +295,13 @@ async function handlePost(req, res, session) {
   const { config } = await loadConfig();
   const itPool      = (config.itStaff || []).filter(s => s.isIT);
   const perigeePool = (config.itStaff || []).filter(s => s.isPerigee);
-  const perigeeOnly = people.every(p => p.needsPerigee && !p.needsMicrosoft && !p.needsDext);
-  const usePerigee  = perigeeOnly && perigeePool.length > 0;
-  const assignedTo  = await nextInPool(usePerigee ? 'perigee' : 'it', usePerigee ? perigeePool : itPool).catch(() => '');
+  // Owner per account per person, from "Who does what" (Email settings).
+  const ownerSettings = await loadSettings();
+  await assignOwners(people, ownerSettings, { itPool, perigeePool }, test);
+  const ownerTally = {};
+  people.forEach(p => KINDS.forEach(k => { const o = (p.owners || {})[k]; if (o) ownerTally[o] = (ownerTally[o] || 0) + 1; }));
+  // Primary owner (most accounts) books the calendar slot via the ticket flow.
+  const assignedTo = Object.keys(ownerTally).sort((a, b) => ownerTally[b] - ownerTally[a])[0] || '';
 
   const auditRecord = {
     ticketID, createdAt, verificationCode: code,
@@ -431,8 +444,81 @@ function indexEntry(r) {
     },
     doneCount: r.people.filter(isPersonDone).length,
     earliestStart: r.earliestStart || '', priority: r.priority, assignedTo: r.assignedTo || '',
+    owners: requestOwners(r), ownerTasks: ownerTasks(r),
     test: !!r.test
   };
+}
+
+const KIND_LABEL = { microsoft: 'Microsoft 365', perigee: 'Perigee', dext: 'Dext' };
+/** Everyone who owns at least one account in the request. */
+function requestOwners(r) {
+  const set = new Set();
+  r.people.forEach(p => KINDS.forEach(k => { if (p[NEEDS[k]] && p.owners && p.owners[k]) set.add(p.owners[k]); }));
+  return [...set];
+}
+/** { owner: ["Microsoft 365 ×2", "Perigee ×1"] } — accounts still NOT done. */
+function ownerTasks(r) {
+  const tally = {};
+  r.people.forEach(p => KINDS.forEach(k => {
+    if (!p[NEEDS[k]] || (p.done || {})[k]) return;
+    const o = (p.owners || {})[k] || r.assignedTo || '';
+    tally[o] = tally[o] || {};
+    tally[o][k] = (tally[o][k] || 0) + 1;
+  }));
+  const out = {};
+  Object.keys(tally).forEach(o => { out[o] = KINDS.filter(k => tally[o][k]).map(k => `${KIND_LABEL[k]} ×${tally[o][k]}`); });
+  return out;
+}
+
+/** Parses "Sean 70, Laurette 30" → [{name:'Sean',weight:70},{name:'Laurette',weight:30}]. */
+function parseOwners(v) {
+  const parts = Array.isArray(v) ? v : String(v || '').split(/[,;\n]+/);
+  return parts.map(x => {
+    if (x && typeof x === 'object') return { name: String(x.name || '').trim(), weight: Number(x.weight) > 0 ? Number(x.weight) : 1 };
+    const m = /^\s*(.*?)\s*(?:[:=x×]?\s*(\d+(?:\.\d+)?)\s*%?)?\s*$/.exec(String(x));
+    return { name: (m && m[1] || '').trim(), weight: m && m[2] ? Number(m[2]) : 1 };
+  }).filter(o => o.name);
+}
+
+/** Picks an owner for each needed account of each person. Weighted pools keep
+ *  a running count so e.g. 70/30 holds over time, not just within one batch. */
+async function assignOwners(people, settings, pools, test) {
+  const counts = test ? {} : ((await blob.getJson(OWNER_COUNTS_PATH).catch(() => null)) || {});
+  const owners = settings.owners || {};
+  const fallback = {
+    microsoft: pools.itPool,
+    perigee:   pools.perigeePool.length ? pools.perigeePool : pools.itPool,
+    dext:      pools.perigeePool.length ? pools.perigeePool : pools.itPool
+  };
+  const pick = kind => {
+    let list = parseOwners(owners[kind]);
+    if (!list.length) list = (fallback[kind] || []).map(s => ({ name: s.name, weight: 1 }));
+    if (!list.length) return '';
+    const c = counts[kind] = counts[kind] || {};
+    // Lowest (assigned + 1) / weight wins → long-run share matches the weights.
+    let best = list[0], bestScore = Infinity;
+    for (const o of list) {
+      const score = ((c[o.name] || 0) + 1) / o.weight;
+      if (score < bestScore) { best = o; bestScore = score; }
+    }
+    c[best.name] = (c[best.name] || 0) + 1;
+    return best.name;
+  };
+  for (const p of people) {
+    p.owners = {};
+    for (const k of KINDS) if (p[NEEDS[k]]) p.owners[k] = pick(k);
+  }
+  if (!test) await blob.putJson(OWNER_COUNTS_PATH, counts).catch(() => {});
+}
+
+/** Email for a staff name (Settings → IT Staff). */
+async function staffEmail(name) {
+  if (!name) return '';
+  try {
+    const { config } = await loadConfig();
+    const s = (config.itStaff || []).find(x => String(x.name || '').trim().toLowerCase() === String(name).trim().toLowerCase());
+    return s && isEmail(String(s.email || '').toLowerCase()) ? String(s.email).toLowerCase() : '';
+  } catch (_) { return ''; }
 }
 
 // ── PATCH (IT works the request) ─────────────────────────────────────────────
@@ -470,6 +556,10 @@ async function handlePatch(req, res, session, isIT) {
       if (u.msDisplayName !== undefined) p.msDisplayName = clean(u.msDisplayName, 120);
       if (u.perigeeUsername !== undefined) p.perigeeUsername = clean(u.perigeeUsername, 120);
       if (u.dextUsername !== undefined) p.dextUsername = clean(u.dextUsername, 120);
+      if (u.owners && typeof u.owners === 'object' && isIT) {
+        p.owners = p.owners || {};
+        KINDS.forEach(k => { if (u.owners[k] !== undefined && p[NEEDS[k]]) p.owners[k] = clean(u.owners[k], 100); });
+      }
       p.accountInfoUpdatedBy = session.preview ? session.preview.actor : session.username;
       p.accountInfoUpdatedAt = new Date().toISOString();
     }
@@ -498,6 +588,7 @@ function defaultSettings() {
     dextEmails:        [],    // who creates Dext accounts — blank = Perigee admin(s) + HR
     includeSubmitter:  true,  // the HR person who logged the request
     includeSupervisor: true,  // the new starter's supervisor (from the request)
+    owners: { microsoft: [], perigee: [], dext: [] }, // "Who does what" — see parseOwners
     remindersEnabled:  true,  // weekday-morning reminders to each tech (api/admin/reminders.js)
     reminderFallbackEmails: [] // who gets UNASSIGNED open items — blank = IT manager(s), then IT_EMAIL
   };
@@ -511,7 +602,8 @@ async function loadSettings() {
   try {
     const { config } = await loadConfig();
     s.perigeeStaffEmails = (config.itStaff || []).filter(x => x.isPerigee).map(x => String(x.email || '').toLowerCase()).filter(isEmail);
-  } catch (_) { s.perigeeStaffEmails = []; }
+    s.staffNames = (config.itStaff || []).map(x => String(x.name || '').trim()).filter(Boolean);
+  } catch (_) { s.perigeeStaffEmails = []; s.staffNames = []; }
   return s;
 }
 
@@ -528,6 +620,16 @@ async function handleSaveSettings(req, res, session) {
     const bad = list.find(e => !isEmail(e));
     if (bad) return res.status(400).json({ error: `"${bad}" isn't a valid email address.` });
     next[k] = list;
+  }
+  // Who does what: names must exist in Settings → IT Staff.
+  let staffNames = [];
+  try { const { config } = await loadConfig(); staffNames = (config.itStaff || []).map(x => String(x.name || '').trim().toLowerCase()); } catch (_) {}
+  next.owners = {};
+  for (const k of KINDS) {
+    const list = parseOwners((b.owners || {})[k]);
+    const unknown = staffNames.length && list.find(o => !staffNames.includes(o.name.toLowerCase()));
+    if (unknown) return res.status(400).json({ error: `"${unknown.name}" isn't in Settings → IT Staff — add them there first (or check the spelling).` });
+    next.owners[k] = list;
   }
   next.includeSubmitter  = b.includeSubmitter !== false;
   next.includeSupervisor = b.includeSupervisor !== false;
@@ -562,7 +664,8 @@ function testRecipients(settings, actorEmail) {
 
 /** Emails the "Dext account needed" request for person `p`; returns who it went to. */
 async function sendDextRequest(record, p, settings, actorEmail, msUser, pgUser) {
-  const to = record.test ? testRecipients(settings, actorEmail) : dextRecipients(settings);
+  const ownerEmail = await staffEmail((p.owners || {}).dext);
+  const to = [...new Set([...(record.test ? testRecipients(settings, actorEmail) : dextRecipients(settings)), ...(ownerEmail ? [ownerEmail] : [])])];
   if (!to.length) return [];
   const name = fullName(p);
   const rows = [

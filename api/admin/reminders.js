@@ -94,7 +94,13 @@ module.exports = async function handler(req, res) {
     (kind === 't' ? g.tickets : g.requests).push({ ...item, assignee: assignee || '' });
   };
   tickets.forEach(t => add(t.assignedTo, 't', t));
-  requests.forEach(r => add(r.assignedTo, 'r', r));
+  // New-starter requests: each account owner is reminded only of their own
+  // unfinished accounts ("Who does what"); older requests fall back to Assigned.
+  requests.forEach(r => {
+    const tasks = r.ownerTasks && Object.keys(r.ownerTasks).length ? r.ownerTasks : null;
+    if (!tasks) return add(r.assignedTo, 'r', r);
+    Object.keys(tasks).forEach(owner => { if (tasks[owner].length) add(owner, 'r', { ...r, tasks: tasks[owner] }); });
+  });
 
   const fallbackTo = [...new Set((settings.reminderFallbackEmails && settings.reminderFallbackEmails.length
     ? settings.reminderFallbackEmails : settings.itManagerEmails.length ? settings.itManagerEmails : [process.env.IT_EMAIL]).filter(isEmail))];
@@ -144,8 +150,8 @@ function reminderHtml(p, origin) {
   const reqTable = p.requests.length ? `
     <p style="margin:22px 0 8px;font-size:15px;font-weight:800">🧑‍💻 New starter account requests (${p.requests.length})</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;border-collapse:collapse;font-size:12.5px">
-      <tr>${th('Request')}${th('People')}${th('Starts')}${th('Status')}${th('Done')}${th('From')}${p.fallback ? th('Assigned') : ''}</tr>
-      ${p.requests.map(r => `<tr>${td(`<a href="${origin}/admin/new-starters?id=${encodeURIComponent(r.ticketID)}" style="color:#4e9938;font-weight:800">${esc(r.ticketID)}</a>`)}${td(esc((r.names || []).join(', ') + (r.count > (r.names || []).length ? ` +${r.count - r.names.length}` : '')))}${td(esc(r.earliestStart || '—'))}${td(esc(r.status || 'Open'))}${td(`${r.doneCount || 0}/${r.count}`)}${td(esc(r.requesterName || r.requestedBy))}${p.fallback ? td(esc(r.assignee || '—')) : ''}</tr>`).join('')}
+      <tr>${th('Request')}${th('People')}${th(p.fallback ? 'Still to do' : 'Your part')}${th('Starts')}${th('Status')}${th('From')}${p.fallback ? th('Assigned') : ''}</tr>
+      ${p.requests.map(r => `<tr>${td(`<a href="${origin}/admin/new-starters?id=${encodeURIComponent(r.ticketID)}" style="color:#4e9938;font-weight:800">${esc(r.ticketID)}</a>`)}${td(esc((r.names || []).join(', ') + (r.count > (r.names || []).length ? ` +${r.count - r.names.length}` : '')))}${td(esc((r.tasks || []).join(', ') || `${r.count - (r.doneCount || 0)} of ${r.count} people`))}${td(esc(r.earliestStart || '—'))}${td(esc(r.status || 'Open'))}${td(esc(r.requesterName || r.requestedBy))}${p.fallback ? td(esc(r.assignee || '—')) : ''}</tr>`).join('')}
     </table>` : '';
   const intro = p.fallback
     ? 'These open items have <strong>nobody assigned</strong>, or are assigned to someone with no email in Settings → IT Staff. Please assign them.'
