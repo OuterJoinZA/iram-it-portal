@@ -56,6 +56,7 @@
       <h1>Ticket Dashboard</h1>
       <div class="topbar-right">
         <button id="refresh-btn" style="background:none;border:1.5px solid #dde;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;">↻ Refresh</button>
+        <button id="export-btn" style="background:none;border:1.5px solid #b3dea8;color:#3d7828;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;">📊 Export to Excel</button>
         <button id="settings-btn" style="background:none;border:1.5px solid #dde;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:600;">⚙️ Settings</button>
         <span class="agent-chip">IT Admin</span>
       </div>
@@ -251,6 +252,38 @@
   </div><!-- /overlay -->
 
   <div class="toast" id="toast"></div>
+
+  <!-- ── EXCEL EXPORT MODAL ──
+       Two modes (see admin.js → openExportModal):
+       - optional: opened from the topbar button, any month, closable
+       - forced:   start-of-month requirement, locked to last month, no close
+                   until one admin has exported it -->
+  <div class="modal-overlay" id="export-overlay" style="z-index:10001">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h3 id="x-title">📊 Export Completed Tickets</h3>
+        <button class="modal-close" id="export-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="x-forced-note" class="x-forced-note" style="display:none"></div>
+
+        <div class="ctrl-group" style="margin-bottom:14px">
+          <label>Month</label>
+          <select class="ctrl-select" id="x-period"></select>
+          <div style="font-size:11.5px;color:#888;margin-top:5px">Exports tickets with status <strong>Resolved</strong> or <strong>Closed</strong>, by the month they were last updated.</div>
+        </div>
+
+        <div id="x-summary" style="font-size:13px;color:#555;background:#f5f6f8;border-radius:6px;padding:10px 14px;margin-bottom:12px"></div>
+        <div id="x-history" style="font-size:12px;color:#888;margin-bottom:16px"></div>
+
+        <div class="modal-actions">
+          <button class="btn-cancel" id="x-logout" type="button" style="display:none;margin-right:auto">🚪 Log out</button>
+          <button class="btn-cancel" id="x-cancel" type="button">Cancel</button>
+          <button class="btn-save"   id="x-go"     type="button">⬇️ Download Excel</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ── SETTINGS MODAL ── -->
   <div class="modal-overlay" id="settings-overlay" style="display:none;z-index:10000">
@@ -587,6 +620,11 @@
         margin-bottom: -2px;
       }
       .s-stab.active { border-left-color: transparent; border-bottom-color: #4e9938; }
+    }
+    .x-forced-note {
+      background: #fff4e5; border: 1.5px solid #f0c48a; color: #7a4800;
+      border-radius: 8px; padding: 12px 16px; font-size: 13px; line-height: 1.6;
+      margin-bottom: 18px;
     }
     .s-lbl {
       display: block;

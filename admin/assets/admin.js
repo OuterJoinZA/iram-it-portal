@@ -226,8 +226,10 @@ async function fetchTickets(background = false) {
   if (!background) {
     const cached = cacheLoad();
     if (cached) {
-      allTickets = cached;
+      allTickets = cached;   // only live data is ever cached
+      ticketsLive = true;
       renderAll();
+      checkMonthlyExport();
       showToast('Loaded from cache — refreshing in background…', 'success');
       fetchTickets(true); // silent background refresh
       return;
@@ -272,7 +274,9 @@ async function fetchTickets(background = false) {
     const data = await res.json();
     allTickets = Array.isArray(data) ? data : (data.value || []);
     cacheSave(allTickets);
+    ticketsLive = true;
     renderAll();
+    checkMonthlyExport();
     if (background) showToast('Tickets refreshed ✓', 'success');
 
   } catch(err) {
@@ -1251,6 +1255,211 @@ window.savePortalConfig = async function (msgId, btnId) {
     setBtnLoading(btnId, false);
   }
 };
+
+// ── Excel export of completed tickets ─────────────────────────────────────────
+// Optional any time from the "Export to Excel" button. At the start of each
+// month the FIRST admin to log in is forced to export last month's completed
+// tickets (blocking modal); once any one admin has done it, it's recorded in
+// /api/admin/export-log and the export is optional again for everyone.
+//
+// "Completed" = Resolved or Closed. There's no resolved-date column, so a ticket
+// belongs to the month it was last modified in (SharePoint's Modified), falling
+// back to Created. Months are SAST, matching the server.
+const SHEETJS_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+const SAST_MS     = 2 * 60 * 60 * 1000;
+
+let ticketsLive        = false;  // true once real (non-demo) tickets have loaded
+let monthlyCheckDone   = false;
+let exportForcedPeriod = null;   // set while the forced modal is showing
+let exportLog          = {};
+
+const isDone      = t => t.Status === 'Resolved' || t.Status === 'Closed';
+const doneDate    = t => t.Modified || t.lastUpdated || t.Created;
+const monthKey    = d => { const x = new Date(d); return isNaN(x) ? '' : new Date(x.getTime() + SAST_MS).toISOString().slice(0, 7); };
+const monthLabel  = k => { const [y, m] = k.split('-').map(Number); return new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-ZA', { month: 'long', year: 'numeric', timeZone: 'UTC' }); };
+const completedIn = k => allTickets.filter(t => isDone(t) && monthKey(doneDate(t)) === k);
+
+function loadSheetJs() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = SHEETJS_URL;
+    s.onload  = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('Excel library failed to load'));
+    s.onerror = () => reject(new Error('Could not download the Excel library — check your connection'));
+    document.head.appendChild(s);
+  });
+}
+
+function buildWorkbook(XLSX, tickets, period) {
+  const asDate = d => { const x = new Date(d); return d && !isNaN(x) ? x : ''; };
+  const rows = sortTickets(tickets).map(t => ({
+    'Ticket ID':          t.TicketID,
+    'Status':             t.Status,
+    'Priority':           t.Priority,
+    'Suggested Priority': t.SuggestedPriority,
+    'Category':           t.Category,
+    'Submitted By':       t.SubmitterName,
+    'Email':              t.SubmitterEmail || '',
+    'Phone':              t.SubmitterPhone || '',
+    'Department':         t.Department,
+    'Location':           t.Location,
+    'Line Manager':       t.ManagerName || '',
+    'Assigned To':        t.AssignedTo,
+    'Channel':            t.Channel,
+    'Created':            asDate(t.Created),
+    'Completed / Last Updated': asDate(doneDate(t)),
+    'Description':        t.Description || '',
+    'Public Update':      t.PublicUpdate || '',
+    'Internal Notes':     t.Notes || ''
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const header = ['Ticket ID','Status','Priority','Suggested Priority','Category','Submitted By','Email','Phone',
+                  'Department','Location','Line Manager','Assigned To','Channel','Created','Completed / Last Updated',
+                  'Description','Public Update','Internal Notes'];
+  const ws = XLSX.utils.json_to_sheet(rows, { header, cellDates: true, dateNF: 'yyyy-mm-dd hh:mm' });
+  ws['!cols'] = header.map(h => ({ wch: ['Description','Public Update','Internal Notes'].includes(h) ? 60 : h === 'Category' ? 32 : 18 }));
+  ws['!autofilter'] = { ref: ws['!ref'] };
+  XLSX.utils.book_append_sheet(wb, ws, 'Completed Tickets');
+
+  // Summary sheet: counts by assignee / category / priority.
+  const tally = key => Object.entries(tickets.reduce((acc, t) => {
+    const k = t[key] || '(blank)'; acc[k] = (acc[k] || 0) + 1; return acc;
+  }, {})).sort((a, b) => b[1] - a[1]);
+  const aoa = [
+    ['iRam IT — Completed Tickets', period === 'all' ? 'All time' : monthLabel(period)],
+    ['Exported', new Date().toLocaleString('en-ZA')],
+    ['Total completed', tickets.length],
+    [],
+    ['By Assignee', 'Count'],  ...tally('AssignedTo'), [],
+    ['By Category', 'Count'],  ...tally('Category'),   [],
+    ['By Priority', 'Count'],  ...tally('Priority')
+  ];
+  const sum = XLSX.utils.aoa_to_sheet(aoa);
+  sum['!cols'] = [{ wch: 36 }, { wch: 24 }];
+  XLSX.utils.book_append_sheet(wb, sum, 'Summary');
+  return wb;
+}
+
+function populateExportPeriods(selected) {
+  const sel = document.getElementById('x-period');
+  const months = new Set(allTickets.filter(isDone).map(t => monthKey(doneDate(t))).filter(Boolean));
+  if (selected && selected !== 'all') months.add(selected);
+  const sorted = [...months].sort().reverse();
+  sel.innerHTML = sorted.map(k => {
+    const rec = exportLog[k];
+    return `<option value="${k}">${monthLabel(k)}${rec ? ' ✓ exported' : ''}</option>`;
+  }).join('') + '<option value="all">All completed tickets (every month)</option>';
+  sel.value = selected || sorted[0] || 'all';
+}
+
+function updateExportSummary() {
+  const period = document.getElementById('x-period').value;
+  const count  = period === 'all' ? allTickets.filter(isDone).length : completedIn(period).length;
+  document.getElementById('x-summary').innerHTML =
+    `<strong>${count}</strong> completed ticket${count === 1 ? '' : 's'} in ${period === 'all' ? 'total' : esc(monthLabel(period))}.`;
+  const rec = exportLog[period];
+  document.getElementById('x-history').textContent = rec
+    ? `Monthly export already done ${fmtDate(rec.exportedAt)}${rec.by ? ' by ' + rec.by : ''} (${rec.count} tickets).`
+    : '';
+}
+
+function openExportModal(forcedPeriod) {
+  exportForcedPeriod = forcedPeriod || null;
+  const forced = !!exportForcedPeriod;
+
+  populateExportPeriods(forced ? exportForcedPeriod : null);
+  const sel = document.getElementById('x-period');
+  sel.disabled = forced;
+
+  const note = document.getElementById('x-forced-note');
+  note.style.display = forced ? 'block' : 'none';
+  if (forced) {
+    note.innerHTML = `📅 <strong>Monthly export required.</strong> Before carrying on, please download the completed tickets for <strong>${esc(monthLabel(exportForcedPeriod))}</strong>. Only one admin needs to do this — once it's done, exporting is optional again for everyone.`;
+  }
+  document.getElementById('x-title').textContent = forced ? '📅 Monthly Ticket Export' : '📊 Export Completed Tickets';
+  document.getElementById('export-close').style.display = forced ? 'none' : '';
+  document.getElementById('x-cancel').style.display     = forced ? 'none' : '';
+  document.getElementById('x-logout').style.display     = forced ? '' : 'none';
+
+  updateExportSummary();
+  document.getElementById('export-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeExportModal() {
+  if (exportForcedPeriod) return; // forced mode can only be left by exporting (or logging out)
+  document.getElementById('export-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function runExport() {
+  const btn    = document.getElementById('x-go');
+  const period = document.getElementById('x-period').value;
+  btn.disabled = true; btn.textContent = '⏳ Preparing…';
+  try {
+    const XLSX    = await loadSheetJs();
+    const tickets = period === 'all' ? allTickets.filter(isDone) : completedIn(period);
+    const wb      = buildWorkbook(XLSX, tickets, period);
+    XLSX.writeFile(wb, `iRam-IT-Completed-Tickets-${period === 'all' ? 'All' : period}.xlsx`, { compression: true });
+
+    // Record it as this month's export (first completion wins server-side). Any
+    // admin exporting the due month satisfies the requirement, forced or not.
+    if (period !== 'all' && ticketsLive) {
+      const res = await adminFetch('/api/admin/export-log', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ period, count: tickets.length })  // "by" comes from the session server-side
+      });
+      if (res.ok) {
+        const d = await res.json().catch(() => ({}));
+        if (d.record) exportLog[period] = d.record;
+      } else if (exportForcedPeriod) {
+        throw new Error('Downloaded, but the export could not be recorded — please try again.');
+      }
+    }
+
+    showToast(`Exported ${tickets.length} ticket${tickets.length === 1 ? '' : 's'} ✓ — check your Downloads folder`, 'success');
+    exportForcedPeriod = null;
+    closeExportModal();
+  } catch (err) {
+    showToast(err.message || 'Export failed.', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '⬇️ Download Excel';
+  }
+}
+
+// Called once live tickets have loaded. Never forces on demo data — that would
+// "satisfy" the month with a meaningless file.
+async function checkMonthlyExport() {
+  if (monthlyCheckDone || !ticketsLive) return;
+  monthlyCheckDone = true;
+  try {
+    const res = await adminFetch('/api/admin/export-log');
+    if (!res.ok) return;
+    const d = await res.json();
+    exportLog = d.log || {};
+    if (!d.storageReady) {
+      showToast('Monthly export reminders are off — Blob storage is not connected.', 'error');
+      return;
+    }
+    if (!d.done) openExportModal(d.due);
+  } catch (_) { /* offline — try again on next load */ monthlyCheckDone = false; }
+}
+
+document.getElementById('export-btn').addEventListener('click', () => openExportModal(null));
+document.getElementById('export-close').addEventListener('click', closeExportModal);
+document.getElementById('x-cancel').addEventListener('click', closeExportModal);
+document.getElementById('x-go').addEventListener('click', runExport);
+document.getElementById('x-period').addEventListener('change', updateExportSummary);
+document.getElementById('x-logout').addEventListener('click', async () => {
+  try { await fetch('/api/admin/logout', { method: 'POST' }); } catch (_) {}
+  sessionStorage.clear();
+  window.location.href = '../login.html';
+});
+document.getElementById('export-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('export-overlay')) closeExportModal();
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 populateAssignDropdown();
