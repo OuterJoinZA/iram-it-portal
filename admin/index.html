@@ -62,6 +62,13 @@
       </div>
     </div>
 
+    <!-- Shown by admin.js → checkMonthlyExport when Blob storage isn't connected.
+         A banner, not a toast, so the next toast can't hide it. -->
+    <div id="export-warn" role="alert" style="display:none;margin:12px 24px 0;background:#fff4e5;border:1.5px solid #f0c48a;color:#7a4800;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.5">
+      <button id="export-warn-close" type="button" aria-label="Dismiss" style="float:right;background:none;border:0;color:#7a4800;font-size:15px;cursor:pointer;line-height:1">✕</button>
+      ⚠️ <strong>Monthly export reminders are off</strong> — Blob storage is not connected, so the portal can't record that last month's tickets were exported. Connect Blob storage to the project in Vercel to turn them back on. You can still export by hand with <strong>📊 Export to Excel</strong>.
+    </div>
+
     <div class="content">
 
       <!-- Stat cards -->

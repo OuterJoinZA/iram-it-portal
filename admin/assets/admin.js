@@ -1439,15 +1439,16 @@ async function checkMonthlyExport() {
     if (!res.ok) return;
     const d = await res.json();
     exportLog = d.log || {};
-    if (!d.storageReady) {
-      showToast('Monthly export reminders are off — Blob storage is not connected.', 'error');
-      return;
-    }
+    // A banner, not a toast: on a cached load the "Tickets refreshed" toast
+    // would replace a toast almost at once.
+    document.getElementById('export-warn').style.display = d.storageReady ? 'none' : 'block';
+    if (!d.storageReady) return;
     if (!d.done) openExportModal(d.due);
   } catch (_) { /* offline — try again on next load */ monthlyCheckDone = false; }
 }
 
 document.getElementById('export-btn').addEventListener('click', () => openExportModal(null));
+document.getElementById('export-warn-close').addEventListener('click', () => { document.getElementById('export-warn').style.display = 'none'; });
 document.getElementById('export-close').addEventListener('click', closeExportModal);
 document.getElementById('x-cancel').addEventListener('click', closeExportModal);
 document.getElementById('x-go').addEventListener('click', runExport);
