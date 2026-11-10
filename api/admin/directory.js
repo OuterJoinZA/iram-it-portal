@@ -18,6 +18,9 @@
 // POST ?action=fg-upload { csv, fileName, preview } → IT / Perigee Support
 //      Admin uploads the FieldGoose user export (preview:true = parse only).
 //      GET ?status=1 includes `fieldgoose` (upload date, count, stale).
+// POST ?action=site-upload { siteId, csv, fileName, preview } → the user list
+//      exported from one of the Sites (admin/sites.html), for the Access
+//      Summary page. GET ?siteLists=1 → { siteId: upload status }.
 // ──────────────────────────────────────────────────────────────────────────────
 const { verifyToken, sessionTokenFromRequest } = require('../../lib/auth');
 const { hasPermission } = require('../../lib/roles');
@@ -54,7 +57,27 @@ module.exports = async function handler(req, res) {
       if (!isIT && !isOwner) return res.status(403).json({ error: 'forbidden' });
       return res.status(200).json({ ...(await dir.connectionInfo()), status: await dir.status(), canEdit: isOwner && !session.preview });
     }
+    if (req.method === 'GET' && q.siteLists) {
+      const sites = await siteRegister();
+      const out = {};
+      await Promise.all(sites.map(async s => { out[s.id] = fgDir.statusOf(await fgDir.load(fgDir.sitePath(s.id))); }));
+      return res.status(200).json({ lists: out });
+    }
     if (req.method === 'GET') return res.status(200).json({ ...(await dir.status()), fieldgoose: await fgDir.status() });
+
+    if (req.method === 'POST' && action === 'site-upload') {
+      const canUpload = isIT || isOwner || hasPermission(session.role, 'updateAccounts');
+      if (!canUpload || session.preview) return res.status(403).json({ error: 'Only IT or the Perigee Support Admin can upload site user lists.' });
+      const b = req.body || {};
+      const site = (await siteRegister()).find(s => s.id === String(b.siteId || ''));
+      if (!site) return res.status(400).json({ error: 'Unknown site — save the Sites list first.' });
+      const parsed = fgDir.parseExport(String(b.csv || '').slice(0, 4000000), { needName: false });
+      if (parsed.error) return res.status(400).json({ error: parsed.error });
+      const summary = { count: parsed.users.length, active: parsed.users.filter(u => u.active).length, columns: parsed.columns, skipped: parsed.skipped, sample: parsed.users.slice(0, 3) };
+      if (b.preview) return res.status(200).json({ preview: true, ...summary });
+      await fgDir.save(parsed, session.username, b.fileName, fgDir.sitePath(site.id));
+      return res.status(200).json({ ok: true, ...summary, list: fgDir.statusOf(await fgDir.load(fgDir.sitePath(site.id))) });
+    }
 
     if (req.method === 'POST' && action === 'fg-upload') {
       const canUpload = isIT || isOwner || hasPermission(session.role, 'updateAccounts');
@@ -112,6 +135,11 @@ module.exports = async function handler(req, res) {
   }
   return res.status(405).json({ error: 'Method not allowed' });
 };
+
+async function siteRegister() {
+  const s = (await blob.getJson('account-requests/settings.json').catch(() => null)) || {};
+  return Array.isArray(s.sites) ? s.sites : (s.hubSites || [{ name: 'iRam Hub' }]).map((x, i) => ({ id: (String(x.name || 'site').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'site') + '-' + i, name: x.name }));
+}
 
 /** People in other active (non-test) requests of the same type, for duplicate checks. */
 async function loadOpenPeople(excludeTicketID, type) {

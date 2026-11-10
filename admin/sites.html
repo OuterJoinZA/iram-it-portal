@@ -80,7 +80,8 @@
 
     <div class="card">
       <h2>📋 Sites list</h2>
-      <p class="sub">Every site people get added to or removed from. When HR logs a starter or leaver, each person automatically gets a tick-list of the sites that match them in the queue. <b>Who needs it</b> takes words found in their department, job title, region or team, separated by commas (e.g. <code>Sales, Merchandiser</code>). Leave it blank and the site applies to everyone. Changes apply to requests logged from now on.</p>
+      <p class="sub">Every site people get added to or removed from, or where their email is used (e.g. the Org Builder org tree). Give each one a user list (upload, or Org Builder pulled live) and the <a href="/admin/people.html" style="color:#4e9938;font-weight:700">🧾 Access Summary</a> checks every person against it.</p>
+      <p class="sub" style="margin-top:6px"> When HR logs a starter or leaver, each person automatically gets a tick-list of the sites that match them in the queue. <b>Who needs it</b> takes words found in their department, job title, region or team, separated by commas (e.g. <code>Sales, Merchandiser</code>). Leave it blank and the site applies to everyone. Changes apply to requests logged from now on.</p>
       <div id="sites"><div class="empty">Loading…</div></div>
       <div class="save-bar" id="save-bar">
         <button class="b-grey" onclick="addSite()">＋ Add a site</button>
@@ -113,7 +114,7 @@
         $('save-bar').style.display = canEdit ? '' : 'none';
         $('save-note').textContent = d.settings.sitesUpdatedBy ? `Last changed by ${d.settings.sitesUpdatedBy}, ${fmt(d.settings.sitesUpdatedAt)}` : '';
         renderSites(); lookup();
-        loadPending();
+        loadPending(); loadLists();
       } catch (e) { $('sites').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
     }
 
@@ -197,6 +198,16 @@
             <div><label>➕ How to add someone</label><textarea data-k="addSteps" placeholder="e.g. Users → Invite → their @iram.co.za email → role: Rep" ${dis}>${esc(s.addSteps)}</textarea></div>
             <div><label>➖ How to remove someone</label><textarea data-k="removeSteps" placeholder="e.g. Users → find them → Deactivate" ${dis}>${esc(s.removeSteps)}</textarea></div>
           </div>
+          <div class="grid3">
+            <div><label>Type</label><select data-k="kind" ${dis}>
+              <option value="account" ${s.kind !== 'reference' ? 'selected' : ''}>Account: people log in to it</option>
+              <option value="reference" ${s.kind === 'reference' ? 'selected' : ''}>Reference: their email is listed / used there</option></select></div>
+            <div><label>User list for the Access Summary</label><select data-k="source" ${dis}>
+              <option value="upload" ${!s.source || s.source === 'upload' ? 'selected' : ''}>Upload an export (CSV / Excel)</option>
+              <option value="orgbuilder" ${s.source === 'orgbuilder' ? 'selected' : ''}>Org Builder: org tree (pulled live)</option>
+              <option value="orgbuilder-callcycle" ${s.source === 'orgbuilder-callcycle' ? 'selected' : ''}>Org Builder: call cycle (pulled live)</option></select></div>
+            <div><label>Current list</label>${listCell(s)}</div>
+          </div>
           <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:12.5px;color:#444"><input type="checkbox" data-k="active" ${s.active !== false ? 'checked' : ''} ${dis}> In use. Untick to stop adding it to new requests.</label>
           ${pend.length ? `<div class="pending">⏳ <b>Still to do on ${esc(s.name)}:</b> ${pend.map(x => `${x.lv ? 'remove' : 'add'} <a href="/admin/new-starters.html?id=${encodeURIComponent(x.rec.ticketID)}">${esc(x.p.firstName)} ${esc(x.p.lastName)}</a> (${esc(x.rec.ticketID)})`).join(' · ')}</div>` : ''}
         </div>`;
@@ -206,11 +217,47 @@
         s[k] = el.type === 'checkbox' ? el.checked : el.value;
         dirty = true; $('save-note').textContent = 'Unsaved changes';
         if (k === 'name') el.closest('.site').querySelector('.nm').textContent = el.value || 'New site';
-        if (k === 'use' || k === 'active') renderSites();
+        if (k === 'use' || k === 'active' || k === 'source') renderSites();
         lookup();
       }));
     }
-    function addSite() { sites.push({ name: '', url: '', adminUrl: '', use: 'both', match: '', owner: '', addSteps: '', removeSteps: '', active: true }); dirty = true; renderSites(); const last = document.querySelector('.site:last-child [data-k=name]'); if (last) { last.scrollIntoView({ block: 'center' }); last.focus(); } }
+    let lists = {};
+    async function loadLists() {
+      try { const r = await fetch('/api/admin/directory?siteLists=1', { cache: 'no-store' }); if (r.ok) { lists = (await r.json()).lists || {}; renderSites(); } } catch (_) {}
+    }
+    function listCell(s) {
+      const live = s.source === 'orgbuilder' || s.source === 'orgbuilder-callcycle';
+      const l = s.id && lists[s.id];
+      if (live) return `<div class="hint" style="padding-top:4px">Pulled from Org Builder each time the Access Summary opens.${l && l.uploaded ? ` Backup export: ${l.count} users, ${fmt(l.uploadedAt)}.` : ' If it can\'t be reached, an uploaded export is used instead:'}</div>
+        ${s.id ? `<label class="b-grey b-sm" style="margin-top:4px;display:inline-block;cursor:pointer;border-radius:7px;font-size:12px;text-transform:none;letter-spacing:0;color:#333;font-weight:700">📤 Upload backup export<input type="file" accept=".csv,.txt,.tsv,.xlsx,.xls" style="display:none" onchange="uploadList('${esc(s.id)}', this)"></label>` : ''}`;
+      const when = l && l.uploaded ? `✔ ${l.count} users · ${fmt(l.uploadedAt)} by ${esc(l.by)}` : 'No list uploaded yet';
+      return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:4px"><span class="hint">${when}</span>
+        ${s.id ? `<label class="b-grey b-sm" style="margin:0;cursor:pointer;border-radius:7px;font-size:12px;text-transform:none;letter-spacing:0;color:#333;font-weight:700">📤 Upload<input type="file" accept=".csv,.txt,.tsv,.xlsx,.xls" style="display:none" onchange="uploadList('${esc(s.id)}', this)"></label>` : '<span class="hint">(save first)</span>'}</div>`;
+    }
+    let xlsxLoading = null;
+    function loadXlsx() {
+      if (window.XLSX) return Promise.resolve();
+      return xlsxLoading = xlsxLoading || new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = ok; sc.onerror = () => bad(new Error('Could not load the Excel reader — save as CSV instead.')); document.head.appendChild(sc); });
+    }
+    async function uploadList(id, input) {
+      const f = input.files[0]; input.value = ''; if (!f) return;
+      try {
+        let csv;
+        if (/\.xlsx?$/i.test(f.name)) { await loadXlsx(); const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' }); csv = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { blankrows: false }); }
+        else csv = await f.text();
+        const send = async preview => {
+          const r = await fetch('/api/admin/directory?action=site-upload', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: id, csv, fileName: f.name, preview }) });
+          const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Upload failed'); return d;
+        };
+        const p = await send(true);
+        const name = (sites.find(s => s.id === id) || {}).name;
+        if (!confirm(`${name}: found ${p.count} users (${p.active} active).\nColumns: ${Object.entries(p.columns).map(([k, v]) => `${k} ← "${v}"`).join(', ')}\n\nReplace ${name}'s user list with this?`)) return;
+        const d = await send(false);
+        lists[id] = d.list; renderSites(); toast(`${name}: ${d.count} users uploaded ✓`);
+      } catch (e) { toast(e.message, true); }
+    }
+
+    function addSite() { sites.push({ name: '', url: '', adminUrl: '', use: 'both', match: '', owner: '', addSteps: '', removeSteps: '', active: true, kind: 'account', source: 'upload' }); dirty = true; renderSites(); const last = document.querySelector('.site:last-child [data-k=name]'); if (last) { last.scrollIntoView({ block: 'center' }); last.focus(); } }
     function removeSite(i) { if (!confirm(`Delete "${sites[i].name || 'this site'}" from the list? Requests already logged keep their tick-list.`)) return; sites.splice(i, 1); dirty = true; renderSites(); lookup(); }
     function move(i, d) { const j = i + d; if (j < 0 || j >= sites.length) return; [sites[i], sites[j]] = [sites[j], sites[i]]; dirty = true; renderSites(); }
     async function saveSites() {

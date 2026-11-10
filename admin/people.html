@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam IT — Access Summary</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+  <script src="/admin/assets/portal-nav.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D2D2D; background: #f4f6f8; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; gap: 12px; background: #2D2D2D; color: #fff; padding: 10px 20px; flex-wrap: wrap; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .wrap { max-width: 1500px; margin: 0 auto; padding: 22px 20px 60px; }
+    .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
+    .stat { background: #fff; border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); border-top: 3px solid #4e9938; cursor: pointer; }
+    .stat .l { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .5px; }
+    .stat .v { font-size: 26px; font-weight: 800; margin-top: 2px; }
+    .stat.blue { border-top-color: #1d5fa8; } .stat.orange { border-top-color: #c03d00; } .stat.red { border-top-color: #a4262c; } .stat.amber { border-top-color: #d08a00; }
+    .sources { background: #fff; border-radius: 10px; padding: 10px 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 14px; font-size: 12.5px; color: #555; line-height: 1.8; }
+    .sources b { color: #2D2D2D; } .sources .old { color: #a4262c; font-weight: 700; } .sources a { color: #1d5fa8; font-weight: 700; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .filters input, .filters select { padding: 8px 10px; border: 1.5px solid #dcdfe3; border-radius: 7px; font: 13px 'Segoe UI', Arial, sans-serif; background: #fff; }
+    .filters input { min-width: 260px; flex: 1; }
+    button { border: none; cursor: pointer; border-radius: 7px; padding: 9px 14px; font: 700 13px 'Segoe UI', Arial, sans-serif; background: #eef0f2; color: #333; }
+    button:hover { background: #e2e5e8; }
+    .table-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: #888; padding: 10px; border-bottom: 2px solid #eef0f2; white-space: nowrap; background: #fff; }
+    th .k { display: block; font-size: 9.5px; color: #bbb; font-weight: 600; }
+    td { padding: 9px 10px; border-bottom: 1px solid #f2f3f5; vertical-align: top; }
+    tbody tr.row { cursor: pointer; } tbody tr.row:hover { background: #f8fbf7; }
+    tr.lv-bad { box-shadow: inset 4px 0 0 #a4262c; } tr.lv-warn { box-shadow: inset 4px 0 0 #d08a00; }
+    .nm { font-weight: 700; } .sub { color: #999; font-size: 11.5px; word-break: break-all; }
+    .st { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .s-yes { background: #edf7e8; color: #2f6b1a; } .s-inactive { background: #f0f0f0; color: #777; }
+    .s-no, .s-unknown { color: #ccc; font-weight: 700; }
+    .s-added { background: #edf7e8; color: #2f6b1a; border: 1px dashed #9cc78d; } .s-removed { background: #f0f0f0; color: #777; border: 1px dashed #ccc; }
+    .s-to-add { background: #fff4e0; color: #9a5b00; } .s-to-remove { background: #fdf0f0; color: #a4262c; }
+    .need { display: block; font-size: 10.5px; margin-top: 3px; }
+    .n-yes { color: #2f6b1a; } .n-no { color: #999; } .n-manual { font-weight: 800; }
+    .cell-bad { background: #fdf0f0; } .cell-warn { background: #fffbea; }
+    .iss { display: block; font-size: 11.5px; line-height: 1.5; }
+    .i-bad { color: #a4262c; font-weight: 700; } .i-warn { color: #9a5b00; } .i-info { color: #1d5fa8; }
+    tr.detail > td { background: #fafbfc; }
+    .dgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+    .dcell { background: #fff; border: 1px solid #e8eaee; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.6; }
+    .dcell h4 { font-size: 12.5px; font-weight: 800; margin-bottom: 4px; }
+    .dcell select { width: 100%; padding: 6px 8px; border: 1.5px solid #dcdfe3; border-radius: 6px; font: 12.5px 'Segoe UI', Arial, sans-serif; margin-top: 6px; }
+    tr.detail a { color: #4e9938; font-weight: 700; }
+    .empty { text-align: center; color: #aaa; padding: 40px 10px; }
+    .legend { font-size: 11.5px; color: #888; margin-top: 10px; line-height: 1.9; }
+    .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #2D2D2D; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; display: none; z-index: 40; }
+    .toast.show { display: block; } .toast.err { background: #a4262c; }
+    @media (max-width: 900px) { .stats { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🧾 Access Summary — per person</h1>
+    <span class="pn-links" id="pn-links"></span>
+  </div>
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat" data-f="all"><div class="l">People</div><div class="v" id="c-people">—</div></div>
+      <div class="stat blue" data-f="ms"><div class="l">Active Microsoft 365</div><div class="v" id="c-ms">—</div></div>
+      <div class="stat orange" data-f="pg"><div class="l">Active Perigee</div><div class="v" id="c-pg">—</div></div>
+      <div class="stat red" data-f="bad"><div class="l">⛔ Need action</div><div class="v" id="c-bad">—</div></div>
+      <div class="stat amber" data-f="warn"><div class="l">⚠️ Check</div><div class="v" id="c-warn">—</div></div>
+    </div>
+    <div class="sources" id="sources">Pulling data…</div>
+    <div class="filters">
+      <input type="text" id="q" placeholder="Search name, email, cell, department…">
+      <select id="f-show">
+        <option value="all">Everyone</option>
+        <option value="issues">Anything flagged</option>
+        <option value="bad">⛔ Need action</option>
+        <option value="warn">⚠️ Check</option>
+        <option value="unneeded">Has access they don't need</option>
+        <option value="missing">Needs access they don't have</option>
+        <option value="left">Leavers</option>
+        <option value="open">Open requests</option>
+      </select>
+      <select id="f-col"><option value="">Any list</option></select>
+      <select id="f-state">
+        <option value="">…with any status</option>
+        <option value="yes">…active / listed</option>
+        <option value="no">…not there</option>
+        <option value="inactive">…inactive</option>
+        <option value="needyes">…needs it</option>
+        <option value="needno">…doesn't need it</option>
+      </select>
+      <button onclick="load()">↻ Refresh data</button>
+      <button onclick="exportCsv()">⬇ Export CSV</button>
+    </div>
+    <div class="table-card">
+      <table><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Loading…</td></tr></tbody></table>
+    </div>
+    <div class="legend">
+      Each column shows whether the person <b>has</b> it, then whether they <b>need</b> it:
+      <span class="st s-yes">active</span> / <span class="st s-yes">listed</span> found ·
+      <span class="st s-inactive">inactive</span> found but blocked / resigned ·
+      <span class="s-no">—</span> not on that list ·
+      <span class="st s-added">added</span> <span class="st s-to-add">to add</span> <span class="st s-removed">removed</span> <span class="st s-to-remove">to remove</span> = no list for that site, so taken from the portal's requests ·
+      <span class="s-unknown">?</span> no data.
+      "needs" comes from the site's <b>Who needs it</b> rule on the Sites page, or a decision you set here (click a row, shown in <b>bold</b>).
+      People are matched across lists by email / username, then cell, then name.
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = d => { try { return new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; } };
+    const days = d => d ? Math.floor((Date.now() - new Date(d)) / 86400000) : null;
+    function toast(m, err) { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._h); t._h = setTimeout(() => t.className = 'toast', 3000); }
+    let data = null, openKey = null;
+
+    IRAM_NAV.requireSession(['manageTickets', 'updateAccounts']).then(me => {
+      IRAM_NAV.renderLinks('pn-links', me.role, 'access');
+      const f = new URLSearchParams(location.search).get('show'); if (f) $('f-show').value = f;
+      load();
+    });
+
+    async function load() {
+      $('sources').textContent = 'Pulling data from Microsoft 365, Perigee, the sites, Org Builder and requests…';
+      try {
+        const r = await fetch('/api/admin/people', { cache: 'no-store' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Could not load');
+        data = d;
+        ['people', 'ms', 'pg', 'bad', 'warn'].forEach(k => $('c-' + k).textContent = d.counts[k]);
+        const cur = $('f-col').value;
+        $('f-col').innerHTML = '<option value="">Any list</option>' + d.columns.map(c => `<option value="${esc(c.col)}">${esc(c.name)}</option>`).join('');
+        $('f-col').value = cur;
+        renderSources(); render();
+      } catch (e) { $('sources').textContent = '❌ ' + e.message; $('tbody').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+    }
+
+    function renderSources() {
+      const s = data.sources;
+      const age = (when, warn) => { const n = days(when); return `<span class="${n > warn ? 'old' : ''}">${n === 0 ? 'today' : n + ' day' + (n === 1 ? '' : 's') + ' ago'}</span>`; };
+      const parts = [
+        s.ms ? `✉️ <b>Microsoft 365</b>: ${s.ms.count}, synced ${age(s.ms.at, 1)}${s.ms.stale ? ' <span class="old">⚠️ out of date</span>' : ''}` : '✉️ <b>Microsoft 365</b>: <span class="old">not connected</span>, <a href="/admin/index.html#ms365">connect it</a>',
+        s.pg ? `📱 <b>Perigee</b>: ${s.pg.count}${s.pg.fromOrgBuilder ? ' (Org Builder\'s copy)' : ''}, ${age(s.pg.at, 7)}` : '📱 <b>Perigee</b>: <span class="old">no list</span>, <a href="/admin/new-starters.html">upload in the queue ⚙ Settings</a>',
+        ...data.columns.filter(c => c.id).map(c => {
+          const x = s.sites[c.id];
+          return x ? `🌐 <b>${esc(c.name)}</b>: ${x.count}${x.live ? ' (live from Org Builder)' : `, uploaded ${age(x.at, 30)}`}`
+            : `🌐 <b>${esc(c.name)}</b>: <span class="old">no list</span>${c.source && c.source !== 'upload' ? ' (Org Builder not reachable)' : ''}, <a href="/admin/sites.html">${c.source && c.source !== 'upload' ? 'check' : 'upload one'}</a>`;
+        }),
+        `🧑‍💻 <b>Requests</b>: last ${s.requests}`
+      ];
+      const ob = s.orgBuilder && !s.orgBuilder.ok ? `<br><span class="old">⚠️ Org Builder couldn't be reached: ${esc(s.orgBuilder.error)}</span>` : s.orgBuilder && s.orgBuilder.orgError ? `<br><span class="old">⚠️ Org Builder: ${esc(s.orgBuilder.orgError)}</span>` : '';
+      $('sources').innerHTML = parts.join(' &nbsp;·&nbsp; ') + ob + `<br><span style="color:#999">Pulled ${esc(fmt(data.generatedAt))}</span>`;
+    }
+
+    const HAS_LABEL = { yes: c => c.kind === 'reference' ? 'listed' : 'active', inactive: c => c.kind === 'reference' ? 'resigned / inactive' : 'inactive', added: () => 'added', removed: () => 'removed', 'to-add': () => 'to add', 'to-remove': () => 'to remove' };
+    function cellHtml(c, x) {
+      const has = x.has === 'no' ? '<span class="s-no">—</span>' : x.has === 'unknown' ? '<span class="s-unknown">?</span>' : `<span class="st s-${x.has}">${esc(HAS_LABEL[x.has](c))}</span>`;
+      const need = x.need ? `<span class="need n-${x.need}${x.manual ? ' n-manual' : ''}" title="${esc(x.why)}">${x.need === 'yes' ? 'needs it' : 'not needed'}${x.manual ? ' ✎' : ''}</span>` : '';
+      return has + need + (x.account && x.account.id && c.col !== 'ms' ? '' : '');
+    }
+    const flagged = x => x.need === 'no' && ['yes', 'added'].includes(x.has) ? 'cell-warn' : x.need === 'yes' && x.has === 'no' ? 'cell-warn' : '';
+
+    function filtered() {
+      const q = $('q').value.trim().toLowerCase(), show = $('f-show').value, col = $('f-col').value, state = $('f-state').value;
+      return data.people.filter(p => {
+        if (q && ![p.name, p.email, p.mobile, p.department, p.jobTitle, p.region, p.team, ...Object.values(p.cells).map(x => x.account && x.account.id)].join(' ').toLowerCase().includes(q)) return false;
+        const cells = col ? [p.cells[col]] : Object.values(p.cells);
+        if (state === 'yes' && !cells.some(x => ['yes', 'added'].includes(x.has))) return false;
+        if (state === 'no' && !cells.some(x => x.has === 'no')) return false;
+        if (state === 'inactive' && !cells.some(x => x.has === 'inactive')) return false;
+        if (state === 'needyes' && !cells.some(x => x.need === 'yes')) return false;
+        if (state === 'needno' && !cells.some(x => x.need === 'no')) return false;
+        switch (show) {
+          case 'issues': return p.level !== 'ok';
+          case 'bad': return p.level === 'bad';
+          case 'warn': return p.level === 'warn';
+          case 'unneeded': return !p.left && cells.some(x => x.need === 'no' && ['yes', 'added'].includes(x.has));
+          case 'missing': return !p.left && cells.some(x => x.need === 'yes' && x.has === 'no');
+          case 'left': return p.left;
+          case 'open': return p.requests.some(r => r.status === 'Open' || r.status === 'In Progress');
+          case 'ms': return p.cells.ms.has === 'yes';
+          case 'pg': return p.cells.pg.has === 'yes';
+        }
+        return true;
+      });
+    }
+    function render() {
+      $('thead').innerHTML = `<tr><th>Person</th>${data.columns.map(c => `<th>${esc(c.name)}<span class="k">${c.kind === 'reference' ? 'referenced?' : 'account?'}</span></th>`).join('')}<th>Last request</th><th>Flags</th></tr>`;
+      const list = filtered(), cols = 3 + data.columns.length, LIMIT = 400;
+      if (!list.length) { $('tbody').innerHTML = `<tr><td colspan="${cols}" class="empty">Nobody matches.</td></tr>`; return; }
+      $('tbody').innerHTML = list.slice(0, LIMIT).map(p => {
+        const r = p.requests[0];
+        return `<tr class="row lv-${p.level}" data-key="${esc(p.key)}">
+          <td><div class="nm">${esc(p.name)}${p.left ? ' <span class="st s-to-remove">leaver</span>' : ''}</div><div class="sub">${esc(p.email)}${p.mobile ? ' · ' + esc(p.mobile) : ''}</div>${p.department || p.jobTitle || p.team ? `<div class="sub">${esc([p.jobTitle, p.department, p.region, p.team].filter(Boolean).join(' · '))}</div>` : ''}</td>
+          ${data.columns.map(c => `<td class="${flagged(p.cells[c.col])}">${cellHtml(c, p.cells[c.col])}</td>`).join('')}
+          <td>${r ? `<a href="/admin/new-starters.html?id=${encodeURIComponent(r.ticketID)}" onclick="event.stopPropagation()" style="color:${r.type === 'leaver' ? '#a4262c' : '#4e9938'};font-weight:800;text-decoration:none">${r.type === 'leaver' ? '➖' : '➕'} ${esc(r.ticketID)}</a><div class="sub">${esc(r.status)}${r.date ? ' · ' + (r.type === 'leaver' ? 'last day ' : 'starts ') + esc(r.date) : ''}</div>` : '<span class="s-no">—</span>'}</td>
+          <td>${p.issues.map(x => `<span class="iss i-${x.level}">${x.level === 'bad' ? '⛔' : x.level === 'warn' ? '⚠️' : 'ℹ️'} ${esc(x.text)}</span>`).join('') || '<span class="s-no">—</span>'}</td></tr>`
+          + (openKey === p.key ? detail(p, cols) : '');
+      }).join('') + (list.length > LIMIT ? `<tr><td colspan="${cols}" class="empty">Showing the first ${LIMIT} of ${list.length}. Search or filter to narrow it down, or Export CSV for everyone.</td></tr>` : '');
+      document.querySelectorAll('tr.row').forEach(tr => tr.addEventListener('click', () => { openKey = openKey === tr.dataset.key ? null : tr.dataset.key; render(); }));
+      document.querySelectorAll('[data-need]').forEach(sel => sel.addEventListener('change', () => saveNeed(sel.dataset.key, sel.dataset.need, sel.value)));
+    }
+    function detail(p, cols) {
+      const acct = e => e ? `${esc(e.name || '')}${e.name ? ' — ' : ''}${esc(e.id || '')} (${e.active ? 'active' : 'inactive'}${e.note ? ', ' + esc(e.note) : ''})${e.role || e.team ? '<br><span class="sub">' + esc([e.role, e.team].filter(Boolean).join(' · ')) + '</span>' : ''}` : '<span class="sub">not found</span>';
+      const cells = data.columns.map(c => {
+        const x = p.cells[c.col];
+        return `<div class="dcell"><h4>${esc(c.name)} ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">↗</a>` : ''}</h4>
+          ${acct(x.account)}${(p.extra[c.col] || []).map(e => '<br>…also: ' + acct(e)).join('')}
+          <select data-key="${esc(p.key)}" data-need="${esc(c.col)}">
+            <option value="" ${x.manual ? '' : 'selected'}>Needs it? Automatic${!x.manual && x.need ? ` (${x.need === 'yes' ? 'yes' : 'no'}: ${esc(x.why)})` : ' (no rule)'}</option>
+            <option value="yes" ${x.manual && x.need === 'yes' ? 'selected' : ''}>✔ Needs access</option>
+            <option value="no" ${x.manual && x.need === 'no' ? 'selected' : ''}>✖ Doesn't need access</option>
+          </select>${x.manual ? `<div class="sub">${esc(x.why)}</div>` : ''}</div>`;
+      }).join('');
+      const reqs = p.requests.map(r => `<a href="/admin/new-starters.html?id=${encodeURIComponent(r.ticketID)}">${r.type === 'leaver' ? '➖' : '➕'} ${esc(r.ticketID)}</a> ${esc(r.status)}, logged ${esc(fmt(r.createdAt))}${r.sites.length ? ' · sites: ' + r.sites.map(x => esc(x.name) + (x.done ? ' ✔' : ' ⏳')).join(', ') : ''}`).join('<br>');
+      return `<tr class="detail"><td colspan="${cols}"><div class="dgrid">${cells}</div>${reqs ? `<div style="margin-top:10px;font-size:12.5px;line-height:1.8"><b>Requests:</b><br>${reqs}</div>` : ''}</td></tr>`;
+    }
+    async function saveNeed(key, col, value) {
+      const note = value ? (prompt('Optional note (why)?') || '') : '';
+      try {
+        const r = await fetch('/api/admin/people?action=needs', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, col, value, note }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Could not save');
+        toast(value ? 'Saved ✓' : 'Back to automatic ✓');
+        await load();
+      } catch (e) { toast(e.message, true); }
+    }
+    ['q', 'f-show', 'f-col', 'f-state'].forEach(id => $(id).addEventListener('input', () => { openKey = null; render(); }));
+    document.querySelectorAll('.stat').forEach(s => s.addEventListener('click', () => { $('f-show').value = s.dataset.f; $('f-state').value = ''; render(); }));
+
+    function exportCsv() {
+      if (!data) return;
+      const cell = v => /[",\r\n]/.test(String(v ?? '')) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? '');
+      const head = ['Name', 'Email', 'Cell', 'Job title', 'Department', 'Region', 'Team', 'Leaver', ...data.columns.flatMap(c => [`${c.name} — has`, `${c.name} — account`, `${c.name} — needs`]), 'Last request', 'Request status', 'Flags'];
+      const rows = filtered().map(p => [p.name, p.email, p.mobile, p.jobTitle, p.department, p.region, p.team, p.left ? 'yes' : '',
+        ...data.columns.flatMap(c => { const x = p.cells[c.col]; return [x.has === 'no' ? '' : x.has === 'unknown' ? '?' : HAS_LABEL[x.has](c), x.account ? x.account.id : '', x.need ? (x.need === 'yes' ? 'needs' : 'not needed') + (x.manual ? ' (set)' : '') : '']; }),
+        p.requests[0] ? p.requests[0].ticketID : '', p.requests[0] ? p.requests[0].status : '', p.issues.map(x => x.text).join(' | ')]);
+      const blob = new Blob(['﻿' + [head, ...rows].map(r => r.map(cell).join(',')).join('\r\n') + '\r\n'], { type: 'text/csv' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `iram-access-summary-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    }
+  </script>
+</body>
+</html>

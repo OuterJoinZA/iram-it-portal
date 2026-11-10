@@ -847,7 +847,11 @@ async function handleSaveSites(req, res, session) {
     ids.add(id);
     sites.push({ id, name, url, adminUrl, use: SITE_USE.includes(x.use) ? x.use : 'both', match: clean(x.match, 300),
       addSteps: String(x.addSteps || '').trim().slice(0, 1500), removeSteps: String(x.removeSteps || '').trim().slice(0, 1500),
-      owner: clean(x.owner, 80), notes: String(x.notes || '').trim().slice(0, 1000), active: x.active !== false });
+      owner: clean(x.owner, 80), notes: String(x.notes || '').trim().slice(0, 1000), active: x.active !== false,
+      // account = people log in there; reference = their email is just used / listed (e.g. the org tree)
+      kind: x.kind === 'reference' ? 'reference' : 'account',
+      // where the Access Summary gets the list: an upload, or Org Builder live
+      source: ['orgbuilder', 'orgbuilder-callcycle'].includes(x.source) ? x.source : 'upload' });
   }
   const saved = (await blob.getJson(SETTINGS_PATH).catch(() => null)) || {};
   saved.sites = sites;
