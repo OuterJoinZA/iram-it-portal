@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRam IT — Sites</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+  <script src="/admin/assets/portal-nav.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D2D2D; background: #f4f6f8; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; gap: 12px; background: #2D2D2D; color: #fff; padding: 10px 20px; flex-wrap: wrap; }
+    .topbar h1 { font-size: 16px; font-weight: 800; margin-right: auto; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 22px 20px 60px; }
+    .card { background: #fff; border-radius: 10px; padding: 18px 22px; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 18px; }
+    .card h2 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+    .sub { font-size: 13px; color: #888; line-height: 1.6; }
+    .hint { font-size: 11.5px; color: #999; }
+    label { display: block; font-size: 10.5px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 5px; }
+    input[type=text], input[type=url], select, textarea { width: 100%; padding: 8px 10px; border: 1.5px solid #dcdfe3; border-radius: 7px; font: 13px 'Segoe UI', Arial, sans-serif; background: #fff; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #4e9938; }
+    input:disabled, select:disabled, textarea:disabled { background: #f8f9fa; color: #555; }
+    textarea { resize: vertical; min-height: 56px; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 12px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 12px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    button { border: none; cursor: pointer; border-radius: 7px; padding: 9px 15px; font: 700 13px 'Segoe UI', Arial, sans-serif; }
+    .b-green { background: #4e9938; color: #fff; } .b-green:hover { background: #3d7828; }
+    .b-grey { background: #eef0f2; color: #333; } .b-grey:hover { background: #e2e5e8; }
+    .b-red { background: #fdf0f0; color: #a4262c; }
+    .b-sm { padding: 5px 10px; font-size: 12px; }
+    .seg { display: inline-flex; background: #eef0f2; border-radius: 8px; padding: 3px; }
+    .seg button { background: none; color: #555; padding: 7px 14px; }
+    .seg button.on { background: #fff; color: #2D2D2D; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .seg button.on.lv { color: #a4262c; } .seg button.on.st { color: #2f6b1a; }
+    .results { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+    .res { border: 1.5px solid #e4e7ea; border-radius: 10px; padding: 12px 14px; }
+    .res h3 { font-size: 14px; font-weight: 800; display: flex; gap: 8px; align-items: center; }
+    .res a { color: #1d5fa8; font-weight: 700; text-decoration: none; } .res a:hover { text-decoration: underline; }
+    .res .steps { white-space: pre-line; font-size: 12.5px; color: #444; margin-top: 6px; line-height: 1.6; }
+    .res .why { font-size: 11px; color: #888; margin-top: 4px; }
+    .tag { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: .3px; }
+    .t-both { background: #eef0f2; color: #555; } .t-starters { background: #edf7e8; color: #2f6b1a; } .t-leavers { background: #fdf0f0; color: #a4262c; }
+    .t-off { background: #f4f4f4; color: #999; }
+    .site { border: 1.5px solid #e4e7ea; border-radius: 10px; padding: 12px 16px 14px; margin-top: 12px; }
+    .site.off { opacity: .6; }
+    .site-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .site-head .nm { font-weight: 800; font-size: 14.5px; margin-right: auto; }
+    .pending { margin-top: 10px; padding: 8px 12px; background: #fffbea; border: 1px solid #f0dc8a; border-radius: 8px; font-size: 12.5px; line-height: 1.7; }
+    .pending a { color: #8a5a00; font-weight: 700; }
+    .empty { color: #aaa; font-size: 13px; padding: 10px 0; }
+    .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #2D2D2D; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; display: none; z-index: 40; }
+    .toast.show { display: block; } .toast.err { background: #a4262c; }
+    .save-bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e8eaee; padding: 12px 22px; margin: 18px -22px -18px; border-radius: 0 0 10px 10px; display: flex; gap: 10px; align-items: center; }
+    @media (max-width: 800px) { .grid, .grid3, .grid2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🌐 Sites — who to add / remove where</h1>
+    <span class="pn-links" id="pn-links"></span>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>🔍 Look up</h2>
+      <p class="sub">Which sites does someone need adding to (new starter) or removing from (leaver)? Fill in what you know, or pick someone from an open request.</p>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:10px">
+        <div class="seg" id="lk-type"><button class="on st" data-t="starter">➕ New starter — add</button><button class="lv" data-t="leaver">➖ Leaver — remove</button></div>
+        <div style="flex:1;min-width:260px"><label style="margin-top:0">…or pick from an open request</label><select id="lk-pick"><option value="">— Loading open requests… —</option></select></div>
+      </div>
+      <div class="grid">
+        <div><label>Department</label><input type="text" id="lk-department" placeholder="e.g. Sales"></div>
+        <div><label>Job title</label><input type="text" id="lk-jobTitle" placeholder="e.g. Merchandiser"></div>
+        <div><label>Region</label><input type="text" id="lk-region" placeholder="e.g. Gauteng"></div>
+        <div><label>Team</label><input type="text" id="lk-teamName" placeholder="optional"></div>
+      </div>
+      <div class="results" id="lk-results"></div>
+    </div>
+
+    <div class="card">
+      <h2>📋 Sites list</h2>
+      <p class="sub">Every site people get added to or removed from. When HR logs a starter or leaver, each person automatically gets a tick-list of the sites that match them in the queue. <b>Who needs it</b> takes words found in their department, job title, region or team, separated by commas (e.g. <code>Sales, Merchandiser</code>). Leave it blank and the site applies to everyone. Changes apply to requests logged from now on.</p>
+      <div id="sites"><div class="empty">Loading…</div></div>
+      <div class="save-bar" id="save-bar">
+        <button class="b-grey" onclick="addSite()">＋ Add a site</button>
+        <button class="b-green" id="save-btn" onclick="saveSites()">💾 Save sites</button>
+        <span class="hint" id="save-note"></span>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = d => { try { return new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; } };
+    function toast(m, err) { const t = $('toast'); t.textContent = m; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._h); t._h = setTimeout(() => t.className = 'toast', 3200); }
+    let sites = [], canEdit = false, type = 'starter', pending = {}, dirty = false;
+
+    IRAM_NAV.requireSession(['manageTickets', 'updateAccounts']).then(me => {
+      IRAM_NAV.renderLinks('pn-links', me.role, 'sites');
+      load();
+    });
+
+    async function load() {
+      try {
+        const r = await fetch('/api/admin/account-request?settings=1', { cache: 'no-store' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Could not load the sites');
+        sites = (d.settings.sites || []).map(s => ({ ...s }));
+        canEdit = !!d.canEdit;
+        $('save-bar').style.display = canEdit ? '' : 'none';
+        $('save-note').textContent = d.settings.sitesUpdatedBy ? `Last changed by ${d.settings.sitesUpdatedBy}, ${fmt(d.settings.sitesUpdatedAt)}` : '';
+        renderSites(); lookup();
+        loadPending();
+      } catch (e) { $('sites').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+    }
+
+    // ── Who still needs adding / removing, per site (open requests) ─────────
+    let openRecords = [];
+    async function loadPending() {
+      try {
+        const r = await fetch('/api/admin/account-request?active=1', { cache: 'no-store' });
+        const d = await r.json();
+        const list = (d.requests || []).filter(x => !x.test).slice(0, 60);
+        openRecords = (await Promise.all(list.map(x => fetch('/api/admin/account-request?id=' + encodeURIComponent(x.ticketID), { cache: 'no-store' }).then(r => r.json()).catch(() => null))))
+          .filter(x => x && x.record).map(x => x.record);
+        pending = {};
+        const pick = ['<option value="">— Pick someone from an open request —</option>'];
+        openRecords.forEach(rec => rec.people.forEach((p, i) => {
+          const lv = rec.type === 'leaver';
+          pick.push(`<option value="${esc(rec.ticketID)}|${i}">${lv ? '➖' : '➕'} ${esc(p.firstName)} ${esc(p.lastName)} — ${esc([p.jobTitle, p.department, p.region].filter(Boolean).join(', '))} (${esc(rec.ticketID)})</option>`);
+          (p.sites || []).forEach(s => { if (!(p.siteDone || {})[s.id]) (pending[s.id] = pending[s.id] || []).push({ rec, p, lv }); });
+        }));
+        $('lk-pick').innerHTML = pick.join('');
+        renderSites();
+      } catch (_) { $('lk-pick').innerHTML = '<option value="">— Could not load open requests —</option>'; }
+    }
+    $('lk-pick').addEventListener('change', e => {
+      const [id, i] = e.target.value.split('|');
+      const rec = openRecords.find(r => r.ticketID === id); if (!rec) return;
+      const p = rec.people[+i];
+      ['department', 'jobTitle', 'region', 'teamName'].forEach(k => $('lk-' + k).value = p[k] || '');
+      setType(rec.type === 'leaver' ? 'leaver' : 'starter');
+    });
+
+    // ── Look up (same rules as the server: api/admin/account-request.js sitesFor) ──
+    function matchSites(p, t) {
+      const hay = [p.department, p.jobTitle, p.region, p.teamName].join(' | ').toLowerCase();
+      return sites.filter(s => s.active !== false && s.name && (s.use === 'both' || s.use === (t === 'leaver' ? 'leavers' : 'starters'))).map(s => {
+        const keys = String(s.match || '').split(/[,;\n]+/).map(k => k.trim().toLowerCase()).filter(Boolean);
+        const hit = keys.filter(k => hay.includes(k));
+        return (!keys.length || hit.length) ? { s, why: keys.length ? `matches: ${hit.join(', ')}` : 'everyone' } : null;
+      }).filter(Boolean);
+    }
+    function setType(t) { type = t; document.querySelectorAll('#lk-type button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); lookup(); }
+    $('lk-type').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setType(b.dataset.t); });
+    ['department', 'jobTitle', 'region', 'teamName'].forEach(k => $('lk-' + k).addEventListener('input', lookup));
+    function lookup() {
+      const p = {}; ['department', 'jobTitle', 'region', 'teamName'].forEach(k => p[k] = $('lk-' + k).value.trim());
+      const hits = matchSites(p, type), lv = type === 'leaver';
+      $('lk-results').innerHTML = hits.length ? hits.map(({ s, why }) => {
+        const link = s.adminUrl || s.url;
+        const steps = lv ? s.removeSteps : s.addSteps;
+        return `<div class="res" style="border-left:4px solid ${lv ? '#a4262c' : '#4e9938'}">
+          <h3>${lv ? '➖ Remove from' : '➕ Add to'} ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(s.name)} ↗</a>` : esc(s.name)}</h3>
+          ${s.url && s.adminUrl ? `<div class="hint">Site: <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a></div>` : ''}
+          ${steps ? `<div class="steps">${esc(steps)}</div>` : `<div class="hint" style="margin-top:6px">No ${lv ? 'remove' : 'add'} steps written yet.</div>`}
+          ${s.owner ? `<div class="why">👤 ${esc(s.owner)}</div>` : ''}
+          <div class="why">${esc(why)}</div></div>`;
+      }).join('') : `<div class="empty">No sites ${lv ? 'to remove them from' : 'to add them to'}${sites.length ? ' for these details' : ' yet. Add some below'}.</div>`;
+    }
+
+    // ── Sites list (editable by Admins) ────────────────────────────────────
+    function renderSites() {
+      const dis = canEdit ? '' : 'disabled';
+      if (!sites.length) { $('sites').innerHTML = '<div class="empty">No sites yet. Click ＋ Add a site.</div>'; return; }
+      $('sites').innerHTML = sites.map((s, i) => {
+        const pend = pending[s.id] || [];
+        return `<div class="site ${s.active === false ? 'off' : ''}" data-i="${i}">
+          <div class="site-head"><span class="nm">${esc(s.name || 'New site')}</span>
+            <span class="tag t-${s.active === false ? 'off' : esc(s.use || 'both')}">${s.active === false ? 'switched off' : s.use === 'starters' ? 'starters only' : s.use === 'leavers' ? 'leavers only' : 'starters & leavers'}</span>
+            ${canEdit ? `<button class="b-grey b-sm" onclick="move(${i},-1)" title="Move up">↑</button><button class="b-grey b-sm" onclick="move(${i},1)" title="Move down">↓</button><button class="b-red b-sm" onclick="removeSite(${i})">Delete</button>` : ''}</div>
+          <div class="grid3">
+            <div><label>Name</label><input type="text" data-k="name" value="${esc(s.name)}" ${dis}></div>
+            <div><label>Site address</label><input type="url" data-k="url" value="${esc(s.url)}" placeholder="https://…" ${dis}></div>
+            <div><label>Admin / users page <span class="hint">(where you add/remove people)</span></label><input type="url" data-k="adminUrl" value="${esc(s.adminUrl)}" placeholder="https://…/users" ${dis}></div>
+            <div><label>Used for</label><select data-k="use" ${dis}>
+              <option value="both" ${s.use === 'both' || !s.use ? 'selected' : ''}>Starters &amp; leavers</option>
+              <option value="starters" ${s.use === 'starters' ? 'selected' : ''}>New starters only</option>
+              <option value="leavers" ${s.use === 'leavers' ? 'selected' : ''}>Leavers only</option></select></div>
+            <div><label>Who needs it <span class="hint">(blank = everyone)</span></label><input type="text" data-k="match" value="${esc(s.match)}" placeholder="e.g. Sales, Merchandiser, Head Office" ${dis}></div>
+            <div><label>Who looks after it <span class="hint">(optional)</span></label><input type="text" data-k="owner" value="${esc(s.owner)}" placeholder="e.g. Sean" ${dis}></div>
+          </div>
+          <div class="grid2">
+            <div><label>➕ How to add someone</label><textarea data-k="addSteps" placeholder="e.g. Users → Invite → their @iram.co.za email → role: Rep" ${dis}>${esc(s.addSteps)}</textarea></div>
+            <div><label>➖ How to remove someone</label><textarea data-k="removeSteps" placeholder="e.g. Users → find them → Deactivate" ${dis}>${esc(s.removeSteps)}</textarea></div>
+          </div>
+          <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:12.5px;color:#444"><input type="checkbox" data-k="active" ${s.active !== false ? 'checked' : ''} ${dis}> In use. Untick to stop adding it to new requests.</label>
+          ${pend.length ? `<div class="pending">⏳ <b>Still to do on ${esc(s.name)}:</b> ${pend.map(x => `${x.lv ? 'remove' : 'add'} <a href="/admin/new-starters.html?id=${encodeURIComponent(x.rec.ticketID)}">${esc(x.p.firstName)} ${esc(x.p.lastName)}</a> (${esc(x.rec.ticketID)})`).join(' · ')}</div>` : ''}
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.site [data-k]').forEach(el => el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', () => {
+        const s = sites[+el.closest('.site').dataset.i], k = el.dataset.k;
+        s[k] = el.type === 'checkbox' ? el.checked : el.value;
+        dirty = true; $('save-note').textContent = 'Unsaved changes';
+        if (k === 'name') el.closest('.site').querySelector('.nm').textContent = el.value || 'New site';
+        if (k === 'use' || k === 'active') renderSites();
+        lookup();
+      }));
+    }
+    function addSite() { sites.push({ name: '', url: '', adminUrl: '', use: 'both', match: '', owner: '', addSteps: '', removeSteps: '', active: true }); dirty = true; renderSites(); const last = document.querySelector('.site:last-child [data-k=name]'); if (last) { last.scrollIntoView({ block: 'center' }); last.focus(); } }
+    function removeSite(i) { if (!confirm(`Delete "${sites[i].name || 'this site'}" from the list? Requests already logged keep their tick-list.`)) return; sites.splice(i, 1); dirty = true; renderSites(); lookup(); }
+    function move(i, d) { const j = i + d; if (j < 0 || j >= sites.length) return; [sites[i], sites[j]] = [sites[j], sites[i]]; dirty = true; renderSites(); }
+    async function saveSites() {
+      const btn = $('save-btn'); btn.disabled = true;
+      try {
+        const r = await fetch('/api/admin/account-request?action=sites', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sites }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Could not save');
+        sites = d.sites; dirty = false;
+        $('save-note').textContent = `Saved by ${d.sitesUpdatedBy}, ${fmt(d.sitesUpdatedAt)}`;
+        renderSites(); lookup(); toast('Sites saved ✓');
+      } catch (e) { toast(e.message, true); }
+      finally { btn.disabled = false; }
+    }
+    window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+  </script>
+</body>
+</html>

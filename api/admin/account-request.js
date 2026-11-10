@@ -48,6 +48,14 @@
 //   for their own unfinished accounts. IT can reassign any account.
 // SETTINGS: GET ?settings=1 (IT) / POST ?action=settings (editIT) — who those
 //   handover emails go to (account-requests/settings.json).
+// SITES (admin/sites.html): POST ?action=sites { sites:[…] } (editIT) — the
+//   register of iRam Hub and other linked sites people are added to / removed
+//   from: name, url, admin page, add / remove steps, used for starters /
+//   leavers / both, and an optional "who needs it" match (departments, job
+//   titles, regions, teams — blank = everyone). When a request is logged each
+//   person gets a snapshot of their matching sites (p.sites) with a tick per
+//   site (p.siteDone); all ticked = the iRam Hub account is done. New starters
+//   with matching sites get needsHub automatically.
 // LEAVERS (type:'leaver'): the same flow in reverse — HR asks IT to REMOVE a
 //   person's access (Microsoft 365, Perigee / FieldGoose, Dext, iRam Hub and
 //   its linked sites) by their last day, or immediately. Same verification
@@ -169,6 +177,10 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET' && (req.query || {}).settings) {
       if (!canUpdate) return res.status(403).json({ error: 'forbidden' });
       return res.status(200).json({ settings: await loadSettings(), canEdit: hasPermission(session.role, 'editIT') && !session.preview });
+    }
+    if (req.method === 'POST' && action === 'sites') {
+      if (!hasPermission(session.role, 'editIT') || session.preview) return res.status(403).json({ error: 'Only Admins can change the sites list.' });
+      return await handleSaveSites(req, res, session);
     }
     if (req.method === 'POST' && action === 'settings') {
       if (!hasPermission(session.role, 'editIT') || session.preview) return res.status(403).json({ error: 'Only Admins can change these email settings.' });
@@ -373,6 +385,13 @@ async function handlePost(req, res, session) {
   const perigeePool = (config.itStaff || []).filter(s => s.isPerigee);
   // Owner per account per person, from "Who does what" (Email settings).
   const ownerSettings = await loadSettings();
+  // Sites (admin/sites.html) each person is added to / removed from.
+  for (const p of people) {
+    const list = sitesFor(p, leaver ? 'leaver' : 'starter', ownerSettings.sites);
+    if (leaver) { if (p.needsHub) p.sites = list; }
+    else if (list.length) { p.needsHub = true; p.sites = list; p.done.hub = false; }
+    if (p.sites) p.siteDone = {};
+  }
   await assignOwners(people, ownerSettings, { itPool, perigeePool }, test);
   const ownerTally = {};
   people.forEach(p => KINDS.forEach(k => { const o = (p.owners || {})[k]; if (o) ownerTally[o] = (ownerTally[o] || 0) + 1; }));
@@ -650,6 +669,12 @@ async function handlePatch(req, res, session, isIT) {
         p.done = p.done || {};
         KINDS.forEach(k => { if (u.done[k] !== undefined) p.done[k] = !!u.done[k]; });
       }
+      if (u.siteDone && typeof u.siteDone === 'object' && Array.isArray(p.sites)) {
+        p.siteDone = p.siteDone || {};
+        p.sites.forEach(s => { if (u.siteDone[s.id] !== undefined) p.siteDone[s.id] = !!u.siteDone[s.id]; });
+        p.done = p.done || {};
+        if (p.sites.length) p.done.hub = p.sites.every(s => p.siteDone[s.id]);
+      }
       if (u.createdEmail !== undefined) p.createdEmail = clean(u.createdEmail, 120).toLowerCase();
       if (u.workEmail !== undefined && isLeaver(record)) p.workEmail = clean(u.workEmail, 120).toLowerCase();
       if (u.msDisplayName !== undefined) p.msDisplayName = clean(u.msDisplayName, 120);
@@ -665,6 +690,9 @@ async function handlePatch(req, res, session, isIT) {
   }
   record.updatedAt = now;
   record.updatedBy = session.username;
+  // Ticking the last account / site after HR already got every email also completes it.
+  let completed = null;
+  if (b.status === undefined && Array.isArray(b.people)) completed = await autoComplete(record, actor);
 
   await blob.putJson(recordPath(id), record);
   const index = (await blob.getJson(INDEX_PATH).catch(() => null)) || [];
@@ -675,11 +703,12 @@ async function handlePatch(req, res, session, isIT) {
   // Status changed → SharePoint row (+ calendar booking cancelled on
   // Resolved / Closed) and a status email to the HR person who logged it.
   let sharepoint = null;
-  if (record.status !== oldStatus) {
+  if (completed) sharepoint = completed.sharepoint;
+  else if (record.status !== oldStatus) {
     sharepoint = record.test ? { ok: true, skipped: 'test' } : await syncStatus({ ticketID: id, status: record.status, oldStatus, row: isIT ? b.sp : null });
     if (!record.test && !b.quiet) await statusEmail(record, oldStatus, actor).catch(err => console.error('status email:', err.message));
   }
-  return res.status(200).json({ ok: true, record, sharepoint });
+  return res.status(200).json({ ok: true, record, sharepoint, completed });
 }
 
 /** Auto-completes a request once every account is done and HR has been emailed. */
@@ -720,7 +749,8 @@ function defaultSettings() {
     includeSupervisor: true,  // the new starter's supervisor (from the request)
     owners: { microsoft: [], perigee: [], dext: [], hub: [] }, // "Who does what" — see parseOwners
     // Leavers: the iRam Hub and the sites linked to it, removed by the hub owner.
-    hubSites: [{ name: 'iRam Hub', url: 'https://iram-hub.vercel.app/dashboard' }],
+    hubSites: [{ name: 'iRam Hub', url: 'https://iram-hub.vercel.app/dashboard' }], // older list — see `sites`
+    sites: null, // the Sites register (admin/sites.html); null = built from hubSites
     remindersEnabled:  true,  // weekday-morning reminders to each tech (api/admin/reminders.js)
     reminderFallbackEmails: [] // who gets UNASSIGNED open items — blank = IT manager(s), then IT_EMAIL
   };
@@ -729,6 +759,7 @@ function defaultSettings() {
 async function loadSettings() {
   const saved = await blob.getJson(SETTINGS_PATH).catch(() => null);
   const s = Object.assign(defaultSettings(), saved || {});
+  if (!Array.isArray(s.sites)) s.sites = (s.hubSites || []).map((x, i) => ({ id: siteId(x.name, i), name: x.name, url: x.url, adminUrl: '', use: 'both', match: '', addSteps: '', removeSteps: '' }));
   // Not saved here: everyone ticked "Perigee" in Settings -> IT Staff is also
   // treated as Perigee support, so they get the same emails as the admin(s).
   try {
@@ -784,10 +815,46 @@ async function handleSaveSettings(req, res, session) {
   next.remindersEnabled  = b.remindersEnabled !== false;
   const prev = await blob.getJson(SETTINGS_PATH).catch(() => null);
   if (prev && prev.lastReminderRun) next.lastReminderRun = prev.lastReminderRun;
+  if (prev && Array.isArray(prev.sites)) next.sites = prev.sites; // managed on the Sites page
   next.updatedAt = new Date().toISOString();
   next.updatedBy = session.username;
   await blob.putJson(SETTINGS_PATH, next);
   return res.status(200).json({ ok: true, settings: next });
+}
+
+// ── Sites register ──────────────────────────────────────────────────────────
+const SITE_USE = ['both', 'starters', 'leavers'];
+function siteId(name, i) { return (String(name || 'site').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'site') + '-' + (i == null ? crypto.randomInt(1000, 10000) : i); }
+/** Sites that apply to person `p` for a 'starter' or 'leaver' request. */
+function sitesFor(p, type, sites) {
+  const hay = [p.department, p.jobTitle, p.region, p.teamName, p.perigeeRole].join(' | ').toLowerCase();
+  return (sites || []).filter(s => s && s.active !== false && (s.use === 'both' || s.use === (type === 'leaver' ? 'leavers' : 'starters')))
+    .filter(s => { const keys = String(s.match || '').split(/[,;\n]+/).map(k => k.trim().toLowerCase()).filter(Boolean); return !keys.length || keys.some(k => hay.includes(k)); })
+    .map(s => ({ id: s.id, name: s.name, url: s.adminUrl || s.url || '', steps: (type === 'leaver' ? s.removeSteps : s.addSteps) || '' }));
+}
+async function handleSaveSites(req, res, session) {
+  const raw = Array.isArray((req.body || {}).sites) ? req.body.sites.slice(0, 100) : null;
+  if (!raw) return res.status(400).json({ error: 'No sites sent.' });
+  const ids = new Set(), sites = [];
+  for (let i = 0; i < raw.length; i++) {
+    const x = raw[i] || {};
+    const name = clean(x.name, 80);
+    if (!name) return res.status(400).json({ error: `Site ${i + 1}: give it a name.` });
+    const url = clean(x.url, 300), adminUrl = clean(x.adminUrl, 300);
+    for (const u of [url, adminUrl]) if (u && !/^https?:\/\/\S+$/i.test(u)) return res.status(400).json({ error: `${name}: "${u}" isn't a web address (start it with https://).` });
+    let id = clean(x.id, 40).replace(/[^a-z0-9-]/gi, '');
+    if (!id || ids.has(id)) id = siteId(name);
+    ids.add(id);
+    sites.push({ id, name, url, adminUrl, use: SITE_USE.includes(x.use) ? x.use : 'both', match: clean(x.match, 300),
+      addSteps: String(x.addSteps || '').trim().slice(0, 1500), removeSteps: String(x.removeSteps || '').trim().slice(0, 1500),
+      owner: clean(x.owner, 80), notes: String(x.notes || '').trim().slice(0, 1000), active: x.active !== false });
+  }
+  const saved = (await blob.getJson(SETTINGS_PATH).catch(() => null)) || {};
+  saved.sites = sites;
+  saved.hubSites = sites.map(s => ({ name: s.name, url: s.url })); // keeps older readers working
+  saved.sitesUpdatedAt = new Date().toISOString(); saved.sitesUpdatedBy = session.username;
+  await blob.putJson(SETTINGS_PATH, saved);
+  return res.status(200).json({ ok: true, sites, sitesUpdatedAt: saved.sitesUpdatedAt, sitesUpdatedBy: saved.sitesUpdatedBy });
 }
 
 /** Everyone who should get the account details for person `p` of `record`. */
@@ -897,7 +964,7 @@ async function handleLeaverConfirm(req, res, session, isIT) {
   const to = record.test ? testRecipients(settings, actorUser && actorUser.email) : handoverRecipients(settings, record, p);
   if (!to.length) return res.status(400).json({ error: 'Nobody to email — add recipients in ⚙ Settings.' });
   const name = fullName(p);
-  const sites = (settings.hubSites || []).map(x => x.name).filter(Boolean).join(', ');
+  const sites = (Array.isArray(p.sites) ? p.sites : (settings.hubSites || [])).map(x => x.name).filter(Boolean).join(', ');
   const label = k => k === 'hub' && sites ? `iRam Hub & linked sites (${sites})` : k === 'perigee' ? 'Perigee / FieldGoose' : KIND_LABEL[k];
   const rows = [
     ['Name', name], ['Work email', p.workEmail], ['Job / department', [p.jobTitle, p.department].filter(Boolean).join(' · ')],
@@ -993,7 +1060,8 @@ async function handleHandover(req, res, session, isIT) {
   const personRows = [
     ['Name', name], ['Job / department', `${p.jobTitle} · ${p.department}`], ['Region', p.region],
     ['Cell', p.cellphone], ['Personal email', p.personalEmail], ['Start date', p.startDate],
-    ['Supervisor', [p.managerName, p.managerEmail].filter(Boolean).join(' · ')]
+    ['Supervisor', [p.managerName, p.managerEmail].filter(Boolean).join(' · ')],
+    ['Sites', (p.sites || []).map(s => `${s.name}${(p.siteDone || {})[s.id] ? ' ✔' : ' (being set up)'}`).join(', ')]
   ].filter(([, v]) => v);
 
   const accountTables = rows.map(([title, list]) => `

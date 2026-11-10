@@ -147,7 +147,7 @@
       <input type="text" id="q" placeholder="Search ticket, name, HR person…">
       <select id="f-type"><option value="">Starters &amp; leavers</option><option value="starter">➕ New starters</option><option value="leaver">➖ Leavers</option></select>
       <select id="f-region"><option value="">All regions</option></select>
-      <select id="f-svc"><option value="">All accounts</option><option value="microsoft">Microsoft 365</option><option value="perigee">Perigee</option><option value="dext">Dext</option><option value="hub">iRam Hub</option></select>
+      <select id="f-svc"><option value="">All accounts</option><option value="microsoft">Microsoft 365</option><option value="perigee">Perigee</option><option value="dext">Dext</option><option value="hub">Sites</option></select>
       <button class="b b-grey" onclick="load()">↻ Refresh</button>
     </div>
 
@@ -163,10 +163,9 @@
         <div><label>✉️ Microsoft 365</label><input type="text" id="st-own-microsoft" placeholder="Sean"></div>
         <div><label>📱 Perigee</label><input type="text" id="st-own-perigee" placeholder="Sean 70, Laurette 30"></div>
         <div><label>🧾 Dext</label><input type="text" id="st-own-dext" placeholder="Laurette"></div>
-        <div><label>🌐 iRam Hub <span class="hint">(leavers)</span></label><input type="text" id="st-own-hub" placeholder="Sean"></div>
+        <div><label>🌐 Sites <span class="hint">(iRam Hub etc.)</span></label><input type="text" id="st-own-hub" placeholder="Sean"></div>
       </div>
-      <label style="margin-top:12px">🌐 iRam Hub &amp; linked sites to remove leavers from <span class="hint">(one per line: Name | https://address)</span></label>
-      <textarea id="st-hubSites" rows="3" placeholder="iRam Hub | https://iram-hub.vercel.app/dashboard"></textarea>
+      <p class="hint" style="margin-top:10px">🌐 Which sites people are added to / removed from, and who needs which: <a href="/admin/sites.html" style="color:#4e9938;font-weight:700">Sites page →</a></p>
       <h3 style="font-size:14px;font-weight:800;margin-top:18px">📧 Who gets the account details</h3>
       <p class="hint" style="margin-bottom:6px">When IT (or the Perigee support admin) clicks <strong>Send account details</strong>, the logins are emailed to everyone below. The Perigee support admin is also copied on every new request. To let her record account info in this queue herself, give her a login with the <strong>Perigee Support Admin</strong> role. Separate several addresses with commas.</p>
       <div class="grid2">
@@ -434,7 +433,7 @@
       if (lastChecks && lastChecks.id === r.ticketID) r.people.forEach((p, i) => { if (!p._check) { p._check = lastChecks.results[i]; p._checkStale = lastChecks.stale; } });
       const people = r.type === 'leaver' ? r.people.map((p, i) => leaverCard(r, p, i, locked)).join('') : r.people.map((p, i) => {
         const d = p.done || {};
-        const allDone = (!p.needsMicrosoft || d.microsoft) && (!p.needsPerigee || d.perigee) && (!p.needsDext || d.dext);
+        const allDone = (!p.needsMicrosoft || d.microsoft) && (!p.needsPerigee || d.perigee) && (!p.needsDext || d.dext) && (!p.needsHub || d.hub);
         const ownerCtl = key => {
           const cur = (p.owners || {})[key] || '';
           if (!isIT || locked) return cur ? `<span class="owner-tag">👤 ${esc(cur)}</span>` : '';
@@ -450,10 +449,11 @@
             <span class="hint">${esc(p.jobTitle)} · ${esc(p.department)} · ${esc(p.region)}${p.startDate ? ' · starts ' + esc(p.startDate) : ''}</span>
             ${allDone ? '<span class="done-all">✔ All done</span>' : ''}</div>
           ${checksHtml(p)}
-          <div class="p-cols">
+          <div class="p-cols${p.needsHub ? ' four' : ''}">
             ${col('microsoft', '✉️ Microsoft 365', p.needsMicrosoft, msFields(p))}
             ${col('perigee', '📱 Perigee', p.needsPerigee, perigeeFields(p))}
             ${col('dext', '🧾 Dext', p.needsDext, dextFields(p))}
+            ${p.needsHub ? sitesCol(p, i, locked, false, ownerCtl('hub')) : ''}
           </div>
           ${p.notes ? `<div style="padding:0 16px 12px" class="hint">Note: ${esc(p.notes)}</div>` : ''}
           ${accountInfoHtml(p, i, locked)}
@@ -466,11 +466,29 @@
           <button class="b b-red" style="margin-top:10px" onclick="deleteTest()">🗑 Delete this test request</button></div>` : '';
       $('m-body').innerHTML = testBox + verify + manage + people;
       $('m-body').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copy(b.dataset.copy)));
+      $('m-body').querySelectorAll('[data-site]').forEach(cb => cb.addEventListener('change', () =>
+        patch({ people: [{ index: +cb.dataset.i, siteDone: { [cb.dataset.site]: cb.checked } }] }, cb.checked ? 'Ticked ✓' : 'Unticked')));
       $('m-body').querySelectorAll('[data-done]').forEach(cb => cb.addEventListener('change', () =>
         patch({ people: [{ index: +cb.dataset.i, done: { [cb.dataset.done]: cb.checked } }] }, cb.checked ? 'Ticked ✓' : 'Unticked')));
       $('m-body').querySelectorAll('[data-save-info]').forEach(b => b.addEventListener('click', () => saveAccountInfo(+b.dataset.saveInfo)));
       $('m-body').querySelectorAll('[data-paste]').forEach(ta => ta.addEventListener('input', () => applyMsPaste(+ta.dataset.paste, ta.value)));
       $('m-body').querySelectorAll('[data-save-leaver]').forEach(b => b.addEventListener('click', () => saveLeaverInfo(+b.dataset.saveLeaver)));
+    }
+
+    // ── Sites (admin/sites.html): one tick per site ─────────────────────────
+    function sitesCol(p, i, locked, leaver, ownerHtml) {
+      const done = p.siteDone || {}, list = p.sites || [];
+      const verb = leaver ? 'Remove from' : 'Add to';
+      const items = list.length ? list.map(s => `<label class="tick" style="align-items:flex-start;margin-top:8px;text-transform:none;letter-spacing:0;color:#333">
+          <input type="checkbox" data-i="${i}" data-site="${esc(s.id)}" ${done[s.id] ? 'checked' : ''} ${locked ? 'disabled' : ''}>
+          <span>${verb} <b>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(s.name)}</a>` : esc(s.name)}</b>
+          ${s.steps ? `<span class="hint" style="display:block;font-weight:400;white-space:pre-line">${esc(s.steps)}</span>` : ''}</span></label>`).join('')
+        : '<p class="hint">No sites matched this person. Check the <a href="/admin/sites.html">Sites page</a>.</p>';
+      const n = list.filter(s => done[s.id]).length;
+      return `<div class="p-col">
+          <h4>🌐 Sites${ownerHtml}</h4>
+          <div class="hint">${n} of ${list.length} ${leaver ? 'removed' : 'added'}</div>${items}
+          ${list.length ? '' : `<label class="tick"><input type="checkbox" data-i="${i}" data-done="hub" ${(p.done || {}).hub ? 'checked' : ''} ${locked ? 'disabled' : ''}> Done</label>`}</div>`;
     }
 
     // ── Leavers: one card per person, a column per platform to remove ──────
@@ -509,7 +527,7 @@
             ${col('microsoft', '✉️ Microsoft 365', ms)}
             ${col('perigee', '📱 Perigee / FieldGoose', pg)}
             ${col('dext', '🧾 Dext', dx)}
-            ${col('hub', '🌐 iRam Hub &amp; sites', hb)}
+            ${p.needsHub && Array.isArray(p.sites) ? sitesCol(p, i, locked, true, ownerTag('hub')) : col('hub', '🌐 iRam Hub &amp; sites', hb)}
           </div>
           ${p.notes ? `<div style="padding:0 16px 12px" class="hint">Note: ${esc(p.notes)}</div>` : ''}
           ${p.managerName || p.managerEmail ? `<div style="padding:0 16px 12px" class="hint">Supervisor: ${esc([p.managerName, p.managerEmail].filter(Boolean).join(' · '))}${p.cellphone ? ' · Cell ' + esc(p.cellphone) : ''}</div>` : ''}
@@ -870,8 +888,7 @@
         ST_LISTS.forEach(k => { $('st-' + k).value = (settings[k] || []).join(', '); $('st-' + k).disabled = !settingsCanEdit; });
         const fmtOwners = list => (list || []).map(o => (list.length > 1 || o.weight !== 1) && o.weight ? `${o.name} ${o.weight}` : o.name).join(', ');
         ['microsoft', 'perigee', 'dext', 'hub'].forEach(k => { $('st-own-' + k).value = fmtOwners((settings.owners || {})[k]); $('st-own-' + k).disabled = !settingsCanEdit; });
-        $('st-hubSites').value = (settings.hubSites || []).map(x => x.url ? `${x.name} | ${x.url}` : x.name).join('\n');
-        $('st-hubSites').disabled = !settingsCanEdit;
+
         $('st-staffNames').textContent = (settings.staffNames || []).length ? ` (${settings.staffNames.join(', ')})` : '';
         $('st-includeSubmitter').checked = settings.includeSubmitter !== false;
         $('st-includeSupervisor').checked = settings.includeSupervisor !== false;
@@ -915,7 +932,6 @@
       const body = {};
       ST_LISTS.forEach(k => body[k] = $('st-' + k).value);
       body.owners = { microsoft: $('st-own-microsoft').value, perigee: $('st-own-perigee').value, dext: $('st-own-dext').value, hub: $('st-own-hub').value };
-      body.hubSites = $('st-hubSites').value;
       body.includeSubmitter = $('st-includeSubmitter').checked;
       body.includeSupervisor = $('st-includeSupervisor').checked;
       body.remindersEnabled = $('st-remindersEnabled').checked;
@@ -947,7 +963,7 @@
         open.record = d.record;
         renderModal();
         load();
-        if (okMsg) toast(okMsg);
+        if (d.completed) toast(completedMsg(d)); else if (okMsg) toast(okMsg);
         return d;
       } catch (e) { toast(e.message, true); return false; }
     }
