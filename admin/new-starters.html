@@ -407,13 +407,14 @@
       const locked = !isIT && (st === 'Resolved' || st === 'Closed');
       const manage = `<div class="box"><h3>Work this request</h3>
         ${!isIT ? `<p class="hint" style="margin-bottom:10px">${locked
-          ? '🔒 IT has marked this request completed, so it\'s locked. Ask IT to reopen it if something needs changing.'
-          : 'Record the real usernames below as accounts are created, and send the logins. IT marks the request completed once everything is in.'}</p>` : ''}
-        <div class="row" style="${isIT ? '' : 'display:none'}">
+          ? '🔒 This request is completed, so the account details are locked. Set the status back to In Progress to change something.'
+          : 'Record the real usernames below as accounts are created, and send the logins. It completes itself once everything is ticked and HR has been emailed, or set the status yourself.'}</p>` : ''}
+        <div class="row">
           <div style="max-width:200px"><label>Status</label><select id="m-status">${statusOpts}</select></div>
-          <div><label>IT notes (internal)</label><textarea id="m-notes" rows="1">${esc(r.itNotes || '')}</textarea></div>
+          ${isIT ? `<div><label>IT notes (internal)</label><textarea id="m-notes" rows="1">${esc(r.itNotes || '')}</textarea></div>` : '<div></div>'}
           <div style="flex:0"><button class="b b-green" onclick="saveRequest()">Save</button></div>
         </div>
+        <p class="hint" style="margin-top:6px">The request completes itself (Resolved) when the last ${r.type === 'leaver' ? '"access removed" confirmation' : 'account details email'} goes to HR with everything ticked. You can still change the status here at any time.</p>
         <div class="row" style="margin-top:12px;${isIT ? '' : 'display:none'}">
           <div style="flex:0;white-space:nowrap"><label>Calendar booking</label>
             ${sp ? `<button class="b b-grey" onclick="calendar('reschedule')">📅 Auto-rebook next free slot</button>` : '<span class="hint">Booking controls appear once the ticket shows in SharePoint.</span>'}</div>
@@ -559,6 +560,11 @@
       if (p.needsDext) u.dextUsername = v('lv-dx-' + i);
       if (await patch({ people: [u] }, 'Saved ✓')) runChecks();
     }
+    function completedMsg(d) {
+      const s = d.completed.sharepoint || {};
+      if (spTickets && spTickets[d.record.ticketID] && s.ok) spTickets[d.record.ticketID].Status = 'Resolved';
+      return `Emailed ✓ — everything's done, so the request is now Resolved${s.ok ? (s.bookingCancelled ? ' (booking cancelled)' : '') : s.skipped ? '' : ` (SharePoint not updated: ${s.reason || 'unreachable'})`}`;
+    }
     async function sendLeaverConfirm(i) {
       const r = open.record, p = r.people[i];
       const to = handoverRecipients(r, p);
@@ -568,12 +574,7 @@
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.message || d.error || 'Sending failed');
         open.record = d.record; renderModal(); load();
-        toast(`Confirmation sent to ${d.sentTo.length} ${d.sentTo.length === 1 ? 'person' : 'people'} ✓`);
-        const st = $('m-status');
-        if (isIT && d.allDone && st && st.value !== 'Resolved' && st.value !== 'Closed' &&
-            confirm('All access in this request is removed and HR has been told. Mark the request as Resolved? (This also clears the calendar booking.)')) {
-          st.value = 'Resolved'; saveRequest();
-        }
+        toast(d.completed ? completedMsg(d) : `Confirmation sent to ${d.sentTo.length} ${d.sentTo.length === 1 ? 'person' : 'people'} ✓`, d.completed && !(d.completed.sharepoint || {}).ok && !(d.completed.sharepoint || {}).skipped);
       } catch (e) { toast(e.message, true); }
     }
 
@@ -854,13 +855,7 @@
         if (!res.ok) throw new Error(d.message || d.error || 'Sending failed');
         open.record = d.record;
         renderModal(); load();
-        toast(`Sent to ${d.sentTo.length} ${d.sentTo.length === 1 ? 'person' : 'people'}${d.dextTo && d.dextTo.length ? ' + Dext request' : ''} ✓`);
-        const st = $('m-status');
-        if (isIT && d.allDone && st && st.value !== 'Resolved' && st.value !== 'Closed' &&
-            confirm('Everyone in this request has their logins now. Mark the request as Resolved? (This also clears the calendar booking.)')) {
-          st.value = 'Resolved';
-          saveRequest();
-        }
+        toast(d.completed ? completedMsg(d) : `Sent to ${d.sentTo.length} ${d.sentTo.length === 1 ? 'person' : 'people'}${d.dextTo && d.dextTo.length ? ' + Dext request' : ''} ✓`, d.completed && !(d.completed.sharepoint || {}).ok && !(d.completed.sharepoint || {}).skipped);
       } catch (e) { toast(e.message, true); }
     }
 
@@ -953,22 +948,27 @@
         renderModal();
         load();
         if (okMsg) toast(okMsg);
-        return true;
+        return d;
       } catch (e) { toast(e.message, true); return false; }
     }
 
     // Status goes to both places: SharePoint (existing update-ticket flow —
     // which also clears the booking on Resolved/Closed and emails HR) and
     // this request's own record.
+    // The server updates SharePoint too (and cancels the booking on
+    // Resolved / Closed). If SharePoint can't be reached the status is still
+    // saved here — it never blocks a tech from changing it.
     async function saveRequest() {
-      const r = open.record, status = $('m-status').value, itNotes = $('m-notes').value;
+      const r = open.record, status = $('m-status').value, before = r.status || 'Open';
       const sp = spTickets && spTickets[r.ticketID];
-      if (sp && status !== (sp.Status || r.status)) {
-        const ok = await updateTicket({ Status: status, oldStatus: sp.Status || r.status });
-        if (!ok) return;
-        sp.Status = status;
-      }
-      await patch({ status, itNotes }, sp || status === r.status ? 'Saved ✓' : 'Saved ✓ (SharePoint not reachable — status saved here only)');
+      const body = { status };
+      if (isIT) { body.itNotes = $('m-notes').value; if (sp) body.sp = sp; }
+      const d = await patch(body, null);
+      if (!d) return;
+      if (status === before) return toast('Saved ✓');
+      const s = d.sharepoint || {};
+      if (sp && s.ok) sp.Status = status;
+      toast(s.ok || s.skipped ? `Status → ${status} ✓${s.bookingCancelled ? ' (booking cancelled)' : ''}` : `Status → ${status} ✓ — SharePoint not updated (${s.reason || 'unreachable'})`, !(s.ok || s.skipped));
     }
 
     async function updateTicket(extra) {
@@ -995,7 +995,8 @@
       if (action === 'cancel' && !confirm('Cancel the calendar booking and close this request? HR will be emailed.')) return;
       const ok = await updateTicket({ calendarAction: action, manualStart, Status: action === 'cancel' ? 'Closed' : (spTickets[r.ticketID].Status || r.status) });
       if (!ok) return;
-      if (action === 'cancel') { spTickets[r.ticketID].Status = 'Closed'; await patch({ status: 'Closed' }, 'Booking cancelled, request closed ✓'); }
+      // update-ticket already updated SharePoint and emailed HR — quiet:true stops a second email.
+      if (action === 'cancel') { spTickets[r.ticketID].Status = 'Closed'; await patch({ status: 'Closed', sp: spTickets[r.ticketID], quiet: true }, 'Booking cancelled, request closed ✓'); }
       else toast(exact ? 'Moved to that time ✓' : 'Rebooked into the next free slot ✓');
     }
 

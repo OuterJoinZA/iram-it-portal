@@ -74,6 +74,7 @@ const { load: loadConfig } = require('../../lib/portal-config.js');
 const { nextInPool }      = require('../../lib/rotation.js');
 const { formatDuration }  = require('../../assets/duration.js');
 const blob                = require('../../lib/blob.js');
+const { syncStatus }      = require('../../lib/sp-sync.js');
 
 const INDEX_PATH = 'account-requests/index.json';
 const SETTINGS_PATH = 'account-requests/settings.json';
@@ -621,16 +622,22 @@ async function handlePatch(req, res, session, isIT) {
   if (!record || record.deleted) return res.status(404).json({ error: 'not_found' });
   if (session.preview && !record.test) return res.status(403).json({ error: PREVIEW_MESSAGE, message: 'In preview test mode you can only work on TEST requests.' });
 
+  // Techs without full IT rights (the Perigee Support Admin) can change the
+  // STATUS — including reopening a completed request — but not IT notes or
+  // assignment, and can't edit account details once it's completed.
   if (!isIT) {
-    if (['Resolved', 'Closed'].includes(record.status)) return res.status(403).json({ error: 'This request is completed — ask IT to reopen it if something needs changing.' });
-    if (b.status !== undefined || b.itNotes !== undefined || b.assignedTo !== undefined) return res.status(403).json({ error: 'Only IT can change the status, notes or assignment.' });
+    if (b.itNotes !== undefined || b.assignedTo !== undefined) return res.status(403).json({ error: 'Only IT can change the notes or assignment.' });
+    const onlyStatus = b.status !== undefined && !Array.isArray(b.people);
+    if (['Resolved', 'Closed'].includes(record.status) && !onlyStatus) return res.status(403).json({ error: 'This request is completed — set the status back to In Progress first if something needs changing.' });
   }
   const now = new Date().toISOString();
+  const actor = session.preview ? session.preview.actor : session.username;
+  const oldStatus = record.status || 'Open';
   if (b.status !== undefined) {
     if (!STATUSES.includes(b.status)) return res.status(400).json({ error: 'bad_status' });
     if (b.status !== record.status) {
       record.status = b.status;
-      (record.statusHistory = record.statusHistory || []).push({ status: b.status, at: now, by: session.username });
+      (record.statusHistory = record.statusHistory || []).push({ status: b.status, at: now, by: actor });
     }
   }
   if (b.itNotes !== undefined) record.itNotes = clean(b.itNotes, 4000);
@@ -665,7 +672,38 @@ async function handlePatch(req, res, session, isIT) {
   if (i !== -1) index[i] = indexEntry(record); else index.unshift(indexEntry(record));
   await blob.putJson(INDEX_PATH, index);
 
-  return res.status(200).json({ ok: true, record });
+  // Status changed → SharePoint row (+ calendar booking cancelled on
+  // Resolved / Closed) and a status email to the HR person who logged it.
+  let sharepoint = null;
+  if (record.status !== oldStatus) {
+    sharepoint = record.test ? { ok: true, skipped: 'test' } : await syncStatus({ ticketID: id, status: record.status, oldStatus, row: isIT ? b.sp : null });
+    if (!record.test && !b.quiet) await statusEmail(record, oldStatus, actor).catch(err => console.error('status email:', err.message));
+  }
+  return res.status(200).json({ ok: true, record, sharepoint });
+}
+
+/** Auto-completes a request once every account is done and HR has been emailed. */
+async function autoComplete(record, by) {
+  if (['Resolved', 'Closed'].includes(record.status)) return null;
+  const done = record.people.every(isPersonDone) && record.people.every(x => x.handover && !(x.handover.pending || []).length);
+  if (!done) return null;
+  const old = record.status || 'Open';
+  record.status = 'Resolved';
+  (record.statusHistory = record.statusHistory || []).push({ status: 'Resolved', at: new Date().toISOString(), by: `${by} (auto — all accounts done, HR emailed)` });
+  const sharepoint = record.test ? { ok: true, skipped: 'test' } : await syncStatus({ ticketID: record.ticketID, status: 'Resolved', oldStatus: old });
+  return { status: 'Resolved', sharepoint };
+}
+
+async function statusEmail(record, oldStatus, by) {
+  if (!record.requesterEmail) return;
+  const kind = isLeaver(record) ? 'Leaver request' : 'Account request';
+  await sendEmail({
+    to: record.requesterEmail,
+    subject: `${kind} ${record.ticketID} — status changed to ${record.status}`,
+    html: emailHtml({ heading: 'Request Status Update', ticketID: record.ticketID, code: record.verificationCode,
+      intro: `Your ${kind.toLowerCase()} is now <strong>${esc(record.status)}</strong> (was ${esc(oldStatus)}), updated by ${esc(by)}.`,
+      table: '', buttonUrl: `https://iram-it-portal.vercel.app/admin/${isLeaver(record) ? 'leaver-request' : 'account-request'}`, buttonLabel: 'View my requests' })
+  });
 }
 
 // ── Handover settings (who gets the account-details emails) ─────────────────
@@ -890,12 +928,12 @@ async function handleLeaverConfirm(req, res, session, isIT) {
     (record.statusHistory = record.statusHistory || []).push({ status: 'In Progress', at: now, by: actor });
   }
   record.updatedAt = now; record.updatedBy = actor;
+  const completed = await autoComplete(record, actor);
   await blob.putJson(recordPath(id), record);
   const index = (await blob.getJson(INDEX_PATH).catch(() => null)) || [];
   const k = index.findIndex(r => r.ticketID === id);
   if (k !== -1) { index[k] = indexEntry(record); await blob.putJson(INDEX_PATH, index); }
-  const allDone = record.people.every(isPersonDone) && record.people.every(x => x.handover && !(x.handover.pending || []).length);
-  return res.status(200).json({ ok: true, record, sentTo: to, allDone });
+  return res.status(200).json({ ok: true, record, sentTo: to, allDone: !!completed, completed });
 }
 
 // ── Handover: email the finished account details ────────────────────────────
@@ -1002,13 +1040,13 @@ async function handleHandover(req, res, session, isIT) {
     (record.statusHistory = record.statusHistory || []).push({ status: 'In Progress', at: now, by: p.handover.by });
   }
   record.updatedAt = now; record.updatedBy = p.handover.by;
+  const completed = await autoComplete(record, p.handover.by);
   await blob.putJson(recordPath(id), record);
   const index = (await blob.getJson(INDEX_PATH).catch(() => null)) || [];
   const k = index.findIndex(r => r.ticketID === id);
   if (k !== -1) { index[k] = indexEntry(record); await blob.putJson(INDEX_PATH, index); }
 
-  const allDone = record.people.every(isPersonDone) && record.people.every(x => x.handover);
-  return res.status(200).json({ ok: true, record, sentTo: to, dextTo, allDone });
+  return res.status(200).json({ ok: true, record, sentTo: to, dextTo, allDone: !!completed, completed });
 }
 
 function kvTable(list) {
