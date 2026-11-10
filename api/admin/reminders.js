@@ -16,6 +16,7 @@ const { requireRole, rejectIfPreview } = require('../../lib/require-role');
 const { load: loadConfig } = require('../../lib/portal-config.js');
 const blob = require('../../lib/blob.js');
 const msDir = require('../../lib/ms-directory.js');
+const fgDir = require('../../lib/fg-directory.js');
 
 const INDEX_PATH    = 'account-requests/index.json';
 const SETTINGS_PATH = 'account-requests/settings.json';
@@ -121,6 +122,8 @@ module.exports = async function handler(req, res) {
   // Also warns ~30 days before the Azure app secret expires.
   let dirWarning = '';
   try { dirWarning = msDir.warningText(await msDir.status()); } catch (_) {}
+  // …and when the uploaded FieldGoose list is more than a week old.
+  try { const w = fgDir.warningText(await fgDir.status()); if (w) dirWarning = [dirWarning, w].filter(Boolean).join(' '); } catch (_) {}
   if (dirWarning) warnings.push(dirWarning);
   plan.forEach(p => { p.dirWarning = dirWarning; });
 

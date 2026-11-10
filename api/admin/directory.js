@@ -13,10 +13,16 @@
 //        existing Microsoft accounts, the same person in other open requests.
 //      → type 'leaver': the person's Microsoft account(s), and other open
 //        leaver requests for the same person.
+//      Each result also has `fg` — the FieldGoose (Perigee) check, when a
+//      FieldGoose export has been uploaded (lib/fg-directory.js).
+// POST ?action=fg-upload { csv, fileName, preview } → IT / Perigee Support
+//      Admin uploads the FieldGoose user export (preview:true = parse only).
+//      GET ?status=1 includes `fieldgoose` (upload date, count, stale).
 // ──────────────────────────────────────────────────────────────────────────────
 const { verifyToken, sessionTokenFromRequest } = require('../../lib/auth');
 const { hasPermission } = require('../../lib/roles');
 const dir  = require('../../lib/ms-directory.js');
+const fgDir = require('../../lib/fg-directory.js');
 const blob = require('../../lib/blob.js');
 
 const INDEX_PATH = 'account-requests/index.json';
@@ -48,7 +54,19 @@ module.exports = async function handler(req, res) {
       if (!isIT && !isOwner) return res.status(403).json({ error: 'forbidden' });
       return res.status(200).json({ ...(await dir.connectionInfo()), status: await dir.status(), canEdit: isOwner && !session.preview });
     }
-    if (req.method === 'GET') return res.status(200).json(await dir.status());
+    if (req.method === 'GET') return res.status(200).json({ ...(await dir.status()), fieldgoose: await fgDir.status() });
+
+    if (req.method === 'POST' && action === 'fg-upload') {
+      const canUpload = isIT || isOwner || hasPermission(session.role, 'updateAccounts');
+      if (!canUpload || session.preview) return res.status(403).json({ error: 'Only IT or the Perigee Support Admin can upload the FieldGoose list.' });
+      const b = req.body || {};
+      const parsed = fgDir.parseExport(String(b.csv || '').slice(0, 4000000));
+      if (parsed.error) return res.status(400).json({ error: parsed.error });
+      const summary = { count: parsed.users.length, active: parsed.users.filter(u => u.active).length, columns: parsed.columns, skipped: parsed.skipped, truncated: parsed.truncated, sample: parsed.users.slice(0, 3) };
+      if (b.preview) return res.status(200).json({ preview: true, ...summary });
+      await fgDir.save(parsed, session.username, b.fileName);
+      return res.status(200).json({ ok: true, ...summary, fieldgoose: await fgDir.status() });
+    }
 
     if (req.method === 'POST' && action === 'config') {
       if (!isOwner || session.preview) return res.status(403).json({ error: 'Only a Super Admin can connect Microsoft 365.' });
@@ -73,16 +91,20 @@ module.exports = async function handler(req, res) {
       const people = (Array.isArray(b.people) ? b.people : []).slice(0, 50);
       const exclude = String(b.excludeTicketID || '').toUpperCase();
       const type = b.type === 'leaver' ? 'leaver' : 'starter';
-      const [directory, st, openPeople] = await Promise.all([dir.load(), dir.status(), loadOpenPeople(exclude, type)]);
+      const [directory, st, openPeople, fg] = await Promise.all([dir.load(), dir.status(), loadOpenPeople(exclude, type), fgDir.load()]);
+      const fgStatus = fgDir.statusOf(fg);
       const results = people.map(p => {
         p = p || {};
         if (type === 'leaver') {
           const c = dir.checkPerson(p, null, openPeople, {});
-          return { directory: directory ? { syncedAt: directory.syncedAt, count: directory.count } : null, accounts: dir.findAccounts(p, directory), duplicates: c.duplicates };
+          return { directory: directory ? { syncedAt: directory.syncedAt, count: directory.count } : null, accounts: dir.findAccounts(p, directory), duplicates: c.duplicates, fg: fgDir.checkLeaver(p, fg) };
         }
-        return dir.checkPerson(p, directory, openPeople, { wantedEmail: p.wantedEmail || '' });
+        const c = dir.checkPerson(p, directory, openPeople, { wantedEmail: p.wantedEmail || '' });
+        // The Perigee login is normally their Microsoft email; else their personal email.
+        const wanted = p.wantedEmail || (c.email && c.email.suggestion) || p.personalEmail || '';
+        return { ...c, fg: fgDir.checkStarter(p, fg, wanted) };
       });
-      return res.status(200).json({ status: st, results });
+      return res.status(200).json({ status: { ...st, fieldgoose: fgStatus }, results });
     }
   } catch (err) {
     console.error('directory error:', err.message);

@@ -128,6 +128,7 @@
 
   <div class="wrap">
     <div class="dir-banner" id="dir-banner"></div>
+    <div class="dir-banner" id="fg-banner"></div>
     <div class="stats">
       <div class="stat blue"><div class="l">Open requests</div><div class="v" id="s-open">—</div><div class="s">Not started yet</div></div>
       <div class="stat amber"><div class="l">In progress</div><div class="v" id="s-prog">—</div><div class="s">Being set up</div></div>
@@ -198,6 +199,18 @@
         <span id="dir-status" style="font-size:13px">Checking…</span>
         <button class="b b-grey" id="dir-sync" onclick="syncDirectory()">🔄 Sync now</button>
       </div>
+      <h3 style="font-size:14px;font-weight:800;margin-top:18px" id="fg-section">📱 FieldGoose user list (for Perigee checks)</h3>
+      <p class="hint" style="margin-bottom:6px">Export the users from the FieldGoose / Perigee admin site (Excel or CSV) and upload it here. New starters are then checked for Perigee logins that are already taken and for people who already have an account, and leavers show whether their FieldGoose account is still active. Columns are matched automatically: <b>Username</b> or <b>Email</b>, a <b>Name</b> (or First name + Surname), plus Cell and <b>Status</b> if the export has them. Upload a fresh export at least once a week. You'll be reminded if it gets older than that.</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span id="fg-status" style="font-size:13px">Checking…</span>
+        <label class="b b-grey" id="fg-pick" style="margin:0;text-transform:none;letter-spacing:0;font-size:13px;color:#333">📤 Upload export…<input type="file" id="fg-file" accept=".csv,.txt,.tsv,.xlsx,.xls" style="display:none"></label>
+        <button class="b b-grey" id="fg-paste-btn" onclick="$('fg-paste-box').style.display = $('fg-paste-box').style.display === 'none' ? '' : 'none'">📋 …or paste from Excel</button>
+      </div>
+      <div id="fg-paste-box" style="display:none;margin-top:8px">
+        <textarea id="fg-paste" rows="4" placeholder="Paste the rows here, including the header row"></textarea>
+        <button class="b b-grey" style="margin-top:6px" onclick="fgUpload($('fg-paste').value, 'pasted from Excel')">Check &amp; upload</button>
+      </div>
+      <div class="hint" id="fg-result" style="margin-top:8px"></div>
     </div>
     </div>
 
@@ -478,7 +491,8 @@
           <li>${(MAILBOX_TEXT[p.mailbox] || MAILBOX_TEXT.shared).replace('{to}', esc(mbTo))}</li>
           <li>Remove from groups / Teams${p.mailbox === 'shared' ? ', then remove the licence' : ' and remove the licence'}</li>
           <li>Remove / wipe their phone in Intune (if enrolled)</li></ol>`;
-      const pg = fieldList([['Username', p.perigeeUsername || work || '—'], ['Region', p.region]]) + '<ol class="steps"><li><b>Deactivate</b> the user in Perigee / FieldGoose</li><li>Remove them from their team / route</li></ol>';
+      const fgHit = p._check && p._check.fg && p._check.fg.accounts.find(u => u.exact) || (p._check && p._check.fg && p._check.fg.accounts[0]);
+      const pg = fieldList([['Username', p.perigeeUsername || (fgHit && (fgHit.username || fgHit.email)) || work || '—'], ['Region', p.region]]) + '<ol class="steps"><li><b>Deactivate</b> the user in Perigee / FieldGoose</li><li>Remove them from their team / route</li></ol>';
       const dx = fieldList([['Username', p.dextUsername || work || '—']]) + `<ol class="steps"><li><b>Remove / deactivate</b> in Dext</li></ol>
           <div class="hint" style="margin-top:4px">${p.dextRequestedAt ? `Removal request sent ${esc(fmt(p.dextRequestedAt))} to ${esc((p.dextRequestedTo || []).join(', '))}` : 'No Dext removal request sent yet'}</div>
           ${locked ? '' : `<button class="b b-grey b-sm" style="margin-top:6px" onclick="sendDext(${i})">📧 ${p.dextRequestedAt ? 'Resend' : 'Send'} Dext removal request</button>`}`;
@@ -519,6 +533,14 @@
         else c.accounts.forEach(u => lines.push(u.enabled
           ? `<span class="chk-warn">🔓 Microsoft account <b>${esc(u.upn)}</b> (${esc(u.name)}) is still <b>active</b> · matched on ${esc(u.why.join(', '))}</span>`
           : `<span class="chk-ok">🔒 Microsoft account <b>${esc(u.upn)}</b> is <b>blocked</b> (as of the last sync) ✓</span>`));
+      }
+      if (p.needsPerigee) {
+        const f = c.fg, up = dirStatus && dirStatus.fieldgoose && dirStatus.fieldgoose.uploadedAt;
+        if (!f) lines.push('<span class="chk-na">❔ Can\'t look up their FieldGoose account — no FieldGoose list uploaded.</span>');
+        else if (!f.accounts.length) lines.push(`<span class="chk-warn">⚠️ No FieldGoose account found for ${esc(nameFor(p))} — check the name, or add their Perigee username.</span>`);
+        else f.accounts.forEach(u => lines.push(u.active
+          ? `<span class="chk-warn">🔓 FieldGoose account <b>${esc(u.username || u.email)}</b> (${esc(u.name)}) is still <b>active</b> · matched on ${esc(u.why.join(', '))}</span>`
+          : `<span class="chk-ok">🔒 FieldGoose account <b>${esc(u.username || u.email)}</b> is <b>inactive</b>${up ? ` (as of the ${esc(fmt(up))} upload)` : ''} ✓</span>`));
       }
       c.duplicates.forEach(x => lines.push(`<span class="chk-bad">⛔ Also in another open leaver request: <a href="?id=${encodeURIComponent(x.ticketID)}" onclick="event.preventDefault();openRequest('${esc(x.ticketID)}')">${esc(x.ticketID)}</a> · ${esc(x.why.join(', '))}</span>`));
       return lines.length ? `<div class="checks">${lines.join('')}</div>` : '';
@@ -597,7 +619,79 @@
         renderDirStatus();
       } catch (_) {}
     }
+    // ── FieldGoose list (uploaded export) ─────────────────────────────────
+    function renderFgStatus() {
+      const f = dirStatus && dirStatus.fieldgoose, b = $('fg-banner'), line = $('fg-status');
+      if (!f) return;
+      const when = f.uploaded ? `${fmt(f.uploadedAt)} by ${f.by}` : '';
+      if (!f.uploaded) {
+        b.className = 'dir-banner info';
+        b.innerHTML = '📱 <strong>No FieldGoose user list yet.</strong> Upload an export in <a href="#" onclick="openFgSettings();return false" style="color:#1d5fa8;font-weight:700">⚙ Settings → FieldGoose user list</a> so Perigee logins can be checked for starters and leavers.';
+        line.textContent = 'Not uploaded yet.';
+      } else if (f.stale) {
+        b.className = 'dir-banner bad';
+        b.innerHTML = `⚠️ <strong>The FieldGoose user list is ${Math.floor(f.ageDays)} days old</strong> (uploaded ${esc(when)}). Perigee checks may be out of date. <a href="#" onclick="openFgSettings();return false" style="color:#a4262c;font-weight:800">Upload a fresh export →</a>`;
+        line.innerHTML = `<span class="chk-bad">⚠️ ${f.count} users · ${Math.floor(f.ageDays)} days old</span>`;
+      } else {
+        b.className = 'dir-banner';
+        line.innerHTML = `<span class="chk-ok">✔ ${f.count} users (${f.active} active) · uploaded ${esc(when)}</span>`;
+      }
+    }
+    function openFgSettings() {
+      if ($('settings').style.display === 'none') toggleSettings();
+      $('fg-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    let xlsxLoading = null;
+    function loadXlsx() {
+      if (window.XLSX) return Promise.resolve();
+      return xlsxLoading = xlsxLoading || new Promise((ok, bad) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = ok; s.onerror = () => bad(new Error('Could not load the Excel reader — save the export as CSV and upload that instead.'));
+        document.head.appendChild(s);
+      });
+    }
+    $('fg-file').addEventListener('change', async e => {
+      const f = e.target.files[0]; e.target.value = '';
+      if (!f) return;
+      try {
+        let text;
+        if (/\.xlsx?$/i.test(f.name)) {
+          $('fg-result').textContent = 'Reading the Excel file…';
+          await loadXlsx();
+          const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+          text = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { blankrows: false });
+        } else text = await f.text();
+        fgUpload(text, f.name);
+      } catch (err) { $('fg-result').textContent = '❌ ' + err.message; }
+    });
+    async function fgUpload(csv, fileName) {
+      const out = $('fg-result');
+      if (!String(csv || '').trim()) return toast('Nothing to upload', true);
+      out.textContent = 'Checking the file…';
+      const send = async preview => {
+        const r = await fetch('/api/admin/directory?action=fg-upload', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv, fileName, preview }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Upload failed');
+        return d;
+      };
+      try {
+        const p = await send(true);
+        const cols = Object.entries(p.columns).map(([k, v]) => `${k} ← "${v}"`).join(', ');
+        const eg = p.sample.map(u => `${u.name} (${u.username || u.email}, ${u.active ? 'active' : 'inactive'})`).join('; ');
+        if (!confirm(`Found ${p.count} users (${p.active} active)${p.skipped ? `, skipped ${p.skipped} rows with no username/email` : ''}.\n\nColumns: ${cols}\n\nFirst rows: ${eg}\n\nReplace the FieldGoose list with this?`)) { out.textContent = 'Cancelled — nothing changed.'; return; }
+        const d = await send(false);
+        dirStatus = { ...(dirStatus || {}), fieldgoose: d.fieldgoose };
+        renderFgStatus();
+        out.textContent = `✔ Uploaded ${d.count} users (${d.active} active). Columns used: ${cols}.${p.columns.status ? '' : ' ⚠️ No Status column, so everyone counts as active.'}`;
+        $('fg-paste').value = ''; $('fg-paste-box').style.display = 'none';
+        toast('FieldGoose list uploaded ✓');
+        if (open) runChecks();
+      } catch (e) { out.textContent = '❌ ' + e.message; }
+    }
+
     function renderDirStatus() {
+      renderFgStatus();
       const st = dirStatus, b = $('dir-banner'), line = $('dir-status');
       $('dir-sync').style.display = isIT && st && st.configured ? '' : 'none';
       if (!st) return;
@@ -652,6 +746,15 @@
         else if (!p.createdEmail) lines.push(`<span class="chk-ok">✅ ${esc(c.email.wanted)} is free.</span>`);
       }
       c.existing.forEach(u => lines.push(`<span class="chk-warn">⚠️ May already have an account: <b>${esc(u.name)}</b> — ${esc(u.upn)}${u.enabled ? '' : ' (disabled — rehire?)'} · ${esc(u.why.join(', '))}</span>`));
+      if (p.needsPerigee) {
+        const f = c.fg;
+        if (!f) lines.push('<span class="chk-na">❔ Perigee login not checked — no FieldGoose list uploaded.</span>');
+        else {
+          if (f.taken) lines.push(`<span class="chk-bad">⛔ Perigee login <b>${esc(f.wanted)}</b> is already in FieldGoose: ${esc(f.taken.name)}${f.taken.active ? '' : ' (inactive — reactivate instead?)'}.</span>`);
+          else if (f.wanted && !p.perigeeUsername) lines.push(`<span class="chk-ok">✅ Perigee login ${esc(f.wanted)} is free in FieldGoose.</span>`);
+          f.existing.forEach(u => lines.push(`<span class="chk-warn">⚠️ May already be in FieldGoose: <b>${esc(u.name)}</b> — ${esc(u.username || u.email)}${u.active ? '' : ' (inactive — rehire?)'} · ${esc(u.why.join(', '))}</span>`));
+        }
+      }
       c.duplicates.forEach(x => lines.push(`<span class="chk-bad">⛔ Possible duplicate request: ${esc(x.name)} is also in <a href="?id=${encodeURIComponent(x.ticketID)}" onclick="event.preventDefault();openRequest('${esc(x.ticketID)}')">${esc(x.ticketID)}</a> · ${esc(x.why.join(', '))}</span>`));
       return lines.length ? `<div class="checks">${lines.join('')}</div>` : '';
     }
@@ -782,6 +885,7 @@
         $('st-pgStaff').textContent = pgs.length ? `Also included automatically (ticked Perigee in Settings → IT Staff): ${pgs.join(', ')}` : 'Tip: anyone ticked "Perigee" in Settings → IT Staff is also included automatically.';
         ['st-includeSubmitter', 'st-includeSupervisor', 'st-remindersEnabled', 'st-save'].forEach(id => $(id).disabled = !settingsCanEdit);
         $('rm-send').style.display = $('rm-preview').style.display = isIT ? '' : 'none';
+        $('fg-pick').style.display = $('fg-paste-btn').style.display = ''; // IT and the Perigee Support Admin can both upload
         const lr = settings.lastReminderRun;
         $('rm-result').textContent = lr ? `Last sent ${fmt(lr.at)} (${lr.trigger === 'schedule' ? 'daily schedule' : 'by ' + lr.by}) — ${lr.sent} email${lr.sent === 1 ? '' : 's'}.` : '';
         $('st-note').textContent = settingsCanEdit ? (settings.updatedBy ? `Last changed by ${settings.updatedBy}, ${fmt(settings.updatedAt)}` : '') : 'Only Admins / Super Admins can change these.';

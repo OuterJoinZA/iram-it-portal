@@ -261,7 +261,8 @@
         const c = (await r.json()).results[0];
         const lines = [
           ...c.duplicates.map(x => `⛔ <b>${esc(x.name)}</b> is already in an open request (${esc(x.ticketID)}) — ${esc(x.why.join(', '))}. Check before sending this again.`),
-          ...c.existing.map(u => `⚠️ <b>${esc(u.name)}</b> may already have a Microsoft account (${esc(u.upn)}${u.enabled ? '' : ', disabled'}) — ${esc(u.why.join(', '))}. Is this a rehire or a different person? Add a note for IT.`)
+          ...c.existing.map(u => `⚠️ <b>${esc(u.name)}</b> may already have a Microsoft account (${esc(u.upn)}${u.enabled ? '' : ', disabled'}) — ${esc(u.why.join(', '))}. Is this a rehire or a different person? Add a note for IT.`),
+          ...(p.needsPerigee && c.fg ? c.fg.existing.map(u => `⚠️ <b>${esc(u.name)}</b> may already have a Perigee / FieldGoose account (${esc(u.username || u.email)}${u.active ? '' : ', inactive'}) — ${esc(u.why.join(', '))}. Rehire? Add a note for IT.`) : [])
         ];
         box.innerHTML = lines.join('<br>');
         box.style.display = lines.length ? '' : 'none';

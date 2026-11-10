@@ -256,6 +256,10 @@
             cls = cls || 'ok';
           });
         }
+        if (c.fg && p.needsPerigee) {
+          if (!c.fg.accounts.length) { lines.push(`⚠️ No FieldGoose (Perigee) account found for <b>${esc(p.firstName)} ${esc(p.lastName)}</b>.`); cls = 'warn'; }
+          else c.fg.accounts.slice(0, 2).forEach(u => { lines.push(`${u.active ? '✔ FieldGoose:' : '🔒 FieldGoose, already inactive:'} <b>${esc(u.name)}</b> — ${esc(u.username || u.email)}`); cls = cls || 'ok'; });
+        }
         box.innerHTML = lines.join('<br>');
         box.className = 'found ' + (lines.length ? cls || 'ok' : '');
         box.querySelectorAll('[data-use]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); setField(node, 'workEmail', a.dataset.use); lookup(node); }));
